@@ -652,8 +652,18 @@ export function createRing(canvas, options = {}) {
        */
       const lit = ch.stage === 'fire';
       stokeHoles[i].forEach(({ disc, ring }) => {
-        disc.material.color.set(lit ? PALETTE.soot : PALETTE['soot-raised']);
-        ring.material.color.set(lit ? PALETTE.soot : PALETTE['sand-faint']);
+        /**
+         * Only the chamber being stoked gets a filled hole. Everywhere else
+         * the ring alone marks the opening.
+         *
+         * The fill used to be `soot-raised` when unlit, picked to sit near the
+         * background back when a chamber was a dark void. Chambers now carry
+         * brightly coloured tiles, so that near-black fill read as just as
+         * solid as the lit one and every chamber looked like it was burning.
+         * Not drawing it at all is both clearer and more honest.
+         */
+        disc.visible = lit;
+        ring.material.color.set(lit ? PALETTE.soot : PALETTE['sand-dim']);
       });
 
       // A bricked-up door is solid; an empty chamber stands open.
