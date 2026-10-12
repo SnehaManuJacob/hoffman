@@ -405,9 +405,18 @@ export function createRing(canvas, options = {}) {
     pathOutline(ductPath, -halfFlue - wallT, Y.outline), hairline,
   ));
 
-  // ------------------------------------------------------------ inner island
-  // A — the ground the kiln is built around. Outlined, and divided by the
-  // spine wall that carries the chimney.
+  // ------------------------------------------------------- inner wall + channel
+  /**
+   * A — the wall immediately inside the chambers, in TWO SECTIONS: one left of
+   * the chimney, one right. The gap between them is the passage the exhaust
+   * takes from whichever damper is open, along the corridor, and in to the
+   * chimney.
+   *
+   * That passage is structure, not a gap left over. Walling across it — which
+   * an earlier version did, with a spine down the middle and a ring around the
+   * chimney — leaves the kiln with no way to vent, and the arrow drawn through
+   * solid masonry.
+   */
   const islandDrop = halfFlue + wallT + P.islandInset;
   const islandPath = createLoopPath({
     topology: C.form.topology,
@@ -415,51 +424,59 @@ export function createRing(canvas, options = {}) {
     depth: C.form.depth - (ductInset + islandDrop) * 2,
     cornerRadius: Math.max(0.3, C.form.cornerRadius - (ductInset + islandDrop) * 0.5),
   });
+
+  // The island as one filled shape...
+  const islandShape = new THREE.Shape();
+  for (let i = 0; i <= 160; i++) {
+    const p = islandPath.at(i / 160);
+    // Shape works in XY and rotateX(-90) maps y to -z, so feed it -z for z.
+    if (i === 0) islandShape.moveTo(p.x, -p.z);
+    else islandShape.lineTo(p.x, -p.z);
+  }
+  const islandGeo = new THREE.ShapeGeometry(islandShape);
+  islandGeo.rotateX(-Math.PI / 2);
+  islandGeo.translate(0, Y.flue, 0);
+  ductGroup.add(new THREE.Mesh(islandGeo, masonry));
   ductGroup.add(new THREE.LineLoop(pathOutline(islandPath, 0, Y.outline), hairline));
 
-  // ----------------------------------------------------------------- chimney
-  // L — the draught that pulls everything through. Invented position.
-  //
-  // It sits in a rounded widening of the spine wall, which runs the short way
-  // across the island. The spine replaces four radial arms that used to tie
-  // the duct to the chimney and read as a cross laid over the middle.
-  const chimneyGroup = componentGroup('chimney');
-  root.add(chimneyGroup);
-
+  // ...then the channel cut straight through it, splitting it into the two
+  // sections. Drawn over the fill rather than cut out of it: the result is the
+  // same two sections, and the geometry stays simple enough to trust.
+  const channelHalf = P.channelWidth / 2;
   const islandHalfDepth = (C.form.depth - (ductInset + islandDrop) * 2) / 2;
-  const bulge = P.chimneyBulgeRadius;
+  ductGroup.add(new THREE.Mesh(
+    rectXZ(0, 0, P.channelWidth, islandHalfDepth * 2 + 0.1, Y.damper),
+    new THREE.MeshBasicMaterial({ color: new THREE.Color(PALETTE.soot), side: THREE.DoubleSide }),
+  ));
 
-  for (const sign of [-1, 1]) {
-    const from = sign * bulge;
-    const to = sign * islandHalfDepth;
-    chimneyGroup.add(new THREE.Mesh(
-      rectXZ(0, (from + to) / 2, P.spineWidth, Math.abs(to - from), Y.flue), masonry,
+  // The two cut edges, so the sections read as walls rather than a painted gap.
+  for (const sx of [-channelHalf, channelHalf]) {
+    ductGroup.add(new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(sx, Y.outline, -islandHalfDepth),
+        new THREE.Vector3(sx, Y.outline, islandHalfDepth),
+      ]), hairline,
     ));
   }
 
-  const bulgeGeo = new THREE.CircleGeometry(bulge, 32);
-  bulgeGeo.rotateX(-Math.PI / 2);
-  chimneyGroup.add(new THREE.Mesh(bulgeGeo, masonry.clone()).translateY(Y.flue));
+  // ----------------------------------------------------------------- chimney
+  // L — the draught that pulls everything through. It stands IN the channel,
+  // open to it on both sides, so nothing between the dampers and the flue is
+  // obstructed. Invented position.
+  const chimneyGroup = componentGroup('chimney');
+  root.add(chimneyGroup);
+
+  const chimneyGeo = new THREE.CircleGeometry(P.chimneyRadius, 32);
+  chimneyGeo.rotateX(-Math.PI / 2);
+  const chimney = new THREE.Mesh(chimneyGeo, new THREE.MeshBasicMaterial({
+    color: new THREE.Color(PALETTE['soot-raised']), side: THREE.DoubleSide,
+  }));
+  chimney.position.y = Y.air - 0.005;
+  chimneyGroup.add(chimney);
   chimneyGroup.add(new THREE.LineLoop(
     new THREE.BufferGeometry().setFromPoints(
       Array.from({ length: 32 }, (_, k) => {
         const a = (k / 32) * Math.PI * 2;
-        return new THREE.Vector3(Math.cos(a) * bulge, Y.outline, Math.sin(a) * bulge);
-      }),
-    ), hairline,
-  ));
-
-  const chimneyGeo = new THREE.CircleGeometry(P.chimneyRadius, 28);
-  chimneyGeo.rotateX(-Math.PI / 2);
-  const chimney = new THREE.Mesh(chimneyGeo, new THREE.MeshBasicMaterial({
-    color: new THREE.Color(PALETTE.soot), side: THREE.DoubleSide,
-  }));
-  chimney.position.y = Y.damper;
-  chimneyGroup.add(chimney);
-  chimneyGroup.add(new THREE.LineLoop(
-    new THREE.BufferGeometry().setFromPoints(
-      Array.from({ length: 28 }, (_, k) => {
-        const a = (k / 28) * Math.PI * 2;
         return new THREE.Vector3(
           Math.cos(a) * P.chimneyRadius, Y.outline, Math.sin(a) * P.chimneyRadius,
         );
@@ -553,87 +570,197 @@ export function createRing(canvas, options = {}) {
     const profile = gasProfile(state);
     const pre = C.windows.preheat;
     const cool = C.windows.cool;
-    const pts = [];
+    const ambient = C.temperature.ambientC;
+    const ctrl = [];
 
     const sOf = (k) => ((((state.firePos + k) % count) + count) % count + 0.5) / count;
 
-    // 1. A tail reaching out of the kiln, so the air visibly comes from
-    //    somewhere rather than appearing inside a wall.
+    // 1. A hooked tail reaching out of the kiln, so the air visibly comes from
+    //    the yard rather than appearing inside a wall.
     const entry = path.at(sOf(-cool));
-    const ambient = C.temperature.ambientC;
-    // Hooked, not a bare spike: it swings back along the kiln as it comes in,
-    // so it reads as air being drawn from the yard rather than a stick poking
-    // out of a wall.
     const tanX = -entry.nz;
     const tanZ = entry.nx;
-    for (let k = 4; k >= 1; k--) {
-      const u = k / 4;
+    for (let k = 3; k >= 1; k--) {
+      const u = k / 3;
       const out = halfBand + AIR_TAIL * u;
-      const back = -AIR_TAIL * 1.1 * u * u;
-      pts.push({
+      const back = -AIR_TAIL * 1.2 * u * u;
+      ctrl.push({
         x: entry.x + entry.nx * out + tanX * back,
         z: entry.z + entry.nz * out + tanZ * back,
         t: ambient,
       });
     }
 
-    // 2. Along the chambers, sampling the gas as it goes.
+    // 2. Along the chambers, sampling the gas as it travels.
     profile.forEach((g, idx) => {
       const k = idx - cool;
       const s0 = sOf(k) - 0.5 / count;
       const s1 = sOf(k) + 0.5 / count;
-      const STEPS = 10;
-      for (let i = 0; i <= STEPS; i++) {
-        const u = i / STEPS;
+      for (let i = 0; i <= 8; i++) {
+        const u = i / 8;
         const p = path.at(s0 + (s1 - s0) * u);
-        pts.push({ x: p.x, z: p.z, t: g.gasIn + (g.gasOut - g.gasIn) * u });
+        ctrl.push({ x: p.x, z: p.z, t: g.gasIn + (g.gasOut - g.gasIn) * u });
       }
     });
 
-    // 3. Down through the open damper into the corridor, then round it to the
-    //    chimney. Spent exhaust: it keeps the temperature it left with.
+    // 3. Through the open damper into the corridor.
     const open = ((state.firePos + pre) % count + count) % count;
     const sOpen = (open + 0.5) / count;
     const exhaust = profile[profile.length - 1].gasOut;
 
     const wall = path.at(sOpen);
-    pts.push({
+    ctrl.push({
       x: wall.x - wall.nx * (halfBand - inset / 2),
       z: wall.z - wall.nz * (halfBand - inset / 2),
       t: exhaust,
     });
 
-    const duct = ductPath.at(sOpen);
-    pts.push({ x: duct.x, z: duct.z, t: exhaust });
-
     /**
-     * Round the corridor to where it meets the spine, then straight down the
-     * spine into the chimney.
+     * 4. Along the corridor to the mouth of the channel, then down the channel
+     *    to the chimney.
      *
      * The corridor's s=0 and s=0.5 are the middles of its two long sides,
-     * where x is exactly 0 — the line the spine runs along. Going to whichever
-     * is nearer and then turning down the spine keeps the exhaust inside the
-     * structure. Heading straight for the chimney from wherever the damper
-     * happens to be would cut a diagonal across the island, through walls.
+     * which is where the channel between the two wall sections opens on to it.
+     * Taking the nearer mouth keeps the exhaust inside the structure the whole
+     * way; heading straight at the chimney would cut across a wall section.
      */
     const junction = Math.abs(((sOpen + 0.5) % 1) - 0.5) < 0.25 ? 0 : 0.5;
     let delta = junction - sOpen;
     if (delta > 0.5) delta -= 1;
     if (delta < -0.5) delta += 1;
 
-    const RUN = 36;
-    for (let i = 1; i <= RUN; i++) {
-      const d = ductPath.at(sOpen + delta * (i / RUN));
-      pts.push({ x: d.x, z: d.z, t: exhaust });
+    for (let i = 1; i <= 10; i++) {
+      const d = ductPath.at(sOpen + delta * (i / 10));
+      ctrl.push({ x: d.x, z: d.z, t: exhaust });
     }
 
-    // 4. Down the spine and into the chimney.
-    const join = ductPath.at(junction);
-    for (let i = 1; i <= 12; i++) {
-      const u = i / 12;
-      pts.push({ x: join.x * (1 - u), z: join.z * (1 - u), t: exhaust });
+    // Down the middle of the channel and in to the chimney.
+    const mouth = ductPath.at(junction);
+    for (let i = 1; i <= 6; i++) {
+      const u = i / 6;
+      ctrl.push({ x: mouth.x * (1 - u), z: mouth.z * (1 - u), t: exhaust });
     }
 
+    return ctrl;
+  }
+
+  /**
+   * Smooth the route into a continuous curve.
+   *
+   * The control points come from four different sources — a hooked tail, the
+   * chamber centreline, a step through the damper, the corridor, the channel —
+   * and joining them with straight segments left visible corners at every
+   * handover. A centripetal Catmull-Rom runs one curve through all of them,
+   * so the gas turns rather than hinges, and the curve cannot overshoot into
+   * the walls the way a uniform spline can.
+   *
+   * Temperature is carried along the same parameter, so colour and width stay
+   * attached to the point they belong to.
+   */
+  /**
+   * Round off the genuinely sharp turns before anything else touches the route.
+   *
+   * Most of the route bends gently — it follows the kiln. But three joins are
+   * real corners: stepping in through the damper wall, and turning off the
+   * corridor into the channel at either end. A spline fitted straight through
+   * those follows them faithfully, corner and all, which is exactly what we do
+   * not want. Replacing each with a quadratic arc gives the curve something
+   * smooth to follow instead.
+   *
+   * Only turns past the threshold are touched, so the chamber run — which is
+   * already a smooth curve — is left exactly as it is.
+   */
+  function filletCorners(pts, radius = 0.5, minTurn = 0.45) {
+    if (pts.length < 3) return pts;
+    const out = [pts[0]];
+
+    for (let i = 1; i < pts.length - 1; i++) {
+      const p = pts[i];
+      const a = pts[i - 1];
+      const b = pts[i + 1];
+
+      const inX = p.x - a.x; const inZ = p.z - a.z;
+      const outX = b.x - p.x; const outZ = b.z - p.z;
+      const li = Math.hypot(inX, inZ) || 1;
+      const lo = Math.hypot(outX, outZ) || 1;
+      const turn = Math.acos(Math.max(-1, Math.min(1,
+        (inX * outX + inZ * outZ) / (li * lo))));
+
+      if (turn < minTurn) { out.push(p); continue; }
+
+      const r = Math.min(radius, li * 0.5, lo * 0.5);
+      const start = { x: p.x - (inX / li) * r, z: p.z - (inZ / li) * r, t: p.t };
+      const end = { x: p.x + (outX / lo) * r, z: p.z + (outZ / lo) * r, t: p.t };
+
+      const ARC = 6;
+      for (let k = 0; k <= ARC; k++) {
+        const u = k / ARC;
+        const m = (1 - u) * (1 - u);
+        const c = 2 * (1 - u) * u;
+        const e = u * u;
+        out.push({
+          x: m * start.x + c * p.x + e * end.x,
+          z: m * start.z + c * p.z + e * end.z,
+          t: p.t,
+        });
+      }
+    }
+
+    out.push(pts[pts.length - 1]);
+    return out;
+  }
+
+  function smoothRoute(rawCtrl, samples = 320) {
+    const ctrl0 = filletCorners(rawCtrl);
+    /**
+     * Even out the spacing first.
+     *
+     * The control points arrive from four sources at wildly different
+     * densities — roughly 0.4 units apart along the chambers, 0.3 along the
+     * corridor, and one lone step through the damper wall. Catmull-Rom through
+     * unevenly spaced points pinches at the tight clusters and overshoots at
+     * the sparse ones, which is what put a kink at the kiln's corner and a
+     * hard elbow where the corridor meets the channel.
+     */
+    const even = [ctrl0[0]];
+    const SPACING = 0.22;
+    let carry = 0;
+    for (let i = 1; i < ctrl0.length; i++) {
+      const a = ctrl0[i - 1];
+      const b = ctrl0[i];
+      const seg = Math.hypot(b.x - a.x, b.z - a.z);
+      if (seg < 1e-9) continue;
+      let travelled = carry;
+      while (travelled + SPACING <= seg) {
+        travelled += SPACING;
+        const u = travelled / seg;
+        even.push({
+          x: a.x + (b.x - a.x) * u,
+          z: a.z + (b.z - a.z) * u,
+          t: a.t + (b.t - a.t) * u,
+        });
+      }
+      carry = travelled - seg;
+    }
+    even.push(ctrl0[ctrl0.length - 1]);
+
+    const curve = new THREE.CatmullRomCurve3(
+      even.map((p) => new THREE.Vector3(p.x, 0, p.z)), false, 'centripetal', 0.5,
+    );
+    const ctrl = even;
+    const pts = [];
+    for (let i = 0; i <= samples; i++) {
+      const u = i / samples;
+      const v = curve.getPoint(u);
+
+      // Temperature from the control points either side of this sample.
+      const f = u * (ctrl.length - 1);
+      const a = Math.min(ctrl.length - 1, Math.floor(f));
+      const b = Math.min(ctrl.length - 1, a + 1);
+      const t = ctrl[a].t + (ctrl[b].t - ctrl[a].t) * (f - a);
+
+      pts.push({ x: v.x, z: v.z, t });
+    }
     return pts;
   }
 
@@ -650,7 +777,10 @@ export function createRing(canvas, options = {}) {
    * the chamber centreline to reach the chimney, so there is no `s` to ask.
    */
   function buildAirRibbon(state) {
-    const pts = airRoute(state);
+    const pts = smoothRoute(airRoute(state));
+    // Kept for inspection: the console and the checks read this to confirm
+    // the arrow's width really does follow the gas temperature.
+    lastRoute = pts;
     const positions = [];
     const colours = [];
     const indices = [];
@@ -740,6 +870,7 @@ export function createRing(canvas, options = {}) {
 
   let lastFire = -1;
   let openDamper = 0;
+  let lastRoute = [];
   // The arrow's width follows gas temperature, which moves continuously, so it
   // cannot only redraw when the fire does. Rebuilt on a short timer instead —
   // often enough to look live, rarely enough not to churn geometry at 60fps.
@@ -991,6 +1122,7 @@ export function createRing(canvas, options = {}) {
 
   return {
     update, resize, dispose, render, anchors, attachScrub,
+    get lastRoute() { return lastRoute; },
     segments, path, ductPath, scene, camera, renderer, tileMeshes,
     groups: {
       massGroup, chambersGroup, tilesGroup, wallsGroup, wicketGroup,
