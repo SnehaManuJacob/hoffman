@@ -253,7 +253,10 @@ export function kilnChecks() {
     assert(out.length === 0, `heat outside 0..1: ${out.join(', ')}`);
 
     const fire = e.state.firePos;
-    assert(h[fire] === C.heat.firing, `firing chamber reads ${h[fire]}`);
+    // The firing chamber is the hottest. Not a constant any more — the model
+    // produces it, so the check is a property, not a lookup.
+    const hottest = Math.max(...h);
+    assert(h[fire] === hottest, `firing chamber reads ${h[fire]}, hottest is ${hottest}`);
 
     // Just behind the fire is hotter than the far end of the cooling run.
     const behind1 = h[(fire - 1 + count) % count];
@@ -274,8 +277,8 @@ export function kilnChecks() {
       e2.dispatch({ type: 'tick' });
       if (e2.state.fork) e2.dispatch({ type: 'chooseForkPolicy', policy: 'fireEmpty' });
     }
-    assert(e2.state.chambers[1].heat === C.heat.firing,
-      `an empty chamber being fired reads ${e2.state.chambers[1].heat}, not hot`);
+    assert(e2.state.chambers[1].heat === Math.max(...e2.state.chambers.map((c) => c.heat)),
+      `an empty chamber being fired reads ${e2.state.chambers[1].heat}, not the hottest in the kiln`);
 
     return `fire ${h[fire]}, cooling ${behind1}->${behind2}, preheat ${ahead1}->${aheadN}`;
   }));
@@ -284,10 +287,15 @@ export function kilnChecks() {
   //     only real figure and section 4 allows it only as a band; simulated
   //     per-chamber values must never appear as degrees at all.
   results.push(check('no per-chamber temperature is ever printed', () => {
-    const offenders = Object.entries(C.heat)
-      .filter(([, v]) => typeof v === 'number' && v > 1);
-    assert(offenders.length === 0,
-      `these look like degrees, not relative units: ${offenders.map(([k]) => k).join(', ')}`);
+    // Everything that leaves the engine for a view is relative 0..1. Exact
+    // degrees live on chamber.temp, which only the console reads.
+    const e = light(createEngine());
+    for (let i = 0; i < count * 2; i++) e.dispatch({ type: 'tick' });
+    const bad = e.state.chambers.filter((c) => !(c.heat >= 0 && c.heat <= 1));
+    assert(bad.length === 0, `${bad.length} chambers expose heat outside 0..1`);
+    assert(e.state.chambers.some((c) => c.temp > 1),
+      'temperatures should be real degrees internally, for tuning in the console');
+
     const band = C.temperature.peakBandC;
     assert(Array.isArray(band) && band.length === 2,
       'the peak firing figure must be a band, not a single reading');
@@ -397,7 +405,9 @@ export function kilnChecks() {
   results.push(check('a chamber is loaded cold, and warms only afterwards', () => {
     const e = light(createEngine());
     const { pre } = e.state.params.window;
-    const coldest = Math.min(C.heat.waiting, C.heat.lastPreheat);
+    // "Cold" is now a property of the model: a chamber just loaded must be
+    // nowhere near the fire's heat. A fifth of the way up the ramp is generous.
+    const coldest = 0.2;
 
     let checked = 0;
     const was = e.state.chambers.map((c) => c.loaded);
@@ -424,7 +434,7 @@ export function kilnChecks() {
     assert(warm.every((h, k) => k === 0 || h <= warm[k - 1]),
       `preheat run does not rise toward the fire: ${warm.join(', ')}`);
 
-    return `${checked} loads, every one cold at ${C.heat.waiting}, warming to ${warm[0]} at the fire`;
+    return `${checked} loads, every one under ${coldest} relative, warming to ${warm[0].toFixed(2)} by the fire`;
   }));
 
   // 16. Scrubbing replays what was recorded, exactly.
@@ -511,6 +521,139 @@ export function kilnChecks() {
     assert(ticksFor(perTick * 0.6) === 1, 'over half a chamber should snap on');
 
     return `${count} ticks per turn, snapping at half a chamber`;
+  }));
+
+  // 20. The one hard field figure the model must respect: peak firing sits in
+  //     the 850-900 C band. Everything else about the model is invented; this
+  //     is the number it has to land on.
+  results.push(check('the firing chamber settles inside the 850-900 band', () => {
+    const [lo, hi] = C.temperature.peakBandC;
+    const e = light(createEngine());
+    for (let i = 0; i < count * 3; i++) e.dispatch({ type: 'tick' });
+
+    const seen = [];
+    for (let i = 0; i < count * 2; i++) {
+      e.dispatch({ type: 'tick' });
+      seen.push(e.state.chambers[e.state.firePos].temp);
+    }
+    const out = seen.filter((t) => t < lo || t > hi);
+    assert(out.length === 0,
+      `${out.length} of ${seen.length} firings outside the band, e.g. ${Math.round(out[0])} C`);
+    return `${Math.round(Math.min(...seen))}-${Math.round(Math.max(...seen))} C over ${seen.length} firings`;
+  }));
+
+  // 21. A cold kiln warms; it does not snap to temperature. If the feed can
+  //     reach the band on the first firing, the kiln has no warm-up at all and
+  //     the opening says nothing true about starting a kiln.
+  results.push(check('a cold kiln warms up instead of snapping to the band', () => {
+    const [lo] = C.temperature.peakBandC;
+    const e = light(createEngine());
+
+    e.dispatch({ type: 'tick' });
+    const first = e.state.chambers[e.state.firePos].temp;
+    assert(first < lo, `the first firing already reached ${Math.round(first)} C`);
+
+    let reached = null;
+    for (let i = 2; i <= count * 4 && reached === null; i++) {
+      e.dispatch({ type: 'tick' });
+      if (e.state.chambers[e.state.firePos].temp >= lo) reached = e.state.tick;
+    }
+    assert(reached !== null, 'the kiln never reached the band');
+    return `first firing ${Math.round(first)} C, band reached at tick ${reached} `
+      + `(${reached * C.time.tickHours} simulated hours)`;
+  }));
+
+  // 22. Heat grades away from the fire in BOTH directions, and the chamber
+  //     that has just fired is hotter than the one about to be.
+  results.push(check('temperature falls away from the fire on both sides', () => {
+    const e = light(createEngine());
+    for (let i = 0; i < count * 4; i++) e.dispatch({ type: 'tick' });
+    const f = e.state.firePos;
+    const at = (k) => e.state.chambers[((f + k) % count + count) % count].temp;
+
+    for (let k = 1; k < C.windows.preheat; k++) {
+      assert(at(k) > at(k + 1),
+        `preheat run does not fall: offset ${k} is ${Math.round(at(k))}, ${k + 1} is ${Math.round(at(k + 1))}`);
+    }
+    for (let k = 1; k < C.windows.cool; k++) {
+      assert(at(-k) > at(-k - 1),
+        `cooling run does not fall: ${Math.round(at(-k))} then ${Math.round(at(-k - 1))}`);
+    }
+    assert(at(-1) > at(1),
+      `just-fired (${Math.round(at(-1))}) should be hotter than about-to-fire (${Math.round(at(1))})`);
+
+    return `ahead ${Math.round(at(1))}->${Math.round(at(C.windows.preheat))}, `
+      + `behind ${Math.round(at(-1))}->${Math.round(at(-C.windows.cool))}`;
+  }));
+
+  // 23. One chamber, one loop: warms, peaks once in the fire, then cools.
+  results.push(check('a chamber warms, peaks once, then cools', () => {
+    const e = light(createEngine());
+    for (let i = 0; i < count * 4; i++) e.dispatch({ type: 'tick' });
+
+    const watch = (e.state.firePos + 4) % count;
+    const trace = [];
+    for (let i = 0; i < count; i++) {
+      e.dispatch({ type: 'tick' });
+      trace.push(e.state.chambers[watch].temp);
+    }
+
+    const peak = Math.max(...trace);
+    const peakAt = trace.indexOf(peak);
+    const peaks = trace.filter((t, i) =>
+      (i === 0 || t > trace[i - 1]) && (i === trace.length - 1 || t > trace[i + 1])).length;
+
+    assert(peaks === 1, `chamber ${watch} peaked ${peaks} times in one loop`);
+    assert(trace[peakAt] > trace[0], 'it never warmed');
+    assert(trace[trace.length - 1] < peak, 'it never cooled again');
+
+    return `${Math.round(trace[0])} -> peak ${Math.round(peak)} -> ${Math.round(trace[trace.length - 1])} C`;
+  }));
+
+  // 24. No runaway and no impossible cold. An explicit integrator is easy to
+  //     make unstable, and it would not look wrong until it was very wrong.
+  results.push(check('the model stays stable over a long run', () => {
+    const ambient = C.temperature.ambientC;
+    const ceiling = C.temperature.peakBandC[1] * 1.15;
+    const e = light(createEngine());
+
+    let hottest = 0;
+    let coldest = Infinity;
+    for (let i = 0; i < 400; i++) {
+      e.dispatch({ type: 'tick' });
+      for (const ch of e.state.chambers) {
+        if (!Number.isFinite(ch.temp)) throw new Error(`temperature went to ${ch.temp}`);
+        hottest = Math.max(hottest, ch.temp);
+        coldest = Math.min(coldest, ch.temp);
+      }
+    }
+    assert(hottest <= ceiling, `ran away to ${Math.round(hottest)} C`);
+    assert(coldest >= ambient - 1e-6, `fell to ${Math.round(coldest)} C, below ambient`);
+    return `400 ticks: ${Math.round(coldest)}-${Math.round(hottest)} C`;
+  }));
+
+  // 25. Heat follows SIMULATED time, not frames. Without this the kiln would
+  //     be a different kiln at 4x, on a slow machine, or on a busy tab.
+  results.push(check('the model is frame-rate and speed independent', () => {
+    const run = (frames, msEach, speed) => {
+      const e = light(createEngine());
+      e.dispatch({ type: 'setPaused', value: false });
+      e.dispatch({ type: 'setSpeed', value: speed });
+      for (let i = 0; i < frames; i++) e.step(msEach);
+      return e.state.chambers.map((c) => c.temp);
+    };
+
+    const coarse = run(10, 100, 1);
+    const fine = run(100, 10, 1);
+    const worst = Math.max(...coarse.map((t, i) => Math.abs(t - fine[i])));
+    assert(worst < 1.0, `coarse and fine frames differ by ${worst.toFixed(2)} C`);
+
+    // Same simulated time at 4x: a quarter of the real milliseconds.
+    const fast = run(100, 10 / 4, 4);
+    const drift = Math.max(...fine.map((t, i) => Math.abs(t - fast[i])));
+    assert(drift < 1.0, `1x and 4x differ by ${drift.toFixed(2)} C over the same simulated time`);
+
+    return `frames differ by ${worst.toFixed(3)} C, speeds by ${drift.toFixed(3)} C`;
   }));
 
   const passed = results.filter((r) => r.pass).length;

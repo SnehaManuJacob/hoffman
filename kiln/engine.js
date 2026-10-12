@@ -63,50 +63,38 @@ export function stageAt(state, i) {
 }
 
 /**
- * How hot a chamber is relative to the rest of the kiln, 0 to 1.
+ * Relative heat, 0 to 1, for the views to colour with.
  *
- * SIMULATED (tag S), and relative only — this is not a temperature and must
- * never be drawn as degrees. It exists so the kiln can show heat GRADING along
- * its length: the chamber just behind the fire is still nearly as hot as the
- * fire, while one at the far end of the preheat run is barely warm. Stage alone
- * cannot say that, because every preheating chamber shares one stage.
- *
- * Derived from distance to the fire, so it is geometry rather than physics.
- * Day 6 swaps this body for a real thermal model and nothing else changes.
+ * A NORMALISED TEMPERATURE, not a measurement. Section 4 allows simulated
+ * values only in relative units, so this is what leaves the engine and no
+ * view ever sees degrees. Exact temperature stays on `chamber.temp` for the
+ * console.
  */
-export function heatAt(state, i) {
+export function relativeHeat(tempC) {
+  const lo = C.temperature.ambientC;
+  const hi = C.thermalModel.heatRefC;
+  return Math.max(0, Math.min(1, (tempC - lo) / (hi - lo)));
+}
+
+/**
+ * The order gas travels through the kiln, as chamber indices.
+ *
+ * In behind the chambers that have just fired, forward through them, through
+ * the fire, and on through the ones being preheated. This is the same route
+ * the airflow arrow draws, and the reason the kiln is shaped like a loop at
+ * all: one pass of air does two useful jobs.
+ *
+ * Literature, not observation (config `thermal.counterCurrent`, tag L). The
+ * flow path at Kundapur was not seen.
+ */
+export function flowPath(state) {
   const count = state.chambers.length;
   const { pre, cool } = state.params.window;
-  const H = C.heat;
-
-  /**
-   * Heat belongs to the CHAMBER, not to what is in it. An empty chamber sitting
-   * in the fire is still hot — that is precisely what makes the "fire empty"
-   * fork costly, fuel spent on nothing. Tying heat to `loaded` would draw that
-   * chamber cold and quietly contradict the choice the fork is asking about.
-   *
-   * The view paints heat onto tiles, so an empty chamber shows nothing anyway.
-   */
-  // A kiln that has not been lit is cold all the way round.
-  if (state.phase === 'charging') return 0;
-
-  const offset = (i - state.firePos + count) % count;
-  if (offset === 0) return H.firing;
-
-  // Ahead of the fire: taking its exhaust, hottest nearest, fading with distance.
-  if (offset <= pre) {
-    const t = pre === 1 ? 0 : (offset - 1) / (pre - 1);
-    return H.firstPreheat + (H.lastPreheat - H.firstPreheat) * t;
+  const path = [];
+  for (let k = -cool; k <= pre; k++) {
+    path.push(((state.firePos + k) % count + count) % count);
   }
-
-  // Behind the fire: just fired and still giving heat up to the incoming air.
-  if (offset >= count - cool) {
-    const back = count - offset;                  // 1 = immediately behind
-    const t = cool === 1 ? 0 : (back - 1) / (cool - 1);
-    return H.justBehind + (H.lastCooling - H.justBehind) * t;
-  }
-
-  return H.waiting;
+  return path;
 }
 
 function makeChambers(count) {
@@ -114,7 +102,7 @@ function makeChambers(count) {
     // The kiln starts cold and empty and fills as the first cycle runs, so a
     // visitor sees tiles going in rather than finding them already there.
     loaded: !C.loading.startEmpty,
-    temp: C.temperature.ambientC,   // Day 6 replaces this with the thermal model
+    temp: C.temperature.ambientC,   // degrees, simulated. Owned by the thermal model.
     heat: 0,                        // relative 0-1, simulated. Never degrees.
     stage: 'wait',
     fired: false,                   // has been through the fire since loading
@@ -122,14 +110,16 @@ function makeChambers(count) {
   }));
 }
 
-/** Refresh the derived stage and heat on every chamber. */
+/**
+ * Refresh the derived stage on every chamber, and the relative heat the views
+ * read. Heat now follows TEMPERATURE, which the thermal model owns — nothing
+ * here invents it.
+ */
 function syncStages(state) {
   for (let i = 0; i < state.chambers.length; i++) {
-    state.chambers[i].stage = stageAt(state, i);
-  }
-  // Heat depends on stage windows, so it is computed in a second pass.
-  for (let i = 0; i < state.chambers.length; i++) {
-    state.chambers[i].heat = heatAt(state, i);
+    const ch = state.chambers[i];
+    ch.stage = stageAt(state, i);
+    ch.heat = relativeHeat(ch.temp);
   }
 }
 
@@ -158,6 +148,99 @@ export function createEngine(options = {}) {
   const history = createHistory();
   syncStages(state);
   history.push(state);
+
+  // Simulated hours banked but not yet integrated — see integrateThermal.
+  let thermalCarry = 0;
+
+  /**
+   * The thermal model (brief section 6.2).
+   *
+   * Advances every chamber's temperature by `simHours` of simulated time, in
+   * fixed sub-steps. Sub-steps are measured in SIMULATED hours, not frames, so
+   * the kiln behaves identically at 0.25x and 4x and on a slow machine.
+   *
+   * Each sub-step walks the flow path once:
+   *
+   *   gas enters cold behind the fire
+   *     -> through the chambers that just fired: they give up heat, gas warms
+   *     -> through the fire: fuel is fed, gas and chamber both get hotter
+   *     -> through the chambers ahead: gas gives that heat to green tiles
+   *
+   * One exchange rule produces all of it. The gas carries far less mass than a
+   * chamber, so it equilibrates as it travels — which is exactly what makes a
+   * Hoffmann kiln worth building: one pass of air does two useful jobs.
+   *
+   * Chambers off the path drift back towards ambient.
+   *
+   * SIMULATED throughout (tag S), in relative masses and rates. Section 4
+   * forbids kg and MJ for simulated values, so there are no real units here.
+   */
+  function integrateThermal(simHours) {
+    if (simHours <= 0) return;
+
+    const M = C.thermalModel;
+    const ambient = C.temperature.ambientC;
+
+    /**
+     * Only ever integrate WHOLE sub-steps, carrying the remainder to the next
+     * call. Explicit Euler gives a different answer for a different step size,
+     * so letting the frame decide the step size makes the kiln behave one way
+     * on a fast machine and another on a slow one. Measured at 5.7 C of drift
+     * between 10 frames of 100 ms and 100 frames of 10 ms before this.
+     */
+    thermalCarry += simHours;
+
+    while (thermalCarry >= M.subStepHours) {
+      thermalCarry -= M.subStepHours;
+      const dt = M.subStepHours;
+
+      // Nothing is burning before the kiln is lit, so it only loses heat.
+      const path = state.phase === 'charging' ? [] : flowPath(state);
+      const onPath = new Set(path);
+
+      let gas = ambient;
+      for (const i of path) {
+        const ch = state.chambers[i];
+
+        // Gas and chamber trade heat. Positive q means the chamber is the
+        // hotter of the two and is giving heat up to the gas.
+        const q = M.exchangeRate * (ch.temp - gas) * dt;
+        ch.temp -= q / M.chamberMass;
+        gas += q / M.gasMass;
+
+        if (i === state.firePos) {
+          /**
+           * Fuel is fed at whatever rate holds the band. That is an
+           * assumption: how the crew actually decides a feed rate is unknown
+           * (section 4 lists what workers watch and adjust as unknown).
+           *
+           * It is also what makes Day 8 possible. With heat recovery off the
+           * chambers ahead arrive cold, more fuel is needed to reach the same
+           * peak, and the fuel index rises — section 6.5's stated outcome.
+           */
+          const rate = Math.max(0, Math.min(
+            M.maxFuelRate, (M.targetC - ch.temp) * M.fuelGain,
+          ));
+          ch.temp += (rate * dt * M.heatPerFuel) / M.chamberMass;
+          gas = Math.max(gas, ch.temp);        // the fire sets the gas leaving it
+          state.fuelIndex += rate * dt;        // relative units, never a mass
+        }
+      }
+
+      // Everything off the flow path just loses heat to the outside.
+      for (let i = 0; i < count; i++) {
+        if (onPath.has(i)) continue;
+        const ch = state.chambers[i];
+        ch.temp += (ambient - ch.temp) * Math.min(1, M.ambientLossRate * dt);
+      }
+
+      for (let i = 0; i < count; i++) {
+        const ch = state.chambers[i];
+        if (ch.temp < ambient) ch.temp = ambient;   // nothing goes below the yard
+        state.chambers[i].heat = relativeHeat(ch.temp);
+      }
+    }
+  }
 
   /**
    * The loading crew, run once per tick before the fire moves.
@@ -329,7 +412,6 @@ export function createEngine(options = {}) {
 
     state.firePos = next;
     state.tick += 1;
-    state.fuelIndex += C.fuel.perFiringTick;
 
     // The chamber now in the fire has had its firing. That is what later marks
     // it ready to be unloaded once it goes idle.
@@ -369,20 +451,21 @@ export function createEngine(options = {}) {
       // The fire holds position. Time still passes, so the chambers behind keep
       // cooling and the chambers ahead sit warm for longer than they should.
       state.tick += 1;
-      state.fuelIndex += C.fuel.perFiringTick;
     } else if (policy === 'skip') {
       // The fire jumps over the empty chamber to the one beyond it.
       state.firePos = (at + 1) % count;
       state.tick += 1;
-      state.fuelIndex += C.fuel.perFiringTick;
     } else if (policy === 'fireEmpty') {
       // The fire moves in and burns fuel on a chamber holding no tiles.
       state.firePos = at;
       state.tick += 1;
-      state.fuelIndex += C.fuel.perFiringTick;
     } else {
       return;                        // unknown policy: leave the fork standing
     }
+
+    // Whichever way the fork is answered, two hours pass and the kiln keeps
+    // burning — including "fire empty", where the fuel buys nothing.
+    integrateThermal(C.time.tickHours);
 
     state.params.policy = policy;
     state.fork = null;
@@ -399,7 +482,20 @@ export function createEngine(options = {}) {
     if (state.paused || state.fork) return;
 
     const perTick = state.params.tickSeconds / state.params.speed;
-    state.subTime += (dtMs / 1000) / perTick;
+    const ticksElapsed = (dtMs / 1000) / perTick;
+
+    /**
+     * Heat advances with SIMULATED time, not with frames. A frame is just how
+     * often we look; the kiln does not care. This is what keeps 0.25x and 4x,
+     * and a fast machine and a slow one, producing the same kiln.
+     *
+     * Charging burns nothing, so no simulated time passes there either.
+     */
+    if (state.phase !== 'charging') {
+      integrateThermal(ticksElapsed * C.time.tickHours);
+    }
+
+    state.subTime += ticksElapsed;
 
     // A while loop, not an if, so a long frame cannot silently lose a tick.
     while (state.subTime >= 1) {
@@ -412,12 +508,26 @@ export function createEngine(options = {}) {
     const { type } = action;
 
     switch (type) {
-      case 'tick':                   // step exactly one chamber, ignoring subTime
+      case 'tick': {                 // step exactly one chamber, ignoring subTime
         state.subTime = 0;
         if (state.fork) break;       // a standing fork must be answered first
         state.paused = true;
+        const wasCharging = state.phase === 'charging';
         advanceTick();
+        /**
+         * Two hours pass when you step, so the kiln must heat for two hours.
+         * Done HERE and not inside advanceTick, because step() already
+         * integrates from elapsed time and would otherwise count it twice.
+         *
+         * Charging burns nothing, so a charging step moves no simulated time.
+         */
+        if (!wasCharging && state.phase !== 'charging') {
+          integrateThermal(C.time.tickHours);
+          syncStages(state);
+          history.push(state);
+        }
         break;
+      }
 
       case 'setPaused':
         if (state.fork) break;       // cannot play past an unanswered fork
@@ -448,6 +558,7 @@ export function createEngine(options = {}) {
           state.chambers = snap.chambers.map((c) => ({ ...c }));
           state.subTime = 0;
           state.paused = true;
+          thermalCarry = 0;        // sub-tick bookkeeping does not survive a jump
           syncStages(state);
         }
         break;

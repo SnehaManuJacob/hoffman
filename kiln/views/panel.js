@@ -69,7 +69,7 @@ export function createPanel({ contextEl, debugEl, clockEl }, dispatch) {
     <table>
       <thead>
         <tr>
-          <th>Ch</th><th>Stage</th><th>Temp</th><th>Tiles</th><th></th>
+          <th>Ch</th><th>Stage</th><th>Heat</th><th>Tiles</th><th></th>
         </tr>
       </thead>
       <tbody></tbody>
@@ -115,7 +115,12 @@ export function createPanel({ contextEl, debugEl, clockEl }, dispatch) {
       const stage = ch.stage;
 
       row.stage.textContent = STAGES[stage]?.label ?? stage;
-      row.temp.textContent = `${Math.round(ch.temp)} °C`;
+      /**
+       * Relative, never degrees. Section 4 allows simulated values only in
+       * relative units; the exact temperature is a real number on
+       * `chamber.temp` and belongs in the console, not on screen.
+       */
+      row.temp.textContent = ch.heat.toFixed(2);
       row.loaded.textContent = ch.loaded ? 'loaded' : 'empty';
 
       row.button.textContent = ch.loaded ? 'empty' : 'load';
@@ -129,7 +134,9 @@ export function createPanel({ contextEl, debugEl, clockEl }, dispatch) {
 
     summary.textContent =
       `tick ${state.tick} · fire at ${state.firePos} · ` +
-      `fuel index ${state.fuelIndex} · ` +
+      // Fuel accrues continuously now, so it needs rounding. Relative units —
+      // never a mass, per section 4.
+      `fuel index ${Math.round(state.fuelIndex)} · ` +
       `${state.fork ? 'FORK' : state.paused ? 'paused' : 'running'}`;
 
     // Simulated hours, not ticks: the 2-hour interval is the field-documented fact.

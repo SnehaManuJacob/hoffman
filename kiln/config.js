@@ -85,24 +85,36 @@ const defs = {
   },
 
   /**
-   * Relative heat per chamber, 0 to 1. Every value is 'S' — simulated.
+   * The thermal model. Everything here is 'A' — these are the knobs of a
+   * MODEL, not measurements of a kiln.
    *
-   * These are NOT degrees and must never be shown as degrees. Section 4 allows
-   * simulated values only in relative units, and allows the one real figure
-   * (the 850-900 C peak) only as a band. The drawing therefore uses these to
-   * pick a colour and prints no numbers at all.
+   * It replaces a lookup table that returned a chamber's heat from how far it
+   * sat from the fire. That was geometry wearing the costume of physics: a
+   * chamber read 0.16 because a table said so, not because anything had
+   * heated it.
    *
-   * Today these come from a chamber's distance to the fire — geometry, not
-   * physics. Day 6 replaces the derivation with an actual thermal model; the
-   * numbers below are what it has to land near, and no view changes.
+   * What it does, per section 6.2: gas enters cold behind the fire, picks up
+   * heat from the chambers that have just fired, feeds the fire, and carries
+   * that heat forward into the green tiles ahead before it leaves. One
+   * exchange rule, walked along the flow path, produces all of it.
+   *
+   * Deliberately a lumped-mass exchange model and nothing grander. Section 13
+   * names this as the top schedule risk and says plausible beats accurate.
+   *
+   * Masses and rates are RELATIVE. Section 4 forbids kg and MJ for simulated
+   * values, so there are no real units here — only ratios that behave.
    */
-  heat: {
-    firing: [1.0, 'S', 'The chamber in the fire.'],
-    justBehind: [0.86, 'S', 'Just fired, still very hot, now giving heat to the incoming air.'],
-    lastCooling: [0.34, 'S', 'The far end of the cooling run.'],
-    firstPreheat: [0.58, 'S', 'Directly ahead of the fire, taking the full exhaust.'],
-    lastPreheat: [0.16, 'S', 'The far end of the preheat run, barely warm.'],
-    waiting: [0.04, 'S', 'Cold. Being unloaded and reloaded.'],
+  thermalModel: {
+    subStepHours: [0.1, 'A', '6 simulated minutes. 20 sub-steps per 2-hour tick, which is section 6.2\'s "many times per tick".'],
+    chamberMass: [40, 'A', 'Relative thermal mass of a chamber and its load of tiles.'],
+    gasMass: [1.6, 'A', 'Far smaller than a chamber, so gas equilibrates as it passes. That ratio is what makes the counter-current work.'],
+    exchangeRate: [9.0, 'A', 'How fast gas and chamber trade heat, per simulated hour.'],
+    ambientLossRate: [0.22, 'A', 'How fast a chamber off the flow path drifts back towards ambient.'],
+    targetC: [872, 'A', 'What the feed aims at. Inside the field-documented 850-900 band.'],
+    heatPerFuel: [40, 'A', 'Degrees a unit of fuel puts into a unit of chamber mass. Relative, like the masses it works on.'],
+    fuelGain: [10, 'A', 'How hard the feed responds to being under target. Stiff, so a chamber reaches the band within its two hours in the fire.'],
+    maxFuelRate: [260, 'A', 'Ceiling on the feed. Comfortably above what a warm kiln needs, but NOT enough to bring a cold chamber to the band in its two hours — so a cold start has to warm over a loop or two, as a real one does.'],
+    heatRefC: [900, 'A', 'Top of the band. Normalises temperature into the 0-1 the views read.'],
   },
 
   thermal: {
@@ -117,9 +129,12 @@ const defs = {
     source: ['cashew-nut shells', 'F', 'Fed through holes in the chamber roofs.'],
     // Relative only. Brief section 4 forbids kg or MJ.
     indexUnit: ['fuel index (relative)', 'S', 'Relative units. Never a mass or an energy.'],
-    perFiringTick: [1, 'A', 'One tick of firing costs one unit of fuel index.'],
-    // Day 8: with heat recovery off, chambers ahead start cold and cost more.
-    noRecoveryMultiplier: [1.6, 'S', 'Simulated penalty when exhaust bypasses the chambers ahead.'],
+    // Fuel is now fed continuously by the thermal model, at whatever rate
+    // holds the firing chamber in the band — so there is no per-tick constant.
+    //
+    // There is deliberately no "penalty multiplier" for running without heat
+    // recovery either. That number is what Day 8 exists to MEASURE; writing it
+    // down here would be stating a simulated result as a given.
   },
 
   drying: {
