@@ -534,6 +534,63 @@ export function createRing(canvas, options = {}) {
   );
   airGroup.add(airInlet);
 
+  /** Even out a route's point spacing, interpolating width and heat with it. */
+  function resampleRoute(route, n) {
+    const cum = [0];
+    for (let i = 1; i < route.length; i++) {
+      cum.push(cum[i - 1] + Math.hypot(route[i].x - route[i - 1].x, route[i].z - route[i - 1].z));
+    }
+    const total = cum[cum.length - 1] || 1;
+    const out = [];
+    let i = 1;
+    for (let k = 0; k <= n; k++) {
+      const d = (k / n) * total;
+      while (i < cum.length - 1 && cum[i] < d) i++;
+      const span = cum[i] - cum[i - 1];
+      const t = span > 1e-9 ? (d - cum[i - 1]) / span : 0;
+      const a = route[i - 1];
+      const b = route[i];
+      out.push({
+        x: a.x + (b.x - a.x) * t,
+        z: a.z + (b.z - a.z) * t,
+        w: a.w + (b.w - a.w) * t,
+        h: a.h + (b.h - a.h) * t,
+      });
+    }
+    return out;
+  }
+
+  /**
+   * Round the route off.
+   *
+   * It is stitched from four differently-shaped pieces — along the chambers,
+   * out through the damper, along the flue, down the channel — and the joins
+   * between them change direction abruptly. Offsetting a polyline across a
+   * sharp corner mitres it into a visible pinch, which looked like plumbing
+   * rather than moving air.
+   *
+   * The window shrinks to nothing at both ends, so the first and last points
+   * never move: the air has to keep starting exactly at the kiln's wall and
+   * finishing exactly at the chimney.
+   */
+  function smoothRoute(route, radius, passes) {
+    let pts = route;
+    for (let pass = 0; pass < passes; pass++) {
+      pts = pts.map((p, i) => {
+        const r = Math.min(radius, i, pts.length - 1 - i);
+        if (r === 0) return { ...p };
+        let sx = 0; let sz = 0; let sw = 0; let sh = 0;
+        for (let k = -r; k <= r; k++) {
+          sx += pts[i + k].x; sz += pts[i + k].z;
+          sw += pts[i + k].w; sh += pts[i + k].h;
+        }
+        const n = r * 2 + 1;
+        return { x: sx / n, z: sz / n, w: sw / n, h: sh / n };
+      });
+    }
+    return pts;
+  }
+
   /** Nearest position along a loop path to a world point, as s in 0..1. */
   function nearestS(loop, x, z) {
     let best = 0;
@@ -644,6 +701,14 @@ export function createRing(canvas, options = {}) {
       const t = i / DOWN;
       push(0, mouthPt.z + (stopZ - mouthPt.z) * t, exitW * (1 - 0.15 * t), exitH * 0.6);
     }
+
+    // --- even the spacing, then round off the joins ------------------------
+    const smooth = smoothRoute(
+      resampleRoute(route, P.airSmoothSamples),
+      P.airSmoothRadius, P.airSmoothPasses,
+    );
+    route.length = 0;
+    route.push(...smooth);
 
     // --- build the band ----------------------------------------------------
     const positions = [];
