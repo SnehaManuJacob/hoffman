@@ -247,6 +247,8 @@ const defs = {
     channelWidth: [0.9, 'A', 'Width of the open channel from the duct to the chimney.'],
     chimneyVoidRadius: [0.55, 'A', 'How far the blocks are cut back around the chimney.'],
     islandCornerRadius: [0.35, 'A'],
+    airInletLead: [0.75, 'A', 'How far outside the wall the incoming air is drawn, so it arrives from somewhere instead of appearing in mid-air.'],
+    airExhaustScale: [0.52, 'A', 'The exhaust run is drawn narrower than the hot run: by then the gas has given its heat to the green tiles and is on its way out.'],
     airRibbonWidth: [0.34, 'A', 'Width of the airflow arrow at its widest. The stacks now sit across each end of the chamber, so the arrow crosses them — as the gas does, threading between loosely stacked tiles.'],
     zoneBandWidth: [0.26, 'A'],
     zoneBandOffset: [0.42, 'A', 'How far outside the kiln wall the zone band sits.'],

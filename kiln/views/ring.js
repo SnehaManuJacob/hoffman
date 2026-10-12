@@ -525,58 +525,158 @@ export function createRing(canvas, options = {}) {
   );
   airGroup.add(airHead);
 
+  // The opening in the outer wall that the incoming air comes through.
+  const airInlet = new THREE.Mesh(
+    new THREE.BufferGeometry(),
+    new THREE.MeshBasicMaterial({
+      color: new THREE.Color(PALETTE.air), side: THREE.DoubleSide,
+    }),
+  );
+  airGroup.add(airInlet);
+
+  /** Nearest position along a loop path to a world point, as s in 0..1. */
+  function nearestS(loop, x, z) {
+    let best = 0;
+    let bestD = Infinity;
+    for (let i = 0; i < 360; i++) {
+      const s = i / 360;
+      const q = loop.at(s);
+      const d = (q.x - x) ** 2 + (q.z - z) ** 2;
+      if (d < bestD) { bestD = d; best = s; }
+    }
+    return best;
+  }
+
   /**
-   * The airflow arrow: one band crossing the chambers, widening toward the
-   * fire and coloured by how hot the gas is along the way.
+   * The airflow arrow: ONE continuous route, from outside the kiln to the
+   * chimney.
    *
-   * It is drawn as a SINGLE continuous ribbon on purpose. Cool air enters
-   * behind the fire, is warmed by chambers that have just fired, feeds the
-   * fire, then carries that heat forward over green tiles before it leaves.
-   * One pass, two useful jobs — which is the whole Hoffmann idea.
+   *   outside  ->  in through an opening in the outer wall
+   *            ->  along the chambers that have just fired, taking their heat
+   *            ->  through the fire, where fuel is added
+   *            ->  on over the green tiles, giving that heat up
+   *            ->  out through the one open damper
+   *            ->  along the flue, round to the channel
+   *            ->  down the channel into the chimney
+   *
+   * Drawn as a single ribbon on purpose: one pass of air does two useful jobs,
+   * and that is the whole Hoffmann idea. It used to begin in mid-air at the
+   * first cooling chamber and stop dead at the damper, which said neither
+   * where the air came from nor where it went.
+   *
+   * Built from a polyline rather than straight off the path, because the route
+   * leaves the chamber loop twice — once coming in through the wall, once
+   * going out through the damper into the flue.
    */
   function buildAirRibbon(firePos) {
     const pre = C.windows.preheat;
     const cool = C.windows.cool;
     const from = (firePos - cool - 0.5) / count;
     const to = (firePos + pre + 0.5) / count;
-    const STEPS = 170;
 
+    const maxW = P.airRibbonWidth / 2;
+    const AIR = new THREE.Color(PALETTE.air);
+    const col = new THREE.Color();
+
+    // Each entry is a point on the centre of the route, with the half-width
+    // and the gas temperature there.
+    const route = [];
+    const push = (x, z, w, h) => route.push({ x, z, w, h });
+
+    // --- 1. in from outside, through the wall ------------------------------
+    const ENTRY = 14;
+    const turnIn = 0.6 / count;             // how much of a chamber the turn takes
+    for (let i = 0; i <= ENTRY; i++) {
+      const t = i / ENTRY;
+      const e = t * t * (3 - 2 * t);        // smoothstep, so the turn is not a corner
+      const p = path.at(from + e * turnIn);
+      const off = (1 - e) * (halfBand + P.airInletLead);
+      push(p.x + p.nx * off, p.z + p.nz * off, maxW * 0.34, 0);
+    }
+
+    // --- 2. along the chambers: cooling run, fire, preheat run -------------
+    const MAIN = 150;
+    const atFire = (cool + 0.5) / (cool + pre + 1);
+    for (let i = 1; i <= MAIN; i++) {
+      const u = i / MAIN;
+      const s = from + turnIn + (to - from - turnIn) * u;
+      const p = path.at(s);
+      const w = maxW * (0.34 + 0.66 * Math.sin(Math.PI * Math.min(1, u * 1.08)));
+      const h = u < atFire
+        ? (u / atFire) * 0.92
+        : 0.92 - ((u - atFire) / (1 - atFire)) * 0.78;
+      push(p.x, p.z, w, h);
+    }
+
+    // --- 3. out through the open damper, into the flue ---------------------
+    const exitH = route[route.length - 1].h;
+    const exitW = maxW * P.airExhaustScale;
+    const OUT = 10;
+    const flueOff = halfBand + (ductInset - halfBand) / 2;   // mid-flue
+    for (let i = 1; i <= OUT; i++) {
+      const t = i / OUT;
+      const e = t * t * (3 - 2 * t);
+      const p = path.at(to + e * (0.25 / count));
+      push(p.x - p.nx * e * flueOff, p.z - p.nz * e * flueOff, exitW, exitH * (1 - 0.15 * e));
+    }
+
+    // --- 4. along the flue to the nearer mouth of the channel --------------
+    const last = route[route.length - 1];
+    const sDuct = nearestS(ductPath, last.x, last.z);
+    // The channel opens at the middle of each long side, which is where this
+    // loop's s = 0 and s = 0.5 fall.
+    const wrap = (d) => ((d % 1) + 1.5) % 1 - 0.5;           // shortest way round
+    const mouth = Math.abs(wrap(0 - sDuct)) <= Math.abs(wrap(0.5 - sDuct)) ? 0 : 0.5;
+    const span = wrap(mouth - sDuct);
+    const FLUE = 60;
+    for (let i = 1; i <= FLUE; i++) {
+      const t = i / FLUE;
+      const q = ductPath.at(sDuct + span * t);
+      push(q.x, q.z, exitW, exitH * (0.85 - 0.25 * t));
+    }
+
+    // --- 5. down the channel into the chimney ------------------------------
+    const mouthPt = ductPath.at(mouth);
+    const dir = Math.sign(mouthPt.z) || 1;                   // which end we came in at
+    const stopZ = dir * (P.chimneyRadius + 0.06);
+    const DOWN = 24;
+    for (let i = 1; i <= DOWN; i++) {
+      const t = i / DOWN;
+      push(0, mouthPt.z + (stopZ - mouthPt.z) * t, exitW * (1 - 0.15 * t), exitH * 0.6);
+    }
+
+    // --- build the band ----------------------------------------------------
     const positions = [];
     const colours = [];
     const indices = [];
     const edgeA = [];
     const edgeB = [];
-    const col = new THREE.Color();
-    const AIR = new THREE.Color(PALETTE.air);
-    const atFire = (cool + 0.5) / (cool + pre + 1);
 
-    for (let i = 0; i <= STEPS; i++) {
-      const u = i / STEPS;
-      const { x, z, nx, nz } = path.at(from + (to - from) * u);
+    for (let i = 0; i < route.length; i++) {
+      const p = route[i];
+      const a = route[Math.max(0, i - 1)];
+      const b = route[Math.min(route.length - 1, i + 1)];
+      let dx = b.x - a.x;
+      let dz = b.z - a.z;
+      const len = Math.hypot(dx, dz) || 1;
+      dx /= len; dz /= len;
+      const nx = dz;          // perpendicular to the direction of travel
+      const nz = -dx;
 
-      // Narrow where air comes in, widest at the fire, tapering as the
-      // chambers ahead take the heat back out of it.
-      const w = (P.airRibbonWidth / 2) * (0.28 + 0.72 * Math.sin(Math.PI * Math.min(1, u * 1.1)));
-
-      const h = u < atFire
-        ? (u / atFire) * 0.92
-        : 0.92 - ((u - atFire) / (1 - atFire)) * 0.78;
-      heatColour(h, col);
-
+      heatColour(p.h, col);
       // The cold end is air, not a dull ember, so it takes the one cool tone
       // the palette reserves for air. It warms into the heat ramp from there.
-      if (h < 0.18) col.lerp(AIR, (0.18 - h) / 0.18);
+      if (p.h < 0.18) col.lerp(AIR, (0.18 - p.h) / 0.18);
 
-      const ax = x + nx * w; const az = z + nz * w;
-      const bx = x - nx * w; const bz = z - nz * w;
-
+      const ax = p.x + nx * p.w; const az = p.z + nz * p.w;
+      const bx = p.x - nx * p.w; const bz = p.z - nz * p.w;
       positions.push(ax, Y.air, az, bx, Y.air, bz);
       colours.push(col.r, col.g, col.b, col.r, col.g, col.b);
       edgeA.push([ax, az]);
       edgeB.push([bx, bz]);
-      if (i < STEPS) {
-        const a = i * 2;
-        indices.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+      if (i < route.length - 1) {
+        const k = i * 2;
+        indices.push(k, k + 1, k + 2, k + 1, k + 3, k + 2);
       }
     }
 
@@ -588,7 +688,6 @@ export function createRing(canvas, options = {}) {
     airRibbon.geometry.dispose();
     airRibbon.geometry = g;
 
-    // Outline down both flanks.
     const edgePos = [];
     for (const side of [edgeA, edgeB]) {
       for (let i = 0; i < side.length - 1; i++) {
@@ -600,27 +699,39 @@ export function createRing(canvas, options = {}) {
     airEdge.geometry = new THREE.BufferGeometry()
       .setAttribute('position', new THREE.Float32BufferAttribute(edgePos, 3));
 
-    // Arrowhead at the exit, pointing the way the gas leaves.
-    const tipAt = path.at(to);
-    const justBefore = path.at(to - 0.004);
-    let tx = tipAt.x - justBefore.x;
-    let tz = tipAt.z - justBefore.z;
+    // The arrowhead now sits at the CHIMNEY, which is where the gas is going.
+    const tip = route[route.length - 1];
+    const prev = route[route.length - 2];
+    let tx = tip.x - prev.x;
+    let tz = tip.z - prev.z;
     const tl = Math.hypot(tx, tz) || 1;
     tx /= tl; tz /= tl;
-    const headHalf = P.airRibbonWidth * 1.05;
-    const headLen = P.airRibbonWidth * 1.7;
+    const headHalf = exitW * 2.1;
+    const headLen = exitW * 3.4;
     airHead.geometry.dispose();
     airHead.geometry = new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(tipAt.x + tx * headLen, Y.air, tipAt.z + tz * headLen),
-      new THREE.Vector3(tipAt.x + tipAt.nx * headHalf, Y.air, tipAt.z + tipAt.nz * headHalf),
-      new THREE.Vector3(tipAt.x - tipAt.nx * headHalf, Y.air, tipAt.z - tipAt.nz * headHalf),
+      new THREE.Vector3(tip.x + tx * headLen, Y.air, tip.z + tz * headLen),
+      new THREE.Vector3(tip.x + tz * headHalf, Y.air, tip.z - tx * headHalf),
+      new THREE.Vector3(tip.x - tz * headHalf, Y.air, tip.z + tx * headHalf),
     ]);
+    airHead.material.color.set(heatHex(exitH * 0.6));
+
+    // --- the opening the air comes in through ------------------------------
+    // Air has to get in somewhere. Without a way through the outer wall the
+    // ribbon would still be arriving from nowhere, just further out.
+    const inletMid = from + 0.5 / count;
+    const inletHalf = (P.damperWidthFraction / 2) / count;
+    airInlet.geometry.dispose();
+    airInlet.geometry = bandGeometry(
+      path, inletMid - inletHalf, inletMid + inletHalf,
+      halfBand - inset, halfBand, Y.wall, 6,
+    );
 
     /**
      * Only one damper is open: the one ahead of the fire that pulls the
-     * exhaust down into the flue. Open reads in the air tone — the palette
-     * reserves that for air, and air is exactly what is going through it.
-     * Closed reads as masonry, like a bricked-up wicket.
+     * exhaust into the flue. Open reads in the air tone — the palette reserves
+     * that for air, and air is exactly what is going through it. Closed reads
+     * as masonry, like a bricked-up wicket.
      *
      * Colour only: these are world-space bands, so scaling one would drag it
      * across the kiln rather than making it bigger.
@@ -642,8 +753,12 @@ export function createRing(canvas, options = {}) {
     renderer.setSize(w, h, false);
 
     const b = path.bounds;
-    const halfX = (b.maxX - b.minX) / 2 + halfBand + 0.25;
-    const halfZ = (b.maxZ - b.minZ) / 2 + halfBand + 0.25;
+    // Room for the kiln, its wall, and the air inlet — which reaches OUTSIDE
+    // the kiln on purpose, so it has to be inside the frame or the air appears
+    // to arrive from off the edge of the page.
+    const margin = Math.max(0.25, P.airInletLead + 0.2);
+    const halfX = (b.maxX - b.minX) / 2 + halfBand + margin;
+    const halfZ = (b.maxZ - b.minZ) / 2 + halfBand + margin;
     const aspect = w / h;
 
     let viewW = halfX * FIT_MARGIN;
