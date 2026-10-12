@@ -430,7 +430,7 @@ export const COMPONENTS = {
   },
   flueDuct: {
     label: 'Flue duct', tag: 'L',
-    note: 'Dampers and flues route the gas to a chimney. The duct path at Kundapur was not observed.',
+    note: 'Dampers and flues route the gas to a chimney. Drawn as the open space between the chamber walls and the island rather than as a wall, because that is what a flue is — the way through. The duct path at Kundapur was not observed.',
   },
   kilnIsland: {
     label: 'Kiln island', tag: 'A',

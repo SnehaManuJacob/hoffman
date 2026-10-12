@@ -350,16 +350,22 @@ export function createRing(canvas, options = {}) {
     depth: C.form.depth - ductInset * 2,
     cornerRadius: Math.max(0.4, C.form.cornerRadius - ductInset * 0.5),
   });
+  /**
+   * The flue is drawn as the SPACE, not as a band.
+   *
+   * It used to be a closed ring of masonry just inside the chamber walls,
+   * which was wrong twice over: it read as another wall rather than a way
+   * through, and being continuous it sealed the mouth of the island's channel
+   * — the one route exhaust has to the chimney.
+   *
+   * So nothing is drawn here. The flue is the open void between the chamber
+   * walls and the island, bounded by both, running all the way round and
+   * opening into the channel at top and bottom. The dampers open into it.
+   *
+   * `ductPath` stays: the label still needs somewhere to point.
+   */
   const ductGroup = componentGroup('flueDuct');
   root.add(ductGroup);
-  ductGroup.add(new THREE.Mesh(
-    bandGeometry(ductPath, 0, 1, -P.flueWidth / 2, P.flueWidth / 2, Y.flue, 240),
-    new THREE.MeshBasicMaterial({ color: new THREE.Color(PALETTE['soot-raised']) }),
-  ));
-  ductGroup.add(new THREE.LineSegments(
-    bandOutline(ductPath, 0, 1, -P.flueWidth / 2, P.flueWidth / 2, Y.outline, 240),
-    new THREE.LineBasicMaterial({ color: new THREE.Color(PALETTE['sand-faint']) }),
-  ));
 
   // ------------------------------------------------------------------ island
   // A — the solid middle of the kiln, with a channel cut through it.
