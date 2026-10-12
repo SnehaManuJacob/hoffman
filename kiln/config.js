@@ -197,7 +197,6 @@ const defs = {
     chimneyRadius: [0.46, 'A'],
     chimneyHeight: [3.4, 'A'],
 
-    damperSize: [0.17, 'A'],
 
     /**
      * Blueprint view: the kiln drawn as a cutaway plan, seen straight down.
@@ -226,7 +225,7 @@ const defs = {
      */
     tileFillFraction: [0.85, 'A', 'Share of one tick spent stacking or emptying a chamber.'],
     flueWidth: [0.46, 'A'],
-    damperRadius: [0.12, 'A'],
+    damperWidth: [0.22, 'A', 'Half-width of a damper opening, as a share of the chamber length. Matches the wicket door, because both are openings cut through a wall.'],
     airRibbonWidth: [0.34, 'A', 'Width of the airflow arrow at its widest. The stacks now sit across each end of the chamber, so the arrow crosses them — as the gas does, threading between loosely stacked tiles.'],
     zoneBandWidth: [0.26, 'A'],
     zoneBandOffset: [0.42, 'A', 'How far outside the kiln wall the zone band sits.'],
@@ -244,26 +243,6 @@ const defs = {
     minRowHeight: [11, 'A', 'Tall enough that the firing front reads as a diagonal rather than a smear.'],
     cellGap: [1, 'A'],
     hoursLabelEvery: [4, 'A', 'Label the time axis every N ticks, so it does not crowd.'],
-  },
-
-  /**
-   * The heat particles: parcels of gas travelling the air path, coloured by
-   * the temperature the model says the gas is at that point.
-   *
-   * All 'A' — these are presentation choices. What they DRAW is tagged L, with
-   * the airPath component: counter-current flow is literature about other
-   * Hoffmann kilns and was not observed at Kundapur.
-   *
-   * `count` is section 13's named fallback. If the frame rate suffers, this is
-   * the one number to bring down.
-   */
-  particles: {
-    count: [80, 'A', 'Parcels of gas on the path at once.'],
-    speedPerSimHour: [0.45, 'A', 'Fraction of the route a parcel covers per simulated hour. Gas really moves far faster than this; slow enough to follow with the eye is the point.'],
-    streakLength: [0.016, 'A', 'Length of a streak as a fraction of the route. Long enough to show direction in a still frame.'],
-    jitter: [0.62, 'A', 'Spread across the channel, as a fraction of its width, so parcels do not run in single file.'],
-    fadeTail: [0.08, 'A', 'Fraction of the route over which a parcel fades as it leaves for the chimney.'],
-    width: [0.075, 'A', 'Thickness of a streak, in scene units. Drawn as a quad rather than a line because WebGL ignores line width on nearly every platform, which left them as 1px hairlines.'],
   },
 
   // Things the model simulates. Shown as bands or spreads, never as readings.

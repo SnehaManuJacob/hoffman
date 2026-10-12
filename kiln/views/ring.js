@@ -387,16 +387,23 @@ export function createRing(canvas, options = {}) {
   // hours is open question 5.2, so nothing here answers that.
   const damperGroup = componentGroup('dampers');
   root.add(damperGroup);
-  const damperGeo = new THREE.CircleGeometry(P.damperRadius, 14);
-  damperGeo.rotateX(-Math.PI / 2);
   const dampers = [];
   for (let i = 0; i < count; i++) {
     const mid = (sStart(i) + sEnd(i)) / 2;
-    const { x, z, nx, nz } = path.at(mid);
-    const m = new THREE.Mesh(damperGeo, new THREE.MeshBasicMaterial({
-      color: new THREE.Color(PALETTE['sand-faint']), side: THREE.DoubleSide,
-    }));
-    m.position.set(x - nx * (halfBand + 0.2), Y.damper, z - nz * (halfBand + 0.2));
+    const half = (sEnd(i) - sStart(i)) * P.damperWidth;
+
+    /**
+     * An opening cut through the INNER wall, where a chamber meets the flue —
+     * the same shape as the wicket door opposite it, because they are the same
+     * kind of thing: a way through a wall. A damper is not an object sitting
+     * next to the kiln, which is what a free-floating disc made it look like.
+     *
+     * Chamber to flue on the inside, chamber to the yard on the outside.
+     */
+    const m = new THREE.Mesh(
+      bandGeometry(path, mid - half, mid + half, -halfBand, -halfBand + inset, Y.wall, 6),
+      new THREE.MeshBasicMaterial({ color: new THREE.Color(PALETTE['sand-dim']) }),
+    );
     damperGroup.add(m);
     dampers.push(m);
   }
@@ -406,18 +413,10 @@ export function createRing(canvas, options = {}) {
   // kiln is shaped like this at all. Not observed here.
   const airGroup = componentGroup('airPath');
   root.add(airGroup);
-
-  /**
-   * The air route, rebuilt whenever the fire moves, and shared with the heat
-   * particles so the parcels and the channel can never drift apart. Each entry
-   * carries position, outward normal and the channel's half-width there.
-   */
-  const routePoints = [];
   const airRibbon = new THREE.Mesh(
     new THREE.BufferGeometry(),
     new THREE.MeshBasicMaterial({
-      color: new THREE.Color(PALETTE['soot-raised']),
-      transparent: true, opacity: 0.9,
+      vertexColors: true, transparent: true, opacity: 0.95,
       side: THREE.DoubleSide, depthWrite: false,
     }),
   );
@@ -459,35 +458,38 @@ export function createRing(canvas, options = {}) {
     const STEPS = 170;
 
     const positions = [];
+    const colours = [];
     const indices = [];
     const edgeA = [];
     const edgeB = [];
+    const col = new THREE.Color();
+    const AIR = new THREE.Color(PALETTE.air);
+    const atFire = (cool + 0.5) / (cool + pre + 1);
 
-    /**
-     * A channel, not a gradient.
-     *
-     * This used to colour itself from a curve written by hand — a drawing of
-     * what heat reuse ought to look like, sitting next to a model that knows
-     * what it actually looks like. The particles carry the temperature now,
-     * read from the simulation, and this is just the conduit they run in.
-     */
-    routePoints.length = 0;
     for (let i = 0; i <= STEPS; i++) {
       const u = i / STEPS;
-      const p = path.at(from + (to - from) * u);
-      const { x, z, nx, nz } = p;
+      const { x, z, nx, nz } = path.at(from + (to - from) * u);
 
       // Narrow where air comes in, widest at the fire, tapering as the
       // chambers ahead take the heat back out of it.
       const w = (P.airRibbonWidth / 2) * (0.28 + 0.72 * Math.sin(Math.PI * Math.min(1, u * 1.1)));
 
+      const h = u < atFire
+        ? (u / atFire) * 0.92
+        : 0.92 - ((u - atFire) / (1 - atFire)) * 0.78;
+      heatColour(h, col);
+
+      // The cold end is air, not a dull ember, so it takes the one cool tone
+      // the palette reserves for air. It warms into the heat ramp from there.
+      if (h < 0.18) col.lerp(AIR, (0.18 - h) / 0.18);
+
       const ax = x + nx * w; const az = z + nz * w;
       const bx = x - nx * w; const bz = z - nz * w;
 
       positions.push(ax, Y.air, az, bx, Y.air, bz);
+      colours.push(col.r, col.g, col.b, col.r, col.g, col.b);
       edgeA.push([ax, az]);
       edgeB.push([bx, bz]);
-      routePoints.push({ x, z, nx, nz, w });
       if (i < STEPS) {
         const a = i * 2;
         indices.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
@@ -496,6 +498,7 @@ export function createRing(canvas, options = {}) {
 
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(colours, 3));
     g.setIndex(indices);
     g.computeBoundingSphere();
     airRibbon.geometry.dispose();
@@ -530,9 +533,18 @@ export function createRing(canvas, options = {}) {
     ]);
 
     const open = (((firePos + pre) % count) + count) % count;
+    /**
+     * Only one damper is open: the one ahead of the fire, pulling exhaust down
+     * into the flue. Shown by colour alone — these are bands whose vertices are
+     * already in world space, so scaling one would slide it off the kiln rather
+     * than make it bigger.
+     *
+     * Open takes the cool tone the palette reserves for air, because that is
+     * what is moving through it. A shut damper is masonry like the wall it is
+     * cut into.
+     */
     dampers.forEach((d, i) => {
-      d.material.color.set(i === open ? PALETTE.air : PALETTE['sand-faint']);
-      d.scale.setScalar(i === open ? 1.5 : 1);
+      d.material.color.set(i === open ? PALETTE.air : PALETTE['sand-dim']);
     });
     return open;
   }
@@ -682,7 +694,10 @@ export function createRing(canvas, options = {}) {
     return [
       { id: 'chimney', pos: new THREE.Vector3(0, Y.air, 0) },
       { id: 'flueDuct', pos: (() => { const d = ductPath.at(0.25); return new THREE.Vector3(d.x, Y.air, d.z); })() },
-      { id: 'dampers', pos: (() => { const d = dampers[openDamper]; return new THREE.Vector3(d.position.x, Y.air, d.position.z); })() },
+      // The opening sits in the inner wall, so the label points at the wall,
+      // not at the mesh origin — a band mesh keeps its vertices in world space
+      // and its own position stays at (0,0,0).
+      { id: 'dampers', pos: at(openDamper, -(halfBand - inset / 2)) },
       { id: 'stokeHoles', pos: at(state.firePos, -edge) },
       { id: 'tiles', pos: at(state.firePos + pre + 1, edge) },
       { id: 'wicketDoors', pos: at(state.firePos + cool + 3, -edge) },
@@ -779,8 +794,6 @@ export function createRing(canvas, options = {}) {
 
   return {
     update, resize, dispose, render, anchors, attachScrub,
-    // The particle layer draws into this group and samples this route.
-    airGroup, routePoints, airY: Y.air,
     segments, path, ductPath, scene, camera, renderer, tileMeshes,
     groups: {
       massGroup, chambersGroup, tilesGroup, wallsGroup, wicketGroup,
