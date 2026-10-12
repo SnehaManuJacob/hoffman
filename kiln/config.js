@@ -190,14 +190,15 @@ const defs = {
      */
     wallInset: [0.2, 'A', 'Masonry thickness between the outside and the chamber void.'],
     /**
-     * Tiles are stacked in two rows, one against each side wall, leaving a
-     * clear gangway down the middle of the chamber for the gas to travel.
+     * Tiles are stacked in two rows, one at each END of the chamber, each row
+     * running across its full width. The middle of the chamber, along the
+     * direction the fire travels, is left clear.
      *
      * HOW MANY TILES A CHAMBER HOLDS, AND HOW THEY ARE STACKED, IS UNKNOWN
      * (section 4, tag U). These are a stand-in for a load, not a count.
      */
-    tileCols: [8, 'A', 'Stacks along the chamber. Not a count of tiles.'],
-    tileRowFraction: [0.32, 'A', 'Depth of each wall-side row, as a share of the chamber interior. The rest is the gangway.'],
+    tilesAcross: [6, 'A', 'Tiles in each end row, across the chamber. Not a count.'],
+    tileEndFraction: [0.2, 'A', 'How much of the chamber length each end row takes up.'],
     tileInset: [0.08, 'A'],
     /**
      * Share of one tick a chamber takes to be stacked or emptied.
@@ -211,7 +212,7 @@ const defs = {
     tileFillFraction: [0.85, 'A', 'Share of one tick spent stacking or emptying a chamber.'],
     flueWidth: [0.46, 'A'],
     damperRadius: [0.12, 'A'],
-    airRibbonWidth: [0.3, 'A', 'Width of the airflow arrow at its widest. Sized to the gangway the two tile rows leave, so the gas travels through the space the stacks make for it rather than over them.'],
+    airRibbonWidth: [0.34, 'A', 'Width of the airflow arrow at its widest. The stacks now sit across each end of the chamber, so the arrow crosses them — as the gas does, threading between loosely stacked tiles.'],
     zoneBandWidth: [0.26, 'A'],
     zoneBandOffset: [0.42, 'A', 'How far outside the kiln wall the zone band sits.'],
   },

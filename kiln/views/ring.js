@@ -212,29 +212,26 @@ export function createRing(canvas, options = {}) {
     const outerEdge = halfBand - inset - P.tileInset;
 
     /**
-     * Column by column ALONG the chamber, each column filled across its depth.
-     * The order matters: tiles are revealed in this order as a chamber fills,
-     * so the stack grows from one end rather than fading in all at once.
-     */
-    /**
-     * Two rows, one hugging each side wall, with a clear gangway between them.
+     * Two rows, one at each END of the chamber, each running across its full
+     * width. The middle of the chamber — along the direction the fire travels
+     * — is left clear.
      *
-     * Filling the whole chamber would be wrong twice over: the gas would have
-     * nowhere to travel, and the airflow ribbon — which runs down the centre
-     * line — would be drawn straight over the tiles instead of through the
-     * space they leave for it.
+     * Tiles are revealed in this order as a chamber fills, so the order is
+     * chosen to read as work: across the width, both ends together, so the two
+     * stacks grow side by side rather than one end filling before the other.
      */
     const span = outerEdge - innerEdge;
-    const rowDepth = span * P.tileRowFraction;
-    const rowBands = [
-      [innerEdge, innerEdge + rowDepth],            // against the inner wall
-      [outerEdge - rowDepth, outerEdge],            // against the outer wall
+    const length = s1 - s0;
+    const margin = 0.05;                              // clear of the cross walls
+    const endBands = [
+      [s0 + length * margin, s0 + length * (margin + P.tileEndFraction)],
+      [s1 - length * (margin + P.tileEndFraction), s1 - length * margin],
     ];
 
-    for (let cI = 0; cI < P.tileCols; cI++) {
-      const t0 = s0 + (s1 - s0) * ((cI + 0.12) / P.tileCols);
-      const t1 = s0 + (s1 - s0) * ((cI + 0.88) / P.tileCols);
-      for (const [o0, o1] of rowBands) {
+    for (let a = 0; a < P.tilesAcross; a++) {
+      const o0 = innerEdge + span * ((a + 0.1) / P.tilesAcross);
+      const o1 = innerEdge + span * ((a + 0.9) / P.tilesAcross);
+      for (const [t0, t1] of endBands) {
         const m = new THREE.Mesh(
           bandGeometry(path, t0, t1, o0, o1, Y.tiles, 4),
           new THREE.MeshBasicMaterial({ color: new THREE.Color(PALETTE['sand-faint']) }),
