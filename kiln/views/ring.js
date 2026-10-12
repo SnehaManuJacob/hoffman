@@ -185,7 +185,13 @@ export function createRing(canvas, options = {}) {
     );
     mesh.userData.chamber = i;
     chambersGroup.add(mesh);
-    segments.push({ mesh, material, index: i, current: new THREE.Color(PALETTE['sand-faint']) });
+    segments.push({
+      mesh, material, index: i,
+      current: new THREE.Color(PALETTE['sand-faint']),
+      // How much of the chamber's stack is in place, 0 to 1. Animated, so
+      // tiles go in and come out one at a time instead of blinking.
+      fill: 0,
+    });
   }
 
   // ------------------------------------------------------------------- tiles
@@ -204,12 +210,17 @@ export function createRing(canvas, options = {}) {
     const innerEdge = -halfBand + inset + P.tileInset;
     const outerEdge = halfBand - inset - P.tileInset;
 
-    for (let r = 0; r < P.tileRows; r++) {
-      const o0 = innerEdge + (outerEdge - innerEdge) * (r / P.tileRows);
-      const o1 = innerEdge + (outerEdge - innerEdge) * ((r + 0.8) / P.tileRows);
-      for (let cI = 0; cI < P.tileCols; cI++) {
-        const t0 = s0 + (s1 - s0) * ((cI + 0.12) / P.tileCols);
-        const t1 = s0 + (s1 - s0) * ((cI + 0.88) / P.tileCols);
+    /**
+     * Column by column ALONG the chamber, each column filled across its depth.
+     * The order matters: tiles are revealed in this order as a chamber fills,
+     * so the stack grows from one end rather than fading in all at once.
+     */
+    for (let cI = 0; cI < P.tileCols; cI++) {
+      const t0 = s0 + (s1 - s0) * ((cI + 0.12) / P.tileCols);
+      const t1 = s0 + (s1 - s0) * ((cI + 0.88) / P.tileCols);
+      for (let r = 0; r < P.tileRows; r++) {
+        const o0 = innerEdge + (outerEdge - innerEdge) * (r / P.tileRows);
+        const o1 = innerEdge + (outerEdge - innerEdge) * ((r + 0.8) / P.tileRows);
         const m = new THREE.Mesh(
           bandGeometry(path, t0, t1, o0, o1, Y.tiles, 4),
           new THREE.MeshBasicMaterial({ color: new THREE.Color(PALETTE['sand-faint']) }),
@@ -504,6 +515,10 @@ export function createRing(canvas, options = {}) {
       lastFire = state.firePos;
     }
 
+    // No fire, no draught: nothing is moving through a kiln that has not been
+    // lit, so the airflow arrow stays off until it is.
+    airGroup.visible = state.phase !== 'charging';
+
     const tickMs = (state.params.tickSeconds / state.params.speed) * 1000;
     const tau = Math.max(1, (tickMs * SETTLE_FRACTION) / 4);
     const k = 1 - Math.exp(-dtMs / tau);
@@ -520,12 +535,41 @@ export function createRing(canvas, options = {}) {
       if (d < SNAP_DISTANCE) seg.current.copy(tileColour);
       else seg.current.lerp(tileColour, k);
 
-      // An empty chamber simply has no tiles. That is how loading and
-      // unloading become visible without any extra device.
-      tileMeshes[i].forEach((m) => {
-        m.visible = ch.loaded;
-        m.material.color.copy(seg.current);
-      });
+      /**
+       * Tiles go in and come out one at a time.
+       *
+       * `fill` walks toward 1 when the chamber is loaded and 0 when it is not,
+       * at a steady rate rather than an eased one — stacking is work at a
+       * constant pace, not something that accelerates. Tiles were built column
+       * by column along the chamber, so revealing them in order reads as a
+       * stack growing from one end and being taken down from the other.
+       *
+       * An empty chamber simply ends up with no tiles, which is how loading
+       * and unloading stay visible without any extra device.
+       */
+      const target = ch.loaded ? 1 : 0;
+      const fillRate = dtMs / Math.max(1, tickMs * C.parts.tileFillFraction);
+
+      /**
+       * Nobody stacks a chamber that is alight, or one still cooling with its
+       * fired load inside. Those are full, finished, and not to be worked on.
+       *
+       * This matters when someone steps faster than the crew can work: the
+       * engine has already loaded the chamber, but the animation would still
+       * be part-way through, and tiles would appear to arrive in a chamber
+       * that is burning — the exact thing the charging phase fixed.
+       */
+      const sealed = ch.loaded && (ch.stage === 'fire' || ch.stage === 'cool');
+      if (sealed) seg.fill = 1;
+      else if (seg.fill < target) seg.fill = Math.min(target, seg.fill + fillRate);
+      else if (seg.fill > target) seg.fill = Math.max(target, seg.fill - fillRate);
+
+      const stack = tileMeshes[i];
+      const placed = Math.round(seg.fill * stack.length);
+      for (let n = 0; n < stack.length; n++) {
+        stack[n].visible = n < placed;
+        stack[n].material.color.copy(seg.current);
+      }
 
       // The void stays dark so an empty chamber still reads as a chamber.
       seg.material.color.set(ch.loaded ? PALETTE.soot : PALETTE[STAGE_COLOUR.empty.key]);

@@ -48,6 +48,26 @@ const defs = {
     speedMax: [4, 'A'],
   },
 
+  /**
+   * Loading and unloading — the rhythm of the crew, all tagged 'A'.
+   *
+   * What is known: the process runs clay prep -> shaping -> drying -> firing
+   * -> cooling -> sorting (tag F), so tiles must go in and come out. What is
+   * NOT known is anything about how: crew size, their tasks, and what workers
+   * watch and adjust are all listed as unknown in section 4.
+   *
+   * So this is a modelled rhythm, not an observation. A chamber is turned
+   * around during its idle window — fired tiles out, green tiles in — and the
+   * crew works ahead of the fire, because a chamber that is not ready when the
+   * fire arrives is exactly the stall in open question 5.1.
+   */
+  loading: {
+    startEmpty: [true, 'A', 'The kiln starts cold and empty, and fills as the first cycle runs.'],
+    auto: [true, 'A', 'The crew works on its own. Turn this off to load every chamber by hand.'],
+    perTick: [1, 'A', 'Chambers loaded per tick. One in, one out, matching the fire.'],
+    unloadWhenIdle: [true, 'A', 'A chamber that has been fired is emptied once it goes idle.'],
+  },
+
   // Which chambers count as preheating / cooling, measured from the fire.
   // Brief says make these settings, not constants.
   windows: {
@@ -172,6 +192,16 @@ const defs = {
     tileRows: [3, 'A', 'HOW MANY TILES A CHAMBER HOLDS IS UNKNOWN (tag U). This is a stack standing in for a load, not a count.'],
     tileCols: [6, 'A', 'See tileRows. Not a count.'],
     tileInset: [0.08, 'A'],
+    /**
+     * Share of one tick a chamber takes to be stacked or emptied.
+     *
+     * Deliberately close to the whole interval. Unloading and reloading are
+     * what the two hours between the fire's moves are FOR, so the work should
+     * visibly fill that window rather than finishing early and leaving the
+     * kiln sitting still — which would suggest the interval is just a pause.
+     * Kept under 1 so a stack always completes before the fire moves again.
+     */
+    tileFillFraction: [0.85, 'A', 'Share of one tick spent stacking or emptying a chamber.'],
     flueWidth: [0.46, 'A'],
     damperRadius: [0.12, 'A'],
     airRibbonWidth: [0.5, 'A', 'Width of the airflow arrow at its widest.'],
@@ -268,11 +298,13 @@ export const PALETTE = {
   sand: '#c8bb99',
   'sand-dim': '#8a7f66',
   'sand-faint': '#574e3e',
-  'heat-0': '#5a1a0e',
-  'heat-1': '#9e2b0b',
-  'heat-2': '#d4560c',
-  'heat-3': '#f08b1a',
-  'heat-4': '#ffe6a8',
+  // Coolest (0) to hottest (4). Mirrors style.css — see the note there on why
+  // this runs yellow -> red rather than the blackbody red -> yellow-white.
+  'heat-0': '#ffe9a3',
+  'heat-1': '#ffd24a',
+  'heat-2': '#f9a826',
+  'heat-3': '#ef6c1a',
+  'heat-4': '#d8321a',
   air: '#9db4b8',
 };
 
@@ -294,9 +326,9 @@ export const PALETTE = {
  * temperatures, and must not read as cold embers.
  */
 export const STAGE_COLOUR = {
-  fire:    { key: 'heat-3',      tag: 'A', note: 'Day 6 replaces this with simulated temperature.' },
-  preheat: { key: 'heat-2',      tag: 'A', note: 'Warming on the exhaust of the chamber behind it.' },
-  cool:    { key: 'heat-1',      tag: 'A', note: 'Still giving up heat to the incoming air.' },
+  fire:    { key: 'heat-4',      tag: 'A', note: 'The hottest end of the ramp. Day 6 replaces this with simulated temperature.' },
+  preheat: { key: 'heat-1',      tag: 'A', note: 'Warming on the exhaust of the chamber behind it.' },
+  cool:    { key: 'heat-2',      tag: 'A', note: 'Still giving up heat to the incoming air.' },
   wait:    { key: 'sand-faint',  tag: 'A', note: 'Cold clay, waiting. Not a temperature.' },
   empty:   { key: 'soot-raised', tag: 'A', note: 'No tiles. Day 9 makes these hollow.' },
 };
@@ -401,6 +433,7 @@ export const DEFAULT_PARAMS = {
   tickSeconds: C.time.tickSeconds,
   speed: 1,
   recovery: true,                                 // heat reuse on by default
+  autoLoad: C.loading.auto,                       // the crew works on its own
   policy: OPEN_QUESTIONS.forkPolicy.value,        // null until the user chooses
   window: { pre: C.windows.preheat, cool: C.windows.cool },
 };

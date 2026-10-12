@@ -22,6 +22,7 @@ export const ACTIONS = [
   'emptyChamber',
   'loadChamber',
   'setRecovery',
+  'setAutoLoad',
   'chooseForkPolicy',
   'setLayer',
   'setEvidenceMode',
@@ -43,8 +44,19 @@ export function stageAt(state, i) {
   const { pre, cool } = state.params.window;
   const offset = (i - state.firePos + count) % count;
 
-  if (!state.chambers[i].loaded) return 'empty';
+  // Nothing is firing until the kiln has been charged and lit. `firePos` is
+  // only where the fire WILL start, so during charging it must not be drawn,
+  // labelled or coloured as a fire that does not yet exist.
+  if (state.phase === 'charging') {
+    return state.chambers[i].loaded ? 'wait' : 'empty';
+  }
+
+  // The fire's position does not depend on whether there are tiles in it.
+  // A chamber can burn with nothing inside — that is exactly what the
+  // "fire empty" fork policy means — so this test comes before the empty one.
   if (offset === 0) return 'fire';
+
+  if (!state.chambers[i].loaded) return 'empty';
   if (offset <= pre) return 'preheat';
   if (offset >= count - cool) return 'cool';
   return 'wait';
@@ -67,7 +79,16 @@ export function heatAt(state, i) {
   const { pre, cool } = state.params.window;
   const H = C.heat;
 
-  if (!state.chambers[i].loaded) return 0;
+  /**
+   * Heat belongs to the CHAMBER, not to what is in it. An empty chamber sitting
+   * in the fire is still hot — that is precisely what makes the "fire empty"
+   * fork costly, fuel spent on nothing. Tying heat to `loaded` would draw that
+   * chamber cold and quietly contradict the choice the fork is asking about.
+   *
+   * The view paints heat onto tiles, so an empty chamber shows nothing anyway.
+   */
+  // A kiln that has not been lit is cold all the way round.
+  if (state.phase === 'charging') return 0;
 
   const offset = (i - state.firePos + count) % count;
   if (offset === 0) return H.firing;
@@ -90,10 +111,14 @@ export function heatAt(state, i) {
 
 function makeChambers(count) {
   return Array.from({ length: count }, () => ({
-    loaded: true,
+    // The kiln starts cold and empty and fills as the first cycle runs, so a
+    // visitor sees tiles going in rather than finding them already there.
+    loaded: !C.loading.startEmpty,
     temp: C.temperature.ambientC,   // Day 6 replaces this with the thermal model
     heat: 0,                        // relative 0-1, simulated. Never degrees.
     stage: 'wait',
+    fired: false,                   // has been through the fire since loading
+    heldEmpty: false,               // emptied by hand: the crew must leave it
   }));
 }
 
@@ -122,6 +147,9 @@ export function createEngine(options = {}) {
       ...options.params,
     },
     fuelIndex: 0,                    // relative units only, never kg or MJ
+    // 'charging' while the cold kiln is being filled, 'running' once lit.
+    // No simulated time passes while charging.
+    phase: C.loading.startEmpty ? 'charging' : 'running',
     paused: true,                    // starts held so the page opens still
     fork: null,                      // set when the fire meets an empty chamber
     ui: { layer: 'structure', evidenceMode: false, fieldOnly: false },
@@ -132,6 +160,123 @@ export function createEngine(options = {}) {
   history.push(state);
 
   /**
+   * The loading crew, run once per tick before the fire moves.
+   *
+   * Two jobs, and the order matters:
+   *   1. A chamber that has been fired and is now idle gets emptied. Those are
+   *      finished tiles coming out.
+   *   2. The empty chamber the fire will reach soonest gets loaded. Green tiles
+   *      going in. One per tick, matching the rate the fire consumes them.
+   *
+   * Working AHEAD of the fire is the whole point. It is also why starting from
+   * an empty kiln works at all: without it the fire would meet an unloaded
+   * chamber on the very first tick and stall before anything had happened.
+   *
+   * A chamber emptied by hand is left alone — see `heldEmpty`. Otherwise the
+   * crew would quietly undo the disruption the fork is there to demonstrate.
+   *
+   * This rhythm is an assumption (config `loading`, tag A). Crew tasks at
+   * Kundapur are unknown.
+   */
+  function runLoadingCrew() {
+    if (!state.params.autoLoad) return;
+
+    const { pre, cool } = state.params.window;
+    const offsetOf = (i) => (i - state.firePos + count) % count;
+
+    /**
+     * The idle slots: past cooling, not yet preheating. Offsets count DOWN as
+     * the fire comes round, so a chamber runs
+     *   ... idle, idle, preheat x3, fire, cool, cool, idle ...
+     * The first idle slot is where fired tiles come out, and the last is where
+     * green tiles go in — loaded there, a chamber rides the whole preheat run
+     * before it burns, which is the point of preheating at all.
+     */
+    const firstIdle = count - cool - 1;
+    const lastIdle = pre + 1;
+
+    // 1. Out: fired tiles leave on the first idle slot.
+    const justUnloaded = new Set();
+    if (C.loading.unloadWhenIdle) {
+      for (let i = 0; i < count; i++) {
+        const ch = state.chambers[i];
+        if (ch.loaded && ch.fired && offsetOf(i) === firstIdle) {
+          ch.loaded = false;
+          ch.fired = false;
+          justUnloaded.add(i);     // one job per tick: do not refill it today
+        }
+      }
+    }
+
+    const canLoad = (i) => {
+      const ch = state.chambers[i];
+      return !ch.loaded && !ch.heldEmpty && !justUnloaded.has(i);
+    };
+
+    // 2. In: green tiles go into the last idle slot, ready for the preheat run.
+    let loads = C.loading.perTick;
+    for (let i = 0; i < count && loads > 0; i++) {
+      if (offsetOf(i) >= lastIdle && offsetOf(i) <= firstIdle && canLoad(i)) {
+        state.chambers[i].loaded = true;
+        state.chambers[i].fired = false;
+        loads--;
+      }
+    }
+
+  }
+
+  /**
+   * Is the kiln charged enough to light? The fire's own chamber and the whole
+   * preheat run ahead of it must hold tiles.
+   */
+  /**
+   * How far ahead the cold kiln is charged before lighting: the fire's own
+   * chamber, the whole preheat run, and the idle slot beyond it.
+   *
+   * That last slot matters. Once running, the crew loads one chamber per tick
+   * at the idle slot measured AFTER the fire has moved, so the slot the fire
+   * is standing next to at the moment of lighting is never its target. Charge
+   * only as far as the preheat run and the kiln stalls a few ticks later on
+   * the one chamber nobody was ever going to fill.
+   */
+  function chargeDepth() {
+    return state.params.window.pre + 1;
+  }
+
+  function isCharged() {
+    for (let step = 0; step <= chargeDepth(); step++) {
+      const i = (state.firePos + step) % count;
+      if (!state.chambers[i].loaded && !state.chambers[i].heldEmpty) return false;
+    }
+    return true;
+  }
+
+  /**
+   * Charging a cold kiln, one chamber per step, before the fire is lit.
+   *
+   * This phase exists to avoid a lie. If the fire advanced from the first step
+   * while the kiln was still empty, the crew would have to load each chamber in
+   * the very tick the fire moved into it — so tiles would appear in a chamber
+   * at the exact moment it caught light, which is not how anything works. A
+   * Hoffmann kiln is charged and then lit.
+   *
+   * No simulated time passes here and no fuel is burned: `tick`, `firePos` and
+   * `fuelIndex` all stay put, so the 2-hour cycle starts when the fire does.
+   */
+  function chargeOneChamber() {
+    for (let step = 0; step <= chargeDepth(); step++) {
+      const i = (state.firePos + step) % count;
+      const ch = state.chambers[i];
+      if (!ch.loaded && !ch.heldEmpty) {
+        ch.loaded = true;
+        ch.fired = false;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
    * Move the fire on by one chamber, or raise the fork if it cannot.
    *
    * Brief section 6.6: when the fire reaches an empty chamber the simulation
@@ -139,18 +284,64 @@ export function createEngine(options = {}) {
    * engine never picks for the user, because what Kundapur does is unknown.
    */
   function advanceTick() {
+    /**
+     * Charging comes before anything else, and before the clock starts. Each
+     * step fills one chamber; the fire is lit only once it has somewhere to
+     * burn and a preheat run ahead of it.
+     */
+    if (state.phase === 'charging') {
+      const didLoad = chargeOneChamber();
+      syncStages(state);
+      // Light once charged — or once there is nothing left the crew is allowed
+      // to load, which happens if a chamber in the charge zone was emptied by
+      // hand. Better to light and stall visibly at the fork than to sit in a
+      // charging phase that can never finish.
+      if (isCharged() || !didLoad) {
+        state.phase = 'running';
+        // The chamber the fire is lit in has had its firing like any other, so
+        // it must be marked for unloading when it comes round to idle. Without
+        // this one chamber would keep its original load for ever.
+        state.chambers[state.firePos].fired = true;
+      }
+      history.push(state);
+      return true;
+    }
+
     const next = (state.firePos + 1) % count;
 
     if (!state.chambers[next].loaded) {
       state.fork = { at: next, from: state.firePos, atTick: state.tick };
       state.paused = true;
       state.subTime = 0;
+      syncStages(state);             // the crew may have moved tiles already
       return false;                  // the fire has not moved
     }
 
     state.firePos = next;
     state.tick += 1;
     state.fuelIndex += C.fuel.perFiringTick;
+
+    // The chamber now in the fire has had its firing. That is what later marks
+    // it ready to be unloaded once it goes idle.
+    state.chambers[next].fired = true;
+
+    /**
+     * The crew works AFTER the fire has moved — during the two hours that
+     * follow, which is when the work actually happens.
+     *
+     * The order matters more than it looks. Run before the advance, a chamber
+     * loaded in the idle slot is pushed straight into the preheat window by
+     * that same advance, so freshly stacked green tiles are drawn as already
+     * warm and never appear cold at all. Run after, a newly loaded chamber
+     * spends a full interval idle and cold before the preheat run reaches it,
+     * which is the truthful order: tiles go in cold, then warm as the fire
+     * comes round.
+     *
+     * Safe because the chamber ahead of the fire is always already loaded by
+     * the time the kiln is running — charging the cold kiln is its own phase.
+     */
+    runLoadingCrew();
+
     syncStages(state);
     history.push(state);
     return true;
@@ -253,6 +444,10 @@ export function createEngine(options = {}) {
         // The firing chamber cannot be emptied: its tiles are in the fire.
         if (i === state.firePos) break;
         state.chambers[i].loaded = false;
+        state.chambers[i].fired = false;
+        // Held open until reloaded by hand. Without this the crew would refill
+        // it on the next tick and the stall could never be demonstrated.
+        state.chambers[i].heldEmpty = true;
         syncStages(state);
         break;
       }
@@ -261,11 +456,17 @@ export function createEngine(options = {}) {
         const i = action.index;
         if (!state.chambers[i]) break;
         state.chambers[i].loaded = true;
+        state.chambers[i].fired = false;
+        state.chambers[i].heldEmpty = false;   // hand it back to the crew
         // Reloading the chamber the fork is waiting on clears the fork.
         if (state.fork && state.fork.at === i) state.fork = null;
         syncStages(state);
         break;
       }
+
+      case 'setAutoLoad':
+        state.params.autoLoad = !!action.value;
+        break;
 
       case 'setRecovery':
         // Stored now, acted on in Day 8. Keeping the action in the vocabulary

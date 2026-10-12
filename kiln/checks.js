@@ -43,6 +43,21 @@ function advance(engine, n) {
   for (let i = 0; i < n; i++) engine.dispatch({ type: 'tick' });
 }
 
+/**
+ * Charge the cold kiln and light it.
+ *
+ * The kiln now starts empty and spends its first few steps being filled, with
+ * no simulated time passing. Every invariant about the FIRING CYCLE therefore
+ * has to start from a lit kiln, or it would be counting charging steps as ticks.
+ */
+function light(engine) {
+  let guard = 0;
+  while (engine.state.phase === 'charging' && guard++ < 64) {
+    engine.dispatch({ type: 'tick' });
+  }
+  return engine;
+}
+
 export function kilnChecks() {
   const count = C.chambers.count;
   console.log(`%c kiln checks %c ${count} chambers, ${C.time.tickHours} h per tick`,
@@ -52,7 +67,7 @@ export function kilnChecks() {
 
   // 1. After a full loop the fire is back where it started.
   results.push(check(`after ${count} ticks the fire returns to its start`, () => {
-    const e = createEngine();
+    const e = light(createEngine());
     const start = e.state.firePos;
     advance(e, count);
     assert(e.state.firePos === start,
@@ -64,7 +79,7 @@ export function kilnChecks() {
 
   // 2. Each chamber fires exactly once per loop.
   results.push(check('each chamber fires exactly once per loop', () => {
-    const e = createEngine();
+    const e = light(createEngine());
     const fired = new Array(count).fill(0);
     fired[e.state.firePos] += 1;              // the chamber alight at tick 0
     for (let i = 0; i < count; i++) {
@@ -86,7 +101,7 @@ export function kilnChecks() {
   results.push(check('an empty chamber always triggers the fork', () => {
     // Try it for every chamber the fire could meet, not just one.
     for (let target = 1; target < count; target++) {
-      const e = createEngine();
+      const e = light(createEngine());
       e.dispatch({ type: 'emptyChamber', index: target });
 
       // Walk up to a full loop; the fork must appear before the fire gets past.
@@ -115,7 +130,7 @@ export function kilnChecks() {
   results.push(check('wait / skip / fire-empty each resolve differently', () => {
     const outcomes = {};
     for (const policy of ['wait', 'skip', 'fireEmpty']) {
-      const e = createEngine();
+      const e = light(createEngine());
       e.dispatch({ type: 'emptyChamber', index: 3 });
       for (let i = 0; i < count && !e.state.fork; i++) e.dispatch({ type: 'tick' });
       assert(e.state.fork, `no fork to resolve for policy "${policy}"`);
@@ -228,7 +243,10 @@ export function kilnChecks() {
   //     Section 4 allows simulated values only in relative units, so this must
   //     never leave 0..1 and must never be read as degrees.
   results.push(check('relative heat stays in 0..1 and grades with distance', () => {
-    const e = createEngine();
+    // The kiln starts cold and empty, so the gradient only exists once it is
+    // lit and running. Charge it, then step into steady state.
+    const e = light(createEngine());
+    for (let i = 0; i < count + 2; i++) e.dispatch({ type: 'tick' });
     const h = e.state.chambers.map((c) => c.heat);
 
     const out = h.filter((v) => !(v >= 0 && v <= 1));
@@ -247,9 +265,17 @@ export function kilnChecks() {
     const aheadN = h[(fire + C.windows.preheat) % count];
     assert(ahead1 > aheadN, `preheat run does not fall: ${ahead1} then ${aheadN}`);
 
-    // An empty chamber holds no heat, because it holds nothing.
-    e.dispatch({ type: 'emptyChamber', index: (fire + 2) % count });
-    assert(e.state.chambers[(fire + 2) % count].heat === 0, 'an empty chamber reports heat');
+    // An empty chamber in the fire is still hot. If this ever reads cold, the
+    // "fire empty" fork would draw as harmless, which is the opposite of true.
+    const e2 = light(createEngine());
+    e2.dispatch({ type: 'emptyChamber', index: 1 });
+    e2.dispatch({ type: 'chooseForkPolicy', policy: 'fireEmpty' });
+    for (let i = 0; i < count && e2.state.firePos !== 1; i++) {
+      e2.dispatch({ type: 'tick' });
+      if (e2.state.fork) e2.dispatch({ type: 'chooseForkPolicy', policy: 'fireEmpty' });
+    }
+    assert(e2.state.chambers[1].heat === C.heat.firing,
+      `an empty chamber being fired reads ${e2.state.chambers[1].heat}, not hot`);
 
     return `fire ${h[fire]}, cooling ${behind1}->${behind2}, preheat ${ahead1}->${aheadN}`;
   }));
@@ -273,7 +299,7 @@ export function kilnChecks() {
   //     throw inside three.js and freeze the whole page, so it is worth
   //     checking after each action rather than only at startup.
   results.push(check('every chamber has a usable heat after every action', () => {
-    const e = createEngine();
+    const e = light(createEngine());
     const bad = [];
     const inspect = (label) => {
       e.state.chambers.forEach((c, i) => {
@@ -300,6 +326,105 @@ export function kilnChecks() {
     assert(missing === 0, `${missing} chambers in the snapshot have no heat`);
 
     return 'finite after tick, empty, load, speed, full loop and scrub';
+  }));
+
+  // 13. The kiln starts empty, charges, and then holds a steady rhythm.
+  results.push(check('the kiln starts empty and fills as it runs', () => {
+    const e = createEngine();
+    const loadedCount = () => e.state.chambers.filter((c) => c.loaded).length;
+
+    assert(loadedCount() === 0, `${loadedCount()} chambers already hold tiles at tick 0`);
+
+    // It must charge without ever stalling: a fork here would mean the crew
+    // cannot keep ahead of the fire from a cold start.
+    for (let i = 0; i < count; i++) {
+      e.dispatch({ type: 'tick' });
+      assert(!e.state.fork, `the fire stalled while charging, at tick ${e.state.tick}`);
+    }
+    const charged = loadedCount();
+    assert(charged > count / 2, `only ${charged} of ${count} chambers filled after a full loop`);
+
+    // Steady state: the fire and the whole preheat run hold tiles, so green
+    // tiles are always being warmed before they burn.
+    for (let i = 0; i < count; i++) e.dispatch({ type: 'tick' });
+    const { pre } = e.state.params.window;
+    for (let step = 0; step <= pre; step++) {
+      const i = (e.state.firePos + step) % count;
+      assert(e.state.chambers[i].loaded,
+        `chamber ${i} is ${step === 0 ? 'firing' : 'preheating'} but holds no tiles`);
+    }
+
+    return `charged to ${charged}, steady at ${loadedCount()} of ${count}`;
+  }));
+
+  // 14. Each chamber is emptied and refilled once per loop, and the crew never
+  //     touches a chamber a person emptied by hand — otherwise the stall could
+  //     not be demonstrated at all.
+  results.push(check('tiles turn over once per loop, and hand-emptying sticks', () => {
+    const e = light(createEngine());
+    for (let i = 0; i < count * 2; i++) e.dispatch({ type: 'tick' });
+
+    const watch = (e.state.firePos + 4) % count;
+    let unloads = 0;
+    let loads = 0;
+    let was = e.state.chambers[watch].loaded;
+    for (let i = 0; i < count; i++) {
+      e.dispatch({ type: 'tick' });
+      const now = e.state.chambers[watch].loaded;
+      if (was && !now) unloads++;
+      if (!was && now) loads++;
+      was = now;
+    }
+    assert(unloads === 1 && loads === 1,
+      `chamber ${watch} was emptied ${unloads}x and filled ${loads}x in one loop`);
+
+    // Hand-emptied chambers stay empty.
+    const held = (e.state.firePos + 3) % count;
+    e.dispatch({ type: 'emptyChamber', index: held });
+    e.dispatch({ type: 'tick' });
+    assert(!e.state.chambers[held].loaded,
+      `the crew refilled chamber ${held} after it was emptied by hand`);
+
+    return `one out, one in per loop; hand-emptied chambers are left alone`;
+  }));
+
+  // 15. Green tiles go in COLD.
+  //     A chamber must spend a whole interval idle after it is loaded, before
+  //     the preheat run reaches it. Without that the crew's work lands in the
+  //     same tick the fire moves, the chamber is reclassified as preheating
+  //     immediately, and freshly stacked tiles are drawn already warm — which
+  //     says the kiln warms tiles before they are in it.
+  results.push(check('a chamber is loaded cold, and warms only afterwards', () => {
+    const e = light(createEngine());
+    const { pre } = e.state.params.window;
+    const coldest = Math.min(C.heat.waiting, C.heat.lastPreheat);
+
+    let checked = 0;
+    const was = e.state.chambers.map((c) => c.loaded);
+    for (let t = 0; t < count * 2; t++) {
+      e.dispatch({ type: 'tick' });
+      for (let i = 0; i < count; i++) {
+        const justLoaded = !was[i] && e.state.chambers[i].loaded;
+        was[i] = e.state.chambers[i].loaded;
+        if (!justLoaded) continue;
+        checked++;
+        assert(e.state.chambers[i].stage === 'wait',
+          `chamber ${i} was loaded straight into "${e.state.chambers[i].stage}"`);
+        assert(e.state.chambers[i].heat <= coldest + 1e-9,
+          `chamber ${i} was loaded at heat ${e.state.chambers[i].heat}, not cold`);
+      }
+    }
+    assert(checked > 0, 'no chamber was loaded during two full loops');
+
+    // And it must actually warm afterwards, or preheating would mean nothing.
+    const warm = [];
+    for (let step = 1; step <= pre; step++) {
+      warm.push(e.state.chambers[(e.state.firePos + step) % count].heat);
+    }
+    assert(warm.every((h, k) => k === 0 || h <= warm[k - 1]),
+      `preheat run does not rise toward the fire: ${warm.join(', ')}`);
+
+    return `${checked} loads, every one cold at ${C.heat.waiting}, warming to ${warm[0]} at the fire`;
   }));
 
   const passed = results.filter((r) => r.pass).length;

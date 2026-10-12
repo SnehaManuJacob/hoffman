@@ -17,9 +17,9 @@
  *   4. Centred wordmark, navigation left, pill control right.
  *
  * WHY INVERTED
- * Son Daven is dark-on-sand. Brief section 9 needs a dark ground so the
- * blackbody ramp can glow — a yellow-white peak is invisible on khaki. So the
- * palette is kept and the value flipped. The pay-off is that heat becomes the
+ * Son Daven is dark-on-sand. Brief section 9 needs a dark ground so the heat
+ * ramp can glow — a hot chamber is invisible on khaki. So the palette is kept
+ * and the value flipped. The pay-off is that heat becomes the
  * ONLY chroma on the page: a cold kiln is clay and soot, and fire is the single
  * thing that brings colour into it. That sharpens section 9's rule rather than
  * bending it.
@@ -42,15 +42,25 @@
   --sand-faint:  #574e3e;
 
   /**
-   * Blackbody heat ramp: dull red -> orange -> yellow-white.
-   * THE ONLY CHROMA ON THE PAGE. Reserved for temperature. If a thing is not
-   * hot, it may not use these.
+   * The heat ramp, ordered coolest (0) to hottest (4).
+   * THE ONLY CHROMA ON THE PAGE. Reserved for
+   * temperature — if a thing is not hot, it may not use these.
+   *
+   * NOT a blackbody ramp, and deliberately so. Section 9 asks for dull red ->
+   * orange -> yellow-white, which is how incandescence really works: a cooling
+   * ember is dull red, a furnace at peak glows yellow-white. This inverts that,
+   * putting red at the fire and yellow out at the cooler chambers.
+   *
+   * It is a diagrammatic convention rather than a physical one, taken from the
+   * kiln section drawing this view is modelled on, where the hottest zone is
+   * drawn red and the cooling run fades through orange to yellow. Chosen for
+   * legibility; worth knowing it is a drawing decision, not optics.
    */
-  --heat-0: #5a1a0e;
-  --heat-1: #9e2b0b;
-  --heat-2: #d4560c;
-  --heat-3: #f08b1a;
-  --heat-4: #ffe6a8;
+  --heat-0: #ffe9a3;   /* barely warm */
+  --heat-1: #ffd24a;
+  --heat-2: #f9a826;
+  --heat-3: #ef6c1a;
+  --heat-4: #d8321a;   /* the fire */
 
   /** One cool pale tone. RESERVED FOR AIR (Day 7). Nothing else may use it. */
   --air:     #9db4b8;
@@ -388,7 +398,7 @@ input:focus-visible {
 }
 
 /* The firing row is the only place heat colour appears outside the ring. */
-.debug-pane tr.is-fire td { color: var(--heat-3); }
+.debug-pane tr.is-fire td { color: var(--heat-4); }
 .debug-pane tr.is-empty td { color: var(--sand-faint); }
 
 .debug-pane button {
@@ -411,9 +421,9 @@ input:focus-visible {
   font-family: var(--font-mono);
   font-size: var(--fs-micro);
   line-height: 1.5;
-  color: var(--heat-4);
-  background: var(--heat-0);
-  border: 1px solid var(--heat-2);
+  color: var(--soot);
+  background: var(--heat-3);
+  border: 1px solid var(--heat-4);
   padding: var(--space-2);
   margin-bottom: var(--space-3);
 }

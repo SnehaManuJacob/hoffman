@@ -22,6 +22,10 @@ export function createHistory() {
       fuelIndex: state.fuelIndex,
       chambers: state.chambers.map((c) => ({
         loaded: c.loaded,
+        // Whether a chamber has had its firing, and whether it is being held
+        // open by hand, both belong to the moment the snapshot describes.
+        fired: c.fired,
+        heldEmpty: c.heldEmpty,
         temp: c.temp,
         // Relative heat, simulated. Recorded because a snapshot has to describe
         // the whole moment: scrubbing back (Day 5) and the chart that reads

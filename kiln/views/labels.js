@@ -92,9 +92,22 @@ export function createLabels(layerEl, ring) {
     const h = renderer.domElement.clientHeight;
     const placed = [];
 
+    /**
+     * Before the kiln is lit there is no fire, no draught and no zones, so the
+     * labels that describe them have nothing to point at. The parts of the
+     * building are still worth naming while it fills.
+     */
+    const unlit = state.phase === 'charging';
+    const needsFire = new Set(['zoneFire', 'zonePreheat', 'zoneCool', 'airIn', 'dampers', 'stokeHoles']);
+
     for (const anchor of ring.anchors(state)) {
       if (!LABEL_TEXT[anchor.id]) continue;
       const el = elementFor(anchor.id);
+
+      if (unlit && needsFire.has(anchor.id)) {
+        el.classList.add('is-hidden');
+        continue;
+      }
 
       projected.copy(anchor.pos).project(camera);
 

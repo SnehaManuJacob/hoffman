@@ -24,10 +24,36 @@ function contextFor(state) {
     };
   }
 
+  // Charging: the kiln is being filled and has not been lit. No fire, no
+  // clock, nothing travelling — and saying so stops the pause reading as a bug.
+  if (state.phase === 'charging') {
+    const filled = state.chambers.filter((c) => c.loaded).length;
+    if (filled === 0) {
+      return {
+        line: `An empty kiln. Before anything can burn, the chambers have to be stacked with tiles.`,
+        qualifier: `Press step or play to start loading. The clock does not run until the fire is lit.`,
+      };
+    }
+    return {
+      line: `Loading. ${filled} of ${state.chambers.length} chambers stacked so far, working ahead of where the fire will start.`,
+      qualifier: `Nothing is burning yet. How the crew actually works at Kundapur is not known.`,
+    };
+  }
+
   if (state.paused && state.tick === 0) {
     return {
-      line: `Eight chambers, one fire. Press play and watch which one is burning.`,
-      qualifier: `The fire moves to the next chamber every ${C.time.tickHours} hours. The tiles never move.`,
+      line: `The kiln is lit. Chamber ${fire} is burning, and the tiles ahead of it are already waiting.`,
+      qualifier: `The fire moves to the next chamber every ${C.time.tickHours} hours. The tiles never move again.`,
+    };
+  }
+
+  // The first loop is the kiln being charged, which looks different enough from
+  // the steady rhythm to be worth saying out loud.
+  const empty = state.chambers.filter((c) => !c.loaded).length;
+  if (empty > 1) {
+    return {
+      line: `Chamber ${fire} is firing while the kiln is still being filled. Tiles are loaded ahead of the fire, never behind it.`,
+      qualifier: `${empty} chambers are still empty. How the crew actually works at Kundapur is not known.`,
     };
   }
 
