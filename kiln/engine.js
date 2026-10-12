@@ -97,49 +97,6 @@ export function flowPath(state) {
   return path;
 }
 
-/**
- * Heat a chamber gives up to the gas passing through it, in one sub-step.
- * Positive means the chamber is the hotter of the two.
- *
- * Written once and used twice: by the integration that moves temperatures, and
- * by the read-only walk the airflow arrow is drawn from. Two copies of this
- * rule would let the picture and the model drift apart.
- */
-function exchangeQ(chamberTemp, gasTemp, dt) {
-  return C.thermalModel.exchangeRate * (chamberTemp - gasTemp) * dt;
-}
-
-/**
- * The gas temperature along the flow path, as it is right now.
- *
- * PURE — it reads chamber temperatures and changes nothing. That matters more
- * than it looks: a profile recorded during integration would go stale the
- * moment anyone scrubbed back, because scrubbing restores temperatures without
- * integrating. Derived on demand, it is always right, including mid-scrub, and
- * nothing extra has to go into history.
- *
- * Returns one entry per chamber on the path: the gas going in, and coming out.
- * That is what makes the airflow arrow's thickness mean something — it is the
- * energy the gas is actually carrying at that point, not a drawn envelope.
- */
-export function gasProfile(state) {
-  const M = C.thermalModel;
-  const dt = M.subStepHours;
-  let gas = C.temperature.ambientC;
-
-  return flowPath(state).map((i) => {
-    const ch = state.chambers[i];
-    const gasIn = gas;
-
-    gas += exchangeQ(ch.temp, gas, dt) / M.gasMass;
-
-    // Leaving the fire, the gas is at least as hot as the chamber burning.
-    if (i === state.firePos) gas = Math.max(gas, ch.temp);
-
-    return { chamber: i, gasIn, gasOut: gas, isFire: i === state.firePos };
-  });
-}
-
 function makeChambers(count) {
   return Array.from({ length: count }, () => ({
     // The kiln starts cold and empty and fills as the first cycle runs, so a
@@ -245,8 +202,9 @@ export function createEngine(options = {}) {
       for (const i of path) {
         const ch = state.chambers[i];
 
-        // Gas and chamber trade heat. Same rule the arrow is drawn from.
-        const q = exchangeQ(ch.temp, gas, dt);
+        // Gas and chamber trade heat. Positive q means the chamber is the
+        // hotter of the two and is giving heat up to the gas.
+        const q = M.exchangeRate * (ch.temp - gas) * dt;
         ch.temp -= q / M.chamberMass;
         gas += q / M.gasMass;
 

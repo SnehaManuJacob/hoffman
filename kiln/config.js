@@ -188,8 +188,6 @@ const defs = {
     stokeHolesPerChamber: [5, 'A', 'The holes are field-documented; how many per chamber is not.'],
     stokeHoleRadius: [0.085, 'A', 'Drawn large enough to read as an opening at the size the kiln is shown.'],
 
-    wicketWidth: [0.62, 'A'],
-    wicketHeight: [0.34, 'A'],
 
     ductWidth: [0.52, 'A', 'Width of the flue duct running inside the chambers.'],
     ductHeight: [0.3, 'A'],
@@ -224,14 +222,15 @@ const defs = {
      * Kept under 1 so a stack always completes before the fire moves again.
      */
     tileFillFraction: [0.85, 'A', 'Share of one tick spent stacking or emptying a chamber.'],
-    flueWidth: [0.46, 'A', 'Width of the flue corridor void.'],
-    flueWallThickness: [0.1, 'A', 'Masonry either side of the corridor, so it reads as a passage cut through structure rather than a stripe.'],
-    islandInset: [0.1, 'A', 'Gap between the corridor and the inner wall sections. Small: the sections sit right against the corridor wall.'],
-    channelWidth: [1.15, 'A', 'The passage between the two inner wall sections. The exhaust reaches the chimney through this, so it is structure, not a gap left over — it must never be walled across.'],
-    blockWallThickness: [0.34, 'A', 'Masonry of each inner wall section. They are hollow rings, not solid slabs.'],
-    blockCornerRadius: [0.48, 'A'],
-    chimneyVoidRadius: [0.8, 'A', 'The circular widening of the channel the chimney stands in. Wider than the channel, so it bites into the facing edge of each wall section — but not so far that it breaks through into their hollow interiors.'],
-    damperWidth: [0.22, 'A', 'Half-width of a damper opening, as a share of the chamber length. Matches the wicket door, because both are openings cut through a wall.'],
+    flueWidth: [0.46, 'A'],
+    /**
+     * Wicket doors and dampers are both openings cut through a chamber wall,
+     * so both are measured the same way: a share of the chamber's length.
+     * The wicket goes through the OUTER wall, where tiles come and go; the
+     * damper goes through the INNER one, into the flue.
+     */
+    wicketWidthFraction: [0.44, 'A', 'Share of the chamber length the doorway takes up.'],
+    damperWidthFraction: [0.3, 'A', 'Share of the chamber length the flue opening takes up.'],
     airRibbonWidth: [0.34, 'A', 'Width of the airflow arrow at its widest. The stacks now sit across each end of the chamber, so the arrow crosses them — as the gas does, threading between loosely stacked tiles.'],
     zoneBandWidth: [0.26, 'A'],
     zoneBandOffset: [0.42, 'A', 'How far outside the kiln wall the zone band sits.'],
