@@ -110,13 +110,32 @@ function rectXZ(cx, cz, w, d, y) {
 }
 
 /** A closed outline following a loop path at a normal offset. */
-function pathOutline(path, offset, y, steps = 240) {
+function pathOutline(path, offset, y, steps = 240, dx = 0) {
   const pts = [];
   for (let i = 0; i < steps; i++) {
     const { x, z, nx, nz } = path.at(i / steps);
-    pts.push(new THREE.Vector3(x + nx * offset, y, z + nz * offset));
+    pts.push(new THREE.Vector3(x + nx * offset + dx, y, z + nz * offset));
   }
   return new THREE.BufferGeometry().setFromPoints(pts);
+}
+
+/**
+ * A loop path filled in as a solid shape, optionally shifted along x.
+ *
+ * THREE.Shape works in XY and rotateX(-90) sends y to -z, so the path's z is
+ * fed in negated to come out the right way round.
+ */
+function filledPath(path, y, dx = 0, steps = 160) {
+  const shape = new THREE.Shape();
+  for (let i = 0; i <= steps; i++) {
+    const p = path.at(i / steps);
+    if (i === 0) shape.moveTo(p.x + dx, -p.z);
+    else shape.lineTo(p.x + dx, -p.z);
+  }
+  const g = new THREE.ShapeGeometry(shape);
+  g.rotateX(-Math.PI / 2);
+  g.translate(0, y, 0);
+  return g;
 }
 
 function componentGroup(id) {
@@ -408,63 +427,70 @@ export function createRing(canvas, options = {}) {
   // ------------------------------------------------------- inner wall + channel
   /**
    * A — the wall immediately inside the chambers, in TWO SECTIONS: one left of
-   * the chimney, one right. The gap between them is the passage the exhaust
-   * takes from whichever damper is open, along the corridor, and in to the
-   * chimney.
+   * the chimney, one right. Each is a hollow ring of masonry, not a solid
+   * slab. The gap between them is the passage the exhaust takes from whichever
+   * damper is open, along the corridor, and in to the chimney — and at the
+   * chimney that passage widens into a circle, biting into the facing edge of
+   * each section.
    *
-   * That passage is structure, not a gap left over. Walling across it — which
-   * an earlier version did, with a spine down the middle and a ring around the
-   * chimney — leaves the kiln with no way to vent, and the arrow drawn through
-   * solid masonry.
+   * That passage is structure, not a gap left over. Walling across it leaves
+   * the kiln with no way to vent and the airflow arrow drawn through solid
+   * masonry.
    */
   const islandDrop = halfFlue + wallT + P.islandInset;
-  const islandPath = createLoopPath({
-    topology: C.form.topology,
-    width: C.form.width - (ductInset + islandDrop) * 2,
-    depth: C.form.depth - (ductInset + islandDrop) * 2,
-    cornerRadius: Math.max(0.3, C.form.cornerRadius - (ductInset + islandDrop) * 0.5),
+  const islandW = C.form.width - (ductInset + islandDrop) * 2;
+  const islandD = C.form.depth - (ductInset + islandDrop) * 2;
+
+  const channelHalf = P.channelWidth / 2;
+  const blockW = (islandW - P.channelWidth) / 2;
+  const blockCX = channelHalf + blockW / 2;
+
+  const blockOuter = createLoopPath({
+    topology: 'racetrack',
+    width: blockW,
+    depth: islandD,
+    cornerRadius: Math.min(P.blockCornerRadius, blockW / 2, islandD / 2),
+  });
+  const blockInner = createLoopPath({
+    topology: 'racetrack',
+    width: blockW - P.blockWallThickness * 2,
+    depth: islandD - P.blockWallThickness * 2,
+    cornerRadius: Math.max(0.1, P.blockCornerRadius - P.blockWallThickness),
   });
 
-  // The island as one filled shape...
-  const islandShape = new THREE.Shape();
-  for (let i = 0; i <= 160; i++) {
-    const p = islandPath.at(i / 160);
-    // Shape works in XY and rotateX(-90) maps y to -z, so feed it -z for z.
-    if (i === 0) islandShape.moveTo(p.x, -p.z);
-    else islandShape.lineTo(p.x, -p.z);
-  }
-  const islandGeo = new THREE.ShapeGeometry(islandShape);
-  islandGeo.rotateX(-Math.PI / 2);
-  islandGeo.translate(0, Y.flue, 0);
-  ductGroup.add(new THREE.Mesh(islandGeo, masonry));
-  ductGroup.add(new THREE.LineLoop(pathOutline(islandPath, 0, Y.outline), hairline));
+  const soot = () => new THREE.MeshBasicMaterial({
+    color: new THREE.Color(PALETTE.soot), side: THREE.DoubleSide,
+  });
 
-  // ...then the channel cut straight through it, splitting it into the two
-  // sections. Drawn over the fill rather than cut out of it: the result is the
-  // same two sections, and the geometry stays simple enough to trust.
-  const channelHalf = P.channelWidth / 2;
-  const islandHalfDepth = (C.form.depth - (ductInset + islandDrop) * 2) / 2;
-  ductGroup.add(new THREE.Mesh(
-    rectXZ(0, 0, P.channelWidth, islandHalfDepth * 2 + 0.1, Y.damper),
-    new THREE.MeshBasicMaterial({ color: new THREE.Color(PALETTE.soot), side: THREE.DoubleSide }),
-  ));
-
-  // The two cut edges, so the sections read as walls rather than a painted gap.
-  for (const sx of [-channelHalf, channelHalf]) {
-    ductGroup.add(new THREE.Line(
-      new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(sx, Y.outline, -islandHalfDepth),
-        new THREE.Vector3(sx, Y.outline, islandHalfDepth),
-      ]), hairline,
-    ));
+  for (const sx of [-blockCX, blockCX]) {
+    ductGroup.add(new THREE.Mesh(filledPath(blockOuter, Y.flue, sx), masonry));
+    // Hollow: each section is a ring, so the inside comes back out again.
+    ductGroup.add(new THREE.Mesh(filledPath(blockInner, Y.flue + 0.002, sx), soot()));
+    ductGroup.add(new THREE.LineLoop(pathOutline(blockOuter, 0, Y.outline, 240, sx), hairline));
+    ductGroup.add(new THREE.LineLoop(pathOutline(blockInner, 0, Y.outline, 240, sx), hairline));
   }
 
   // ----------------------------------------------------------------- chimney
-  // L — the draught that pulls everything through. It stands IN the channel,
-  // open to it on both sides, so nothing between the dampers and the flue is
-  // obstructed. Invented position.
+  // L — the draught that pulls everything through. It stands in the channel,
+  // in a circular widening of it, open to the passage on both sides so nothing
+  // between the dampers and the flue is obstructed. Invented position.
   const chimneyGroup = componentGroup('chimney');
   root.add(chimneyGroup);
+
+  // The circular void the chimney stands in, cut through both wall sections.
+  const voidGeo = new THREE.CircleGeometry(P.chimneyVoidRadius, 48);
+  voidGeo.rotateX(-Math.PI / 2);
+  chimneyGroup.add(new THREE.Mesh(voidGeo, soot()).translateY(Y.damper + 0.002));
+  chimneyGroup.add(new THREE.LineLoop(
+    new THREE.BufferGeometry().setFromPoints(
+      Array.from({ length: 48 }, (_, k) => {
+        const a = (k / 48) * Math.PI * 2;
+        return new THREE.Vector3(
+          Math.cos(a) * P.chimneyVoidRadius, Y.outline, Math.sin(a) * P.chimneyVoidRadius,
+        );
+      }),
+    ), hairline,
+  ));
 
   const chimneyGeo = new THREE.CircleGeometry(P.chimneyRadius, 32);
   chimneyGeo.rotateX(-Math.PI / 2);
