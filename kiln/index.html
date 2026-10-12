@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>A Kiln on Schedule</title>
+  <link rel="stylesheet" href="style.css">
+
+  <!--
+    three.js is vendored locally (kiln/vendor/) rather than loaded from a CDN so
+    the prototype runs with no internet on the exhibition laptop. The import map
+    lets view modules write `import * as THREE from 'three'` with no build step.
+  -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "./vendor/three.module.js"
+    }
+  }
+  </script>
+
+  <!--
+    d3 is the self-contained UMD bundle, loaded as a global rather than through
+    the import map: d3's ES-module build re-exports from absolute CDN URLs and
+    would need the network. views/chart.js reads window.d3. Day 5.
+  -->
+  <script src="./vendor/d3.min.js"></script>
+</head>
+<body>
+
+  <!--
+    Top bar: layer tabs left, wordmark centred, evidence pill right.
+    Brief section 3 asks for title, layer tabs and the evidence toggle at right;
+    centring the wordmark follows the visual language without losing any of it.
+  -->
+  <header class="topbar">
+    <nav class="tabs" id="layer-tabs" aria-label="Layers">
+      <button class="tab is-active" data-layer="structure">Structure</button>
+      <button class="tab" data-layer="time">Time</button>
+      <button class="tab" data-layer="heat">Heat</button>
+      <button class="tab" data-layer="stall">Stall</button>
+    </nav>
+
+    <h1 class="wordmark">A Kiln on Schedule</h1>
+
+    <label class="pill">
+      <input type="checkbox" id="evidence-mode">
+      <span>Show evidence</span>
+    </label>
+  </header>
+
+  <main class="stage">
+
+    <!-- Hero: the ring. Three.js renders into this canvas. -->
+    <section class="ring-pane">
+      <canvas id="ring-canvas"></canvas>
+
+      <!-- Component labels, projected from the 3D scene each frame. -->
+      <div id="label-layer" class="label-layer" aria-hidden="true"></div>
+
+      <div class="transport" id="transport">
+        <button id="btn-play" class="ctrl">Play</button>
+        <button id="btn-step" class="ctrl">Step</button>
+        <label class="speed">
+          Speed
+          <input type="range" id="speed" min="0.25" max="4" step="0.25" value="1">
+          <output id="speed-out">1&times;</output>
+        </label>
+
+        <!-- Simulated hours elapsed. 2 h per tick is the one hard field fact. -->
+        <div class="clock" data-ev="F">
+          <span class="clock-value" id="clock-value">0</span>
+          <span class="clock-unit">h elapsed</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right column: space-time chart (Day 5), then context panel -->
+    <aside class="side">
+      <section class="chart-pane">
+        <h2 class="pane-title">Space &amp; time</h2>
+        <div id="chart" class="chart-placeholder">
+          <p class="muted">Space&ndash;time chart comes later</p>
+        </div>
+      </section>
+
+      <section class="context-pane">
+        <h2 class="pane-title">What is happening</h2>
+        <div id="context" class="context"></div>
+      </section>
+
+      <!-- Day 3 debug table. Plain and unstyled on purpose. -->
+      <section class="debug-pane">
+        <h2 class="pane-title">Debug</h2>
+        <div id="debug"></div>
+      </section>
+    </aside>
+
+  </main>
+
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

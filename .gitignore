@@ -1,0 +1,5 @@
+.DS_Store
+*.log
+
+# Vendored libraries are committed on purpose: the exhibition laptop must run
+# with no internet, so three.js and d3 live in kiln/vendor/ rather than a CDN.
