@@ -156,6 +156,9 @@ export function createRing(canvas, options = {}) {
   const Y = {
     masonry: 0, floor: 0.01, tiles: 0.02, wall: 0.03,
     flue: 0.04, damper: 0.05, air: 0.06, outline: 0.07,
+    // The island fills the middle, inside the duct, so it never overlaps the
+    // band geometry — its height only has to sit under the chimney.
+    island: 0.035,
     // Stoke holes sit above the airflow arrow. They are openings in the roof,
     // so nothing inside the kiln can be drawn over them — and the arrow runs
     // down the same centre line, which hid them completely until now.
@@ -357,6 +360,73 @@ export function createRing(canvas, options = {}) {
     bandOutline(ductPath, 0, 1, -P.flueWidth / 2, P.flueWidth / 2, Y.outline, 240),
     new THREE.LineBasicMaterial({ color: new THREE.Color(PALETTE['sand-faint']) }),
   ));
+
+  // ------------------------------------------------------------------ island
+  // A — the solid middle of the kiln, with a channel cut through it.
+  //
+  // The channel runs top to bottom and is open at BOTH ends, where it meets
+  // the flue duct. That opening is the whole point: it is how exhaust leaving
+  // an open damper reaches the chimney at the centre. Without it the chimney
+  // would be a circle with no way into it, and the gas would have nowhere to go.
+  //
+  // What is actually inside the middle of a Kundapur kiln was not seen.
+  const islandGroup = componentGroup('kilnIsland');
+  root.add(islandGroup);
+
+  const islandHalfW = (C.form.width - ductInset * 2) / 2 - P.flueWidth / 2 - P.islandInset;
+  const islandHalfD = (C.form.depth - ductInset * 2) / 2 - P.flueWidth / 2 - P.islandInset;
+  const channelHalf = P.channelWidth / 2;
+
+  /**
+   * One block of the island. `side` is -1 for the left half, +1 for the right.
+   *
+   * Built as a Shape rather than a band because it is the only part of the
+   * kiln that is not a strip following the loop: it is a slab with a corner
+   * radius and a semicircular bite taken out of its inner edge, and the bite
+   * is what opens the space around the chimney.
+   */
+  function islandBlock(side) {
+    const r = P.islandCornerRadius;
+    const notch = P.chimneyVoidRadius;
+    const innerX = side * channelHalf;
+    const outerX = side * islandHalfW;
+    const hz = islandHalfD;
+
+    const shape = new THREE.Shape();
+    shape.moveTo(innerX, -hz);
+    shape.lineTo(outerX - side * r, -hz);
+    shape.quadraticCurveTo(outerX, -hz, outerX, -hz + r);
+    shape.lineTo(outerX, hz - r);
+    shape.quadraticCurveTo(outerX, hz, outerX - side * r, hz);
+    shape.lineTo(innerX, hz);
+    shape.lineTo(innerX, notch);
+    // The bite. It curves away from the channel, into the block, so the two
+    // blocks together leave a rounded void with the chimney sitting in it.
+    shape.absarc(innerX, 0, notch, Math.PI / 2, Math.PI * 1.5, side > 0);
+    shape.lineTo(innerX, -hz);
+    shape.closePath();
+    return shape;
+  }
+
+  for (const side of [-1, 1]) {
+    const shape = islandBlock(side);
+
+    const geo = new THREE.ShapeGeometry(shape, 24);
+    geo.rotateX(-Math.PI / 2);          // shape XY -> kiln XZ
+    geo.translate(0, Y.island, 0);
+    islandGroup.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+      color: new THREE.Color(PALETTE['soot-raised']), side: THREE.DoubleSide,
+    })));
+
+    // An edge, so the masonry reads as a solid rather than a hole in the page.
+    const pts = shape.getPoints(24);
+    islandGroup.add(new THREE.LineLoop(
+      new THREE.BufferGeometry().setFromPoints(
+        pts.map((p) => new THREE.Vector3(p.x, Y.outline, -p.y)),
+      ),
+      new THREE.LineBasicMaterial({ color: new THREE.Color(PALETTE['sand-faint']) }),
+    ));
+  }
 
   // ----------------------------------------------------------------- chimney
   // L — the draught that pulls everything through. Invented position.
@@ -801,7 +871,7 @@ export function createRing(canvas, options = {}) {
     segments, path, ductPath, scene, camera, renderer, tileMeshes,
     groups: {
       massGroup, chambersGroup, tilesGroup, wallsGroup, wicketGroup,
-      stokeGroup, ductGroup, chimneyGroup, damperGroup, airGroup,
+      stokeGroup, ductGroup, islandGroup, chimneyGroup, damperGroup, airGroup,
     },
   };
 }

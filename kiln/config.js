@@ -231,6 +231,22 @@ const defs = {
      */
     wicketWidthFraction: [0.44, 'A', 'Share of the chamber length the doorway takes up.'],
     damperWidthFraction: [0.3, 'A', 'Share of the chamber length the flue opening takes up.'],
+
+    /**
+     * The island: the solid middle of the kiln, inside the flue duct.
+     *
+     * Split in two by a channel running top to bottom, open at both ends so it
+     * meets the duct there. That channel is the route exhaust takes from an
+     * open damper to the chimney at the centre — without it the chimney would
+     * be a circle with no way into it.
+     *
+     * What is actually inside the middle of the kiln at Kundapur was not seen.
+     * All of this is a drawing decision.
+     */
+    islandInset: [0.25, 'A', 'Gap between the flue duct and the island, so the two read as separate.'],
+    channelWidth: [0.9, 'A', 'Width of the open channel from the duct to the chimney.'],
+    chimneyVoidRadius: [0.55, 'A', 'How far the blocks are cut back around the chimney.'],
+    islandCornerRadius: [0.35, 'A'],
     airRibbonWidth: [0.34, 'A', 'Width of the airflow arrow at its widest. The stacks now sit across each end of the chamber, so the arrow crosses them — as the gas does, threading between loosely stacked tiles.'],
     zoneBandWidth: [0.26, 'A'],
     zoneBandOffset: [0.42, 'A', 'How far outside the kiln wall the zone band sits.'],
@@ -415,6 +431,10 @@ export const COMPONENTS = {
   flueDuct: {
     label: 'Flue duct', tag: 'L',
     note: 'Dampers and flues route the gas to a chimney. The duct path at Kundapur was not observed.',
+  },
+  kilnIsland: {
+    label: 'Kiln island', tag: 'A',
+    note: 'The solid middle of the kiln, split by a channel that carries exhaust from an open damper to the chimney. That a central flue reaches a chimney is literature (tag L); this particular arrangement — two blocks, one channel, open top and bottom — is a drawing decision. What is actually inside the middle of the kiln at Kundapur was not seen.',
   },
   chimney: {
     label: 'Chimney', tag: 'L',
