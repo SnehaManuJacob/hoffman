@@ -69,6 +69,22 @@ export function createHistory() {
       return snapshots.length ? Math.max(...snapshots.map((s) => s.tick)) : -1;
     },
 
+    /**
+     * Drop every snapshot after `tick`.
+     *
+     * Needed the moment the run diverges. Scrub back to tick 5, empty a
+     * chamber, press play: the engine records a fresh tick 6, but ticks 7
+     * onward from the OLD run are still sitting here, and the chart would
+     * happily draw a future that is no longer going to happen.
+     */
+    truncateAfter(tick) {
+      const before = snapshots.length;
+      for (let i = snapshots.length - 1; i >= 0; i--) {
+        if (snapshots[i].tick > tick) snapshots.splice(i, 1);
+      }
+      return before - snapshots.length;
+    },
+
     clear() {
       snapshots.length = 0;
     },

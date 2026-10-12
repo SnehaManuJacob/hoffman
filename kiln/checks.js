@@ -427,6 +427,92 @@ export function kilnChecks() {
     return `${checked} loads, every one cold at ${C.heat.waiting}, warming to ${warm[0]} at the fire`;
   }));
 
+  // 16. Scrubbing replays what was recorded, exactly.
+  //     If this drifts, the chart and the kiln stop agreeing and the whole
+  //     point of having a history collapses.
+  results.push(check('scrubbing restores exactly what history recorded', () => {
+    const e = light(createEngine());
+    for (let i = 0; i < count * 2; i++) e.dispatch({ type: 'tick' });
+
+    for (const tick of [1, 3, count, count + 5]) {
+      const snap = e.history.at(tick);
+      assert(snap, `no snapshot for tick ${tick}`);
+      e.dispatch({ type: 'scrubTo', tick });
+
+      assert(e.state.tick === snap.tick, `tick ${e.state.tick} != ${snap.tick}`);
+      assert(e.state.firePos === snap.firePos,
+        `at tick ${tick}: firePos ${e.state.firePos} != recorded ${snap.firePos}`);
+      assert(e.state.fuelIndex === snap.fuelIndex,
+        `at tick ${tick}: fuelIndex ${e.state.fuelIndex} != recorded ${snap.fuelIndex}`);
+
+      const wrong = e.state.chambers
+        .map((c, i) => (c.loaded !== snap.chambers[i].loaded ? i : -1))
+        .filter((i) => i >= 0);
+      assert(wrong.length === 0, `at tick ${tick}, chambers ${wrong} differ from the record`);
+      assert(e.state.paused === true, 'scrubbing did not pause the kiln');
+    }
+    return `replayed ticks 1, 3, ${count} and ${count + 5}`;
+  }));
+
+  // 17. Scrubbing cannot leave the record. There is no future to drag into,
+  //     and nothing before the kiln was lit.
+  results.push(check('scrubbing cannot leave the recorded run', () => {
+    const e = light(createEngine());
+    for (let i = 0; i < count; i++) e.dispatch({ type: 'tick' });
+    const last = e.history.lastTick;
+
+    e.dispatch({ type: 'scrubTo', tick: last + 5 });
+    assert(e.state.tick <= last, `scrubbed to ${e.state.tick}, past the end at ${last}`);
+
+    e.dispatch({ type: 'scrubTo', tick: -3 });
+    assert(e.state.tick >= 0, `scrubbed to ${e.state.tick}, before the start`);
+
+    // And before the kiln is lit there is nothing to scrub to at all.
+    const cold = createEngine();
+    cold.dispatch({ type: 'tick' });                 // one charging step
+    const phaseBefore = cold.state.phase;
+    cold.dispatch({ type: 'scrubTo', tick: 0 });
+    assert(cold.state.phase === phaseBefore, 'scrubbing disturbed the charging kiln');
+
+    return `clamped to 0..${last}, inert while charging`;
+  }));
+
+  // 18. A future that will no longer happen must be dropped.
+  results.push(check('a diverged future is dropped from the record', () => {
+    const e = light(createEngine());
+    for (let i = 0; i < count * 2; i++) e.dispatch({ type: 'tick' });
+    const far = e.history.lastTick;
+    assert(far > 6, `expected a long run, got ${far} ticks`);
+
+    e.dispatch({ type: 'scrubTo', tick: 4 });
+    // Change something, so what happens next is genuinely different.
+    e.dispatch({ type: 'emptyChamber', index: (e.state.firePos + 3) % count });
+    e.dispatch({ type: 'tick' });
+
+    const stale = e.history.all().filter((s) => s.tick > e.state.tick);
+    assert(stale.length === 0,
+      `${stale.length} snapshots from the old run survived past tick ${e.state.tick}`);
+    assert(e.history.lastTick === e.state.tick,
+      `history ends at ${e.history.lastTick}, the kiln is at ${e.state.tick}`);
+
+    return `truncated ${far} ticks of old future back to ${e.state.tick}`;
+  }));
+
+  // 19. One eighth of a turn is one tick. The drag maths, as a pure function,
+  //     so it needs no browser.
+  results.push(check('one eighth of a turn is one tick', () => {
+    const perTick = (Math.PI * 2) / count;
+    const ticksFor = (radians) => Math.round(radians / perTick);
+
+    assert(ticksFor(perTick) === 1, 'an eighth of a turn should be 1 tick');
+    assert(ticksFor(Math.PI * 2) === count, `a full turn should be ${count} ticks`);
+    assert(ticksFor(-perTick) === -1, 'dragging back should go back');
+    assert(ticksFor(perTick * 0.4) === 0, 'under half a chamber should not move');
+    assert(ticksFor(perTick * 0.6) === 1, 'over half a chamber should snap on');
+
+    return `${count} ticks per turn, snapping at half a chamber`;
+  }));
+
   const passed = results.filter((r) => r.pass).length;
   const style = passed === results.length
     ? 'background:#2b6;color:#fff'

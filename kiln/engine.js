@@ -317,6 +317,16 @@ export function createEngine(options = {}) {
       return false;                  // the fire has not moved
     }
 
+    /**
+     * If we are standing in the past — scrubbed back — anything recorded ahead
+     * of here belongs to a run that is about to stop being true. Drop it before
+     * recording, so the chart never shows a future that will not happen.
+     *
+     * Re-running unchanged produces identical rows, so this only has an effect
+     * when something actually diverged, which is exactly when it must.
+     */
+    if (state.tick < history.lastTick) history.truncateAfter(state.tick);
+
     state.firePos = next;
     state.tick += 1;
     state.fuelIndex += C.fuel.perFiringTick;
@@ -423,8 +433,13 @@ export function createEngine(options = {}) {
       }
 
       case 'scrubTo': {
-        // Day 5 wires the ring drag to this. History is the source, so scrubbing
-        // back replays what actually happened rather than recomputing it.
+        // History is the source, so scrubbing back replays what actually
+        // happened rather than recomputing it.
+        //
+        // Inert while charging: no simulated time has passed yet, so there is
+        // nothing to scrub to, and jumping to tick 0 would un-charge the kiln.
+        if (state.phase === 'charging') break;
+
         const snap = history.at(action.tick);
         if (snap) {
           state.tick = snap.tick;

@@ -11,6 +11,7 @@ import { createEngine } from './engine.js';
 import { createRing } from './views/ring.js';
 import { createPanel } from './views/panel.js';
 import { createLabels } from './views/labels.js';
+import { createChart } from './views/chart.js';
 import './checks.js';                 // exposes window.kilnChecks()
 
 const engine = createEngine();
@@ -20,6 +21,11 @@ const ring = createRing(document.getElementById('ring-canvas'), {
 });
 
 const labels = createLabels(document.getElementById('label-layer'), ring);
+
+// The chart draws recorded history; the kiln drags through it. Both send the
+// same scrubTo action, so neither knows the other exists.
+const chart = createChart(document.getElementById('chart'), engine.history, engine.dispatch);
+ring.attachScrub(() => engine.state, engine.dispatch, engine.history);
 
 const panel = createPanel({
   contextEl: document.getElementById('context'),
@@ -66,7 +72,10 @@ document.getElementById('evidence-mode').addEventListener('change', (ev) => {
   document.body.classList.toggle('evidence-mode', engine.state.ui.evidenceMode);
 });
 
-window.addEventListener('resize', () => ring.resize());
+window.addEventListener('resize', () => {
+  ring.resize();
+  chart.update(engine.state, true);   // width changed: force a rebuild
+});
 
 // --- failure reporting ------------------------------------------------------
 
@@ -117,6 +126,7 @@ function frame(now) {
     ring.update(engine.state, dt);
     labels.update(engine.state);     // must follow ring: it reads the camera
     panel.update(engine.state);
+    chart.update(engine.state);      // redraws only when the record changes
 
     btnPlay.textContent = engine.state.paused ? 'Play' : 'Pause';
   } catch (err) {
@@ -134,6 +144,7 @@ requestAnimationFrame(frame);
 window.kiln = engine;
 window.__ring = ring;        // segments[], path — inspect the drawing
 window.__cfg = { C, PALETTE, STAGE_COLOUR, TAGS, OPEN_QUESTIONS };
+window.__chart = chart;
 console.log(
   '%c kiln %c engine ready — run kilnChecks() · inspect window.kiln.state',
   'background:#8a5a3c;color:#fff', '',

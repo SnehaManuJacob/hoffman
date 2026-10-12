@@ -369,6 +369,48 @@ input:focus-visible {
 
 .chart-placeholder p { margin: 0; }
 
+/* --------------------------------------------------------------------------
+   space-time chart — chambers across, time down
+   -------------------------------------------------------------------------- */
+
+.chart {
+  background: var(--soot-raised);
+  border: 1px solid var(--hairline);
+  padding: var(--space-2) 0 var(--space-2) 0;
+  cursor: ns-resize;          /* it is a timeline: you drag it up and down */
+  user-select: none;
+  touch-action: none;         /* so a drag scrubs instead of scrolling the page */
+}
+
+.chart-svg { display: block; width: 100%; }
+
+/* Chamber numbers and elapsed hours: the same mono small caps as everything
+   else that labels a machine. */
+.chart-chambers text,
+.chart-hours text {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  fill: var(--sand-faint);
+}
+
+.chart-cells rect { shape-rendering: crispEdges; }
+
+/* An empty chamber is hatched, matching how the kiln draws one. A gap in the
+   record should look like a gap, not like a cold chamber. */
+.chart-empty-bg { fill: var(--soot); }
+.chart-empty-line { stroke: var(--sand-faint); stroke-width: 1; }
+
+/* The playhead marks the moment on screen in the kiln. */
+.chart-playhead rect {
+  fill: none;
+  stroke: var(--sand-bright);
+  stroke-width: 1;
+}
+
+.ring-pane canvas { cursor: grab; }
+.ring-pane canvas.is-scrubbing { cursor: grabbing; }
+
 .context { font-size: var(--fs-lead); line-height: 1.4; color: var(--sand-bright); }
 .context p { margin: 0 0 var(--space-3); }
 

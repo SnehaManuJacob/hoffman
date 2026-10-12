@@ -217,6 +217,20 @@ const defs = {
     zoneBandOffset: [0.42, 'A', 'How far outside the kiln wall the zone band sits.'],
   },
 
+  /**
+   * The space-time chart: chambers across, time down. All 'A' — presentation
+   * choices, not anything about the kiln.
+   *
+   * It draws only what history recorded, so everything in it is as simulated
+   * as the run that produced it.
+   */
+  chart: {
+    windowTicks: [16, 'A', 'Ticks visible at once. A loop is 8 ticks, so 16 is two full loops — 32 simulated hours, enough to see the pattern repeat once.'],
+    minRowHeight: [11, 'A', 'Tall enough that the firing front reads as a diagonal rather than a smear.'],
+    cellGap: [1, 'A'],
+    hoursLabelEvery: [4, 'A', 'Label the time axis every N ticks, so it does not crowd.'],
+  },
+
   // Things the model simulates. Shown as bands or spreads, never as readings.
   simulated: {
     perChamberCurves: [true, 'S', 'Temperature curves are simulated.'],

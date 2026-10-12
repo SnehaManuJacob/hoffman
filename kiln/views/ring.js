@@ -32,45 +32,32 @@
 import * as THREE from 'three';
 import { C, PALETTE, STAGE_COLOUR, COMPONENTS } from '../config.js';
 import { createLoopPath } from './kilnPath.js';
+import { heatHex } from './heatRamp.js';
 
 const SETTLE_FRACTION = 0.3;
 const SNAP_DISTANCE = 0.01;
 
 /**
- * The heat ramp, as a lookup from relative heat: cold clay at 0, through pale
- * yellow and amber, to red at the fire. See style.css for why this runs the
- * opposite way to real incandescence.
+ * Which way a drag moves time. Dragging the way the fire travels must move
+ * time FORWARD.
+ *
+ * Deliberately a constant rather than something derived: the camera's frustum
+ * is inverted, so screen-space rotation does not map to world rotation the way
+ * you would expect, and reasoning it out on paper gets it backwards as often
+ * as not. It is settled by dragging the kiln and watching the clock.
+ *
+ * Measured: the fire runs anticlockwise on screen, and +1 is what makes a drag
+ * that way move the clock forward. -1 was tried first and ran time backwards.
  */
-const RAMP = ['sand-faint', 'heat-0', 'heat-1', 'heat-2', 'heat-3', 'heat-4']
-  .map((k) => new THREE.Color(PALETTE[k]));
+const SCRUB_SIGN = 1;
 
-let warnedAboutHeat = false;
-
+/**
+ * Relative heat to a colour. The ramp itself lives in views/heatRamp.js so the
+ * space-time chart draws from exactly the same one — the chart is the same data
+ * as the kiln, and two copies of a ramp would disagree the day one changed.
+ */
 function heatColour(h, out = new THREE.Color()) {
-  /**
-   * A chamber arriving without a heat value must not take the whole page down.
-   * An undefined or NaN `h` makes the ramp index NaN, RAMP[NaN] is undefined,
-   * and three.js then throws inside Color.copy — which kills the draw loop and
-   * freezes everything, for one missing number.
-   *
-   * Fall back to cold and say so once. Seen in the wild when a stale cached
-   * engine.js was paired with a current view, so the field did not exist yet.
-   */
-  if (!Number.isFinite(h)) {
-    if (!warnedAboutHeat) {
-      warnedAboutHeat = true;
-      console.warn(
-        '[ring] chamber.heat is missing or not a number — drawing it cold. '
-        + 'If the kiln looks dead, hard-reload: this usually means a stale '
-        + 'cached engine.js is running against a newer view.',
-      );
-    }
-    h = 0;
-  }
-
-  const t = Math.max(0, Math.min(1, h)) * (RAMP.length - 1);
-  const i = Math.min(RAMP.length - 2, Math.max(0, Math.floor(t)));
-  return out.copy(RAMP[i]).lerp(RAMP[i + 1], t - i);
+  return out.set(heatHex(h));
 }
 
 /** A flat band between two normal offsets, at height y. */
@@ -702,6 +689,78 @@ export function createRing(canvas, options = {}) {
     ];
   }
 
+  /**
+   * Drag the kiln to move time (brief section 3: the loop IS the time control).
+   *
+   * One eighth of a turn is one chamber is one tick is two hours, and it snaps
+   * — you cannot stand between ticks. Dragging the way the fire travels moves
+   * time forward.
+   *
+   * Pointer to world goes through `unproject`, not hand-rolled maths: this
+   * camera has an inverted frustum (see the note where it is built) and
+   * anything that assumes a normal one comes out mirrored.
+   */
+  function attachScrub(getState, dispatch, history) {
+    let dragging = false;
+    let startTick = 0;
+    let lastAngle = 0;
+    let turned = 0;                     // radians accumulated, sign included
+
+    const angleAt = (ev) => {
+      const rect = canvas.getBoundingClientRect();
+      const ndcX = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
+      const ndcY = -(((ev.clientY - rect.top) / rect.height) * 2 - 1);
+      const p = new THREE.Vector3(ndcX, ndcY, 0).unproject(camera);
+      return Math.atan2(p.z, p.x);
+    };
+
+    canvas.addEventListener('pointerdown', (ev) => {
+      const state = getState();
+      // Nothing to scrub to before the kiln is lit, and a standing fork is a
+      // question waiting to be answered — neither should be draggable past.
+      if (state.phase === 'charging' || state.fork) return;
+
+      dragging = true;
+      startTick = state.tick;
+      lastAngle = angleAt(ev);
+      turned = 0;
+      canvas.setPointerCapture?.(ev.pointerId);
+      canvas.classList.add('is-scrubbing');
+    });
+
+    canvas.addEventListener('pointermove', (ev) => {
+      if (!dragging) return;
+
+      const a = angleAt(ev);
+      let delta = a - lastAngle;
+      // Unwrap across the +/-pi seam, or one step would read as a full turn.
+      if (delta > Math.PI) delta -= Math.PI * 2;
+      if (delta < -Math.PI) delta += Math.PI * 2;
+      lastAngle = a;
+      turned += delta;
+
+      const perTick = (Math.PI * 2) / count;
+      // SCRUB_SIGN carries the drag direction; see the constant for why it is
+      // settled by looking at the screen rather than by reasoning.
+      const ticks = Math.round((turned * SCRUB_SIGN) / perTick);
+
+      // Scrubbing can only move through what was recorded: there is no future
+      // to drag into, and nothing before the kiln was lit.
+      const last = history.lastTick;
+      const target = Math.max(0, Math.min(last, startTick + ticks));
+      dispatch({ type: 'scrubTo', tick: target });
+    });
+
+    const end = (ev) => {
+      if (!dragging) return;
+      dragging = false;
+      canvas.releasePointerCapture?.(ev.pointerId);
+      canvas.classList.remove('is-scrubbing');
+    };
+    canvas.addEventListener('pointerup', end);
+    canvas.addEventListener('pointercancel', end);
+  }
+
   function dispose() {
     scene.traverse((o) => {
       if (o.geometry) o.geometry.dispose();
@@ -715,7 +774,7 @@ export function createRing(canvas, options = {}) {
   render();
 
   return {
-    update, resize, dispose, render, anchors,
+    update, resize, dispose, render, anchors, attachScrub,
     segments, path, ductPath, scene, camera, renderer, tileMeshes,
     groups: {
       massGroup, chambersGroup, tilesGroup, wallsGroup, wicketGroup,
