@@ -189,8 +189,15 @@ const defs = {
      * All 'A' — these are drawing decisions.
      */
     wallInset: [0.2, 'A', 'Masonry thickness between the outside and the chamber void.'],
-    tileRows: [3, 'A', 'HOW MANY TILES A CHAMBER HOLDS IS UNKNOWN (tag U). This is a stack standing in for a load, not a count.'],
-    tileCols: [6, 'A', 'See tileRows. Not a count.'],
+    /**
+     * Tiles are stacked in two rows, one against each side wall, leaving a
+     * clear gangway down the middle of the chamber for the gas to travel.
+     *
+     * HOW MANY TILES A CHAMBER HOLDS, AND HOW THEY ARE STACKED, IS UNKNOWN
+     * (section 4, tag U). These are a stand-in for a load, not a count.
+     */
+    tileCols: [8, 'A', 'Stacks along the chamber. Not a count of tiles.'],
+    tileRowFraction: [0.32, 'A', 'Depth of each wall-side row, as a share of the chamber interior. The rest is the gangway.'],
     tileInset: [0.08, 'A'],
     /**
      * Share of one tick a chamber takes to be stacked or emptied.
@@ -204,7 +211,7 @@ const defs = {
     tileFillFraction: [0.85, 'A', 'Share of one tick spent stacking or emptying a chamber.'],
     flueWidth: [0.46, 'A'],
     damperRadius: [0.12, 'A'],
-    airRibbonWidth: [0.5, 'A', 'Width of the airflow arrow at its widest.'],
+    airRibbonWidth: [0.3, 'A', 'Width of the airflow arrow at its widest. Sized to the gangway the two tile rows leave, so the gas travels through the space the stacks make for it rather than over them.'],
     zoneBandWidth: [0.26, 'A'],
     zoneBandOffset: [0.42, 'A', 'How far outside the kiln wall the zone band sits.'],
   },
@@ -365,7 +372,7 @@ export const COMPONENTS = {
   },
   tiles: {
     label: 'Tiles', tag: 'A',
-    note: 'Tiles sit still while the fire moves past them. That they are stacked in the chambers follows from it being a tile kiln; how many per chamber, and how they are stacked, is unknown (section 4, tag U). The stack drawn here is a stand-in, not a count.',
+    note: 'Tiles sit still while the fire moves past them. That they are stacked in the chambers follows from it being a tile kiln; how many per chamber, and how they are stacked, is unknown (section 4, tag U). They are drawn in two rows against the side walls with a gangway between — the usual arrangement in the literature, because the gas has to get through — but that arrangement was not observed at Kundapur either. A stand-in for a load, not a count.',
   },
   wicketDoors: {
     label: 'Wicket doors', tag: 'L',

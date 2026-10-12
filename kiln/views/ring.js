@@ -37,8 +37,9 @@ const SETTLE_FRACTION = 0.3;
 const SNAP_DISTANCE = 0.01;
 
 /**
- * The blackbody ramp, as a lookup from relative heat.
- * Cold clay at 0, through dull red and orange, to yellow-white at the fire.
+ * The heat ramp, as a lookup from relative heat: cold clay at 0, through pale
+ * yellow and amber, to red at the fire. See style.css for why this runs the
+ * opposite way to real incandescence.
  */
 const RAMP = ['sand-faint', 'heat-0', 'heat-1', 'heat-2', 'heat-3', 'heat-4']
   .map((k) => new THREE.Color(PALETTE[k]));
@@ -215,12 +216,25 @@ export function createRing(canvas, options = {}) {
      * The order matters: tiles are revealed in this order as a chamber fills,
      * so the stack grows from one end rather than fading in all at once.
      */
+    /**
+     * Two rows, one hugging each side wall, with a clear gangway between them.
+     *
+     * Filling the whole chamber would be wrong twice over: the gas would have
+     * nowhere to travel, and the airflow ribbon — which runs down the centre
+     * line — would be drawn straight over the tiles instead of through the
+     * space they leave for it.
+     */
+    const span = outerEdge - innerEdge;
+    const rowDepth = span * P.tileRowFraction;
+    const rowBands = [
+      [innerEdge, innerEdge + rowDepth],            // against the inner wall
+      [outerEdge - rowDepth, outerEdge],            // against the outer wall
+    ];
+
     for (let cI = 0; cI < P.tileCols; cI++) {
       const t0 = s0 + (s1 - s0) * ((cI + 0.12) / P.tileCols);
       const t1 = s0 + (s1 - s0) * ((cI + 0.88) / P.tileCols);
-      for (let r = 0; r < P.tileRows; r++) {
-        const o0 = innerEdge + (outerEdge - innerEdge) * (r / P.tileRows);
-        const o1 = innerEdge + (outerEdge - innerEdge) * ((r + 0.8) / P.tileRows);
+      for (const [o0, o1] of rowBands) {
         const m = new THREE.Mesh(
           bandGeometry(path, t0, t1, o0, o1, Y.tiles, 4),
           new THREE.MeshBasicMaterial({ color: new THREE.Color(PALETTE['sand-faint']) }),
@@ -462,8 +476,8 @@ export function createRing(canvas, options = {}) {
     let tz = tipAt.z - justBefore.z;
     const tl = Math.hypot(tx, tz) || 1;
     tx /= tl; tz /= tl;
-    const headHalf = P.airRibbonWidth * 0.62;
-    const headLen = P.airRibbonWidth * 1.0;
+    const headHalf = P.airRibbonWidth * 1.05;
+    const headLen = P.airRibbonWidth * 1.7;
     airHead.geometry.dispose();
     airHead.geometry = new THREE.BufferGeometry().setFromPoints([
       new THREE.Vector3(tipAt.x + tx * headLen, Y.air, tipAt.z + tz * headLen),
