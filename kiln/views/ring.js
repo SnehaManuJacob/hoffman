@@ -585,7 +585,7 @@ export function createRing(canvas, options = {}) {
 
     // --- 1. in from outside, through the wall ------------------------------
     const ENTRY = 14;
-    const turnIn = 0.6 / count;             // how much of a chamber the turn takes
+    const turnIn = P.airInletTurn / count;
     for (let i = 0; i <= ENTRY; i++) {
       const t = i / ENTRY;
       const e = t * t * (3 - 2 * t);        // smoothstep, so the turn is not a corner
@@ -753,12 +753,11 @@ export function createRing(canvas, options = {}) {
     renderer.setSize(w, h, false);
 
     const b = path.bounds;
-    // Room for the kiln, its wall, and the air inlet — which reaches OUTSIDE
-    // the kiln on purpose, so it has to be inside the frame or the air appears
-    // to arrive from off the edge of the page.
-    const margin = Math.max(0.25, P.airInletLead + 0.2);
-    const halfX = (b.maxX - b.minX) / 2 + halfBand + margin;
-    const halfZ = (b.maxZ - b.minZ) / 2 + halfBand + margin;
+    // Just the kiln and its wall. The air inlet starts flush at the outer
+    // face, so it needs no extra room — asking for some only pulled the camera
+    // back and made the kiln smaller.
+    const halfX = (b.maxX - b.minX) / 2 + halfBand + 0.25;
+    const halfZ = (b.maxZ - b.minZ) / 2 + halfBand + 0.25;
     const aspect = w / h;
 
     let viewW = halfX * FIT_MARGIN;
