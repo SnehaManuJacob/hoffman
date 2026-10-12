@@ -224,7 +224,11 @@ const defs = {
      * Kept under 1 so a stack always completes before the fire moves again.
      */
     tileFillFraction: [0.85, 'A', 'Share of one tick spent stacking or emptying a chamber.'],
-    flueWidth: [0.46, 'A'],
+    flueWidth: [0.46, 'A', 'Width of the flue corridor void.'],
+    flueWallThickness: [0.1, 'A', 'Masonry either side of the corridor, so it reads as a passage cut through structure rather than a stripe.'],
+    islandInset: [0.42, 'A', 'Gap between the corridor and the inner island wall.'],
+    spineWidth: [0.12, 'A', 'The wall dividing the island, carrying the chimney.'],
+    chimneyBulgeRadius: [0.8, 'A', 'The rounded widening of the spine that the chimney sits in.'],
     damperWidth: [0.22, 'A', 'Half-width of a damper opening, as a share of the chamber length. Matches the wicket door, because both are openings cut through a wall.'],
     airRibbonWidth: [0.34, 'A', 'Width of the airflow arrow at its widest. The stacks now sit across each end of the chamber, so the arrow crosses them — as the gas does, threading between loosely stacked tiles.'],
     zoneBandWidth: [0.26, 'A'],

@@ -9,7 +9,7 @@
  * so running them never disturbs the kiln on screen.
  */
 
-import { createEngine } from './engine.js';
+import { createEngine, gasProfile } from './engine.js';
 import { C, PALETTE, STAGE_COLOUR, COMPONENTS } from './config.js';
 import { createLoopPath } from './views/kilnPath.js';
 
@@ -654,6 +654,81 @@ export function kilnChecks() {
     assert(drift < 1.0, `1x and 4x differ by ${drift.toFixed(2)} C over the same simulated time`);
 
     return `frames differ by ${worst.toFixed(3)} C, speeds by ${drift.toFixed(3)} C`;
+  }));
+
+  // 26. The counter-current claim, tested. Gas enters cold, is warmed by the
+  //     chambers that have just fired, is hottest leaving the fire, and gives
+  //     that heat up to the green tiles ahead. This is the whole reason the
+  //     kiln is a loop, and the airflow arrow is drawn straight from it.
+  results.push(check('gas warms on the way in, peaks at the fire, then gives it up', () => {
+    const e = light(createEngine());
+    for (let i = 0; i < count * 4; i++) e.dispatch({ type: 'tick' });
+
+    const p = gasProfile(e.state);
+    assert(p.length === C.windows.preheat + C.windows.cool + 1,
+      `profile covers ${p.length} chambers, expected the whole flow path`);
+
+    assert(Math.abs(p[0].gasIn - C.temperature.ambientC) < 1e-6,
+      `gas enters at ${Math.round(p[0].gasIn)} C, not ambient`);
+
+    const fireIdx = p.findIndex((g) => g.isFire);
+    assert(fireIdx > 0, 'the fire is not on the flow path');
+
+    // Warming on the way to the fire...
+    for (let i = 1; i <= fireIdx; i++) {
+      assert(p[i].gasOut > p[i - 1].gasOut,
+        `gas cooled before the fire: ${Math.round(p[i - 1].gasOut)} then ${Math.round(p[i].gasOut)}`);
+    }
+    // ...and giving it up after.
+    for (let i = fireIdx + 1; i < p.length; i++) {
+      assert(p[i].gasOut < p[i - 1].gasOut,
+        `gas warmed after the fire: ${Math.round(p[i - 1].gasOut)} then ${Math.round(p[i].gasOut)}`);
+    }
+
+    const hottest = Math.max(...p.map((g) => g.gasOut));
+    assert(p[fireIdx].gasOut === hottest, 'the gas is not hottest leaving the fire');
+
+    return p.map((g) => Math.round(g.gasOut)).join(' -> ') + ' C';
+  }));
+
+  // 27. gasProfile must be READ-ONLY. It is called from the draw loop; if it
+  //     quietly integrated, the kiln would heat faster whenever it was drawn.
+  results.push(check('reading the gas profile changes nothing', () => {
+    const e = light(createEngine());
+    for (let i = 0; i < count * 2; i++) e.dispatch({ type: 'tick' });
+
+    const before = e.state.chambers.map((c) => c.temp);
+    const fuelBefore = e.state.fuelIndex;
+    for (let i = 0; i < 20; i++) gasProfile(e.state);
+    const after = e.state.chambers.map((c) => c.temp);
+
+    const moved = before.filter((t, i) => t !== after[i]).length;
+    assert(moved === 0, `${moved} chamber temperatures moved just from reading the profile`);
+    assert(e.state.fuelIndex === fuelBefore, 'reading the profile burned fuel');
+    return '20 reads, nothing moved';
+  }));
+
+  // 28. It must follow a scrub. A profile recorded during integration would go
+  //     stale here, because scrubbing restores temperatures without running it.
+  results.push(check('the gas profile follows a scrub', () => {
+    const e = light(createEngine());
+    for (let i = 0; i < count * 3; i++) e.dispatch({ type: 'tick' });
+
+    const hot = gasProfile(e.state).map((g) => Math.round(g.gasOut));
+    e.dispatch({ type: 'scrubTo', tick: 1 });
+    const early = gasProfile(e.state).map((g) => Math.round(g.gasOut));
+
+    assert(hot.join() !== early.join(),
+      'the profile is identical before and after scrubbing — it is not following the kiln');
+
+    const snap = e.history.at(1);
+    const recomputed = gasProfile(e.state);
+    assert(Math.abs(recomputed[0].gasIn - C.temperature.ambientC) < 1e-6,
+      'the scrubbed profile does not start at ambient');
+    assert(snap.chambers.every((c, i) => c.temp === e.state.chambers[i].temp),
+      'the kiln does not match the snapshot it was scrubbed to');
+
+    return `steady ${hot[hot.length - 1]} C, at tick 1 ${early[early.length - 1]} C`;
   }));
 
   const passed = results.filter((r) => r.pass).length;

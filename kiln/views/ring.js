@@ -31,6 +31,7 @@
 
 import * as THREE from 'three';
 import { C, PALETTE, STAGE_COLOUR, COMPONENTS } from '../config.js';
+import { gasProfile, relativeHeat } from '../engine.js';
 import { createLoopPath } from './kilnPath.js';
 import { heatHex } from './heatRamp.js';
 
@@ -100,6 +101,24 @@ function bandOutline(path, s0, s1, offInner, offOuter, y, steps = 40) {
   return g;
 }
 
+/** A flat rectangle lying in the XZ plane, centred on (cx, cz). */
+function rectXZ(cx, cz, w, d, y) {
+  const g = new THREE.PlaneGeometry(w, d);
+  g.rotateX(-Math.PI / 2);
+  g.translate(cx, y, cz);
+  return g;
+}
+
+/** A closed outline following a loop path at a normal offset. */
+function pathOutline(path, offset, y, steps = 240) {
+  const pts = [];
+  for (let i = 0; i < steps; i++) {
+    const { x, z, nx, nz } = path.at(i / steps);
+    pts.push(new THREE.Vector3(x + nx * offset, y, z + nz * offset));
+  }
+  return new THREE.BufferGeometry().setFromPoints(pts);
+}
+
 function componentGroup(id) {
   const g = new THREE.Group();
   g.userData.component = id;
@@ -151,6 +170,10 @@ export function createRing(canvas, options = {}) {
   const gap = C.form.chamberGap;
   const sStart = (i) => (i + gap / 2) / count;
   const sEnd = (i) => (i + 1 - gap / 2) / count;
+
+  // How far the air-in tail reaches outside the kiln wall. The camera fit
+  // below has to know about it, or the tail is drawn off the edge of the frame.
+  const AIR_TAIL = 0.5;
 
   // Heights are only a draw order under an orthographic top-down camera.
   const Y = {
@@ -340,6 +363,10 @@ export function createRing(canvas, options = {}) {
 
   // --------------------------------------------------------------- flue duct
   // L — dampers and flues route the gas to a chimney.
+  //
+  // A CORRIDOR, not a stripe: a dark void with masonry either side, so it
+  // reads as a passage cut through the middle of the kiln. The exhaust from
+  // whichever damper is open travels along here to the chimney.
   const ductInset = halfBand + 0.5;
   const ductPath = createLoopPath({
     topology: C.form.topology,
@@ -349,23 +376,83 @@ export function createRing(canvas, options = {}) {
   });
   const ductGroup = componentGroup('flueDuct');
   root.add(ductGroup);
+
+  const halfFlue = P.flueWidth / 2;
+  const wallT = P.flueWallThickness;
+  const masonry = new THREE.MeshBasicMaterial({
+    color: new THREE.Color(PALETTE['sand-faint']), side: THREE.DoubleSide,
+  });
+  const hairline = new THREE.LineBasicMaterial({
+    color: new THREE.Color(PALETTE['sand-dim']),
+  });
+
+  // The void itself.
   ductGroup.add(new THREE.Mesh(
-    bandGeometry(ductPath, 0, 1, -P.flueWidth / 2, P.flueWidth / 2, Y.flue, 240),
-    new THREE.MeshBasicMaterial({ color: new THREE.Color(PALETTE['soot-raised']) }),
+    bandGeometry(ductPath, 0, 1, -halfFlue, halfFlue, Y.flue, 240),
+    new THREE.MeshBasicMaterial({ color: new THREE.Color(PALETTE.soot) }),
   ));
-  ductGroup.add(new THREE.LineSegments(
-    bandOutline(ductPath, 0, 1, -P.flueWidth / 2, P.flueWidth / 2, Y.outline, 240),
-    new THREE.LineBasicMaterial({ color: new THREE.Color(PALETTE['sand-faint']) }),
+  // Masonry either side of it.
+  ductGroup.add(new THREE.Mesh(
+    bandGeometry(ductPath, 0, 1, halfFlue, halfFlue + wallT, Y.flue, 240), masonry,
   ));
+  ductGroup.add(new THREE.Mesh(
+    bandGeometry(ductPath, 0, 1, -halfFlue - wallT, -halfFlue, Y.flue, 240), masonry,
+  ));
+  ductGroup.add(new THREE.LineLoop(
+    pathOutline(ductPath, halfFlue + wallT, Y.outline), hairline,
+  ));
+  ductGroup.add(new THREE.LineLoop(
+    pathOutline(ductPath, -halfFlue - wallT, Y.outline), hairline,
+  ));
+
+  // ------------------------------------------------------------ inner island
+  // A — the ground the kiln is built around. Outlined, and divided by the
+  // spine wall that carries the chimney.
+  const islandDrop = halfFlue + wallT + P.islandInset;
+  const islandPath = createLoopPath({
+    topology: C.form.topology,
+    width: C.form.width - (ductInset + islandDrop) * 2,
+    depth: C.form.depth - (ductInset + islandDrop) * 2,
+    cornerRadius: Math.max(0.3, C.form.cornerRadius - (ductInset + islandDrop) * 0.5),
+  });
+  ductGroup.add(new THREE.LineLoop(pathOutline(islandPath, 0, Y.outline), hairline));
 
   // ----------------------------------------------------------------- chimney
   // L — the draught that pulls everything through. Invented position.
+  //
+  // It sits in a rounded widening of the spine wall, which runs the short way
+  // across the island. The spine replaces four radial arms that used to tie
+  // the duct to the chimney and read as a cross laid over the middle.
   const chimneyGroup = componentGroup('chimney');
   root.add(chimneyGroup);
+
+  const islandHalfDepth = (C.form.depth - (ductInset + islandDrop) * 2) / 2;
+  const bulge = P.chimneyBulgeRadius;
+
+  for (const sign of [-1, 1]) {
+    const from = sign * bulge;
+    const to = sign * islandHalfDepth;
+    chimneyGroup.add(new THREE.Mesh(
+      rectXZ(0, (from + to) / 2, P.spineWidth, Math.abs(to - from), Y.flue), masonry,
+    ));
+  }
+
+  const bulgeGeo = new THREE.CircleGeometry(bulge, 32);
+  bulgeGeo.rotateX(-Math.PI / 2);
+  chimneyGroup.add(new THREE.Mesh(bulgeGeo, masonry.clone()).translateY(Y.flue));
+  chimneyGroup.add(new THREE.LineLoop(
+    new THREE.BufferGeometry().setFromPoints(
+      Array.from({ length: 32 }, (_, k) => {
+        const a = (k / 32) * Math.PI * 2;
+        return new THREE.Vector3(Math.cos(a) * bulge, Y.outline, Math.sin(a) * bulge);
+      }),
+    ), hairline,
+  ));
+
   const chimneyGeo = new THREE.CircleGeometry(P.chimneyRadius, 28);
   chimneyGeo.rotateX(-Math.PI / 2);
   const chimney = new THREE.Mesh(chimneyGeo, new THREE.MeshBasicMaterial({
-    color: new THREE.Color(PALETTE['soot-raised']), side: THREE.DoubleSide,
+    color: new THREE.Color(PALETTE.soot), side: THREE.DoubleSide,
   }));
   chimney.position.y = Y.damper;
   chimneyGroup.add(chimney);
@@ -377,8 +464,7 @@ export function createRing(canvas, options = {}) {
           Math.cos(a) * P.chimneyRadius, Y.outline, Math.sin(a) * P.chimneyRadius,
         );
       }),
-    ),
-    new THREE.LineBasicMaterial({ color: new THREE.Color(PALETTE['sand-dim']) }),
+    ), hairline,
   ));
 
   // ----------------------------------------------------------------- dampers
@@ -450,13 +536,121 @@ export function createRing(canvas, options = {}) {
    * fire, then carries that heat forward over green tiles before it leaves.
    * One pass, two useful jobs — which is the whole Hoffmann idea.
    */
-  function buildAirRibbon(firePos) {
+  /**
+   * The route the gas takes, as a list of points carrying the temperature of
+   * the gas at each one.
+   *
+   * Out of the yard, in through the wall behind the fire, along the chambers
+   * that have just fired, through the fire, on through the chambers being
+   * preheated, down through the open damper, along the flue corridor and into
+   * the chimney.
+   *
+   * Temperatures come from engine.gasProfile — the same exchange rule the
+   * thermal model runs on. The arrow is drawn FROM the simulation rather than
+   * decorated to look like it.
+   */
+  function airRoute(state) {
+    const profile = gasProfile(state);
     const pre = C.windows.preheat;
     const cool = C.windows.cool;
-    const from = (firePos - cool - 0.5) / count;
-    const to = (firePos + pre + 0.5) / count;
-    const STEPS = 170;
+    const pts = [];
 
+    const sOf = (k) => ((((state.firePos + k) % count) + count) % count + 0.5) / count;
+
+    // 1. A tail reaching out of the kiln, so the air visibly comes from
+    //    somewhere rather than appearing inside a wall.
+    const entry = path.at(sOf(-cool));
+    const ambient = C.temperature.ambientC;
+    // Hooked, not a bare spike: it swings back along the kiln as it comes in,
+    // so it reads as air being drawn from the yard rather than a stick poking
+    // out of a wall.
+    const tanX = -entry.nz;
+    const tanZ = entry.nx;
+    for (let k = 4; k >= 1; k--) {
+      const u = k / 4;
+      const out = halfBand + AIR_TAIL * u;
+      const back = -AIR_TAIL * 1.1 * u * u;
+      pts.push({
+        x: entry.x + entry.nx * out + tanX * back,
+        z: entry.z + entry.nz * out + tanZ * back,
+        t: ambient,
+      });
+    }
+
+    // 2. Along the chambers, sampling the gas as it goes.
+    profile.forEach((g, idx) => {
+      const k = idx - cool;
+      const s0 = sOf(k) - 0.5 / count;
+      const s1 = sOf(k) + 0.5 / count;
+      const STEPS = 10;
+      for (let i = 0; i <= STEPS; i++) {
+        const u = i / STEPS;
+        const p = path.at(s0 + (s1 - s0) * u);
+        pts.push({ x: p.x, z: p.z, t: g.gasIn + (g.gasOut - g.gasIn) * u });
+      }
+    });
+
+    // 3. Down through the open damper into the corridor, then round it to the
+    //    chimney. Spent exhaust: it keeps the temperature it left with.
+    const open = ((state.firePos + pre) % count + count) % count;
+    const sOpen = (open + 0.5) / count;
+    const exhaust = profile[profile.length - 1].gasOut;
+
+    const wall = path.at(sOpen);
+    pts.push({
+      x: wall.x - wall.nx * (halfBand - inset / 2),
+      z: wall.z - wall.nz * (halfBand - inset / 2),
+      t: exhaust,
+    });
+
+    const duct = ductPath.at(sOpen);
+    pts.push({ x: duct.x, z: duct.z, t: exhaust });
+
+    /**
+     * Round the corridor to where it meets the spine, then straight down the
+     * spine into the chimney.
+     *
+     * The corridor's s=0 and s=0.5 are the middles of its two long sides,
+     * where x is exactly 0 — the line the spine runs along. Going to whichever
+     * is nearer and then turning down the spine keeps the exhaust inside the
+     * structure. Heading straight for the chimney from wherever the damper
+     * happens to be would cut a diagonal across the island, through walls.
+     */
+    const junction = Math.abs(((sOpen + 0.5) % 1) - 0.5) < 0.25 ? 0 : 0.5;
+    let delta = junction - sOpen;
+    if (delta > 0.5) delta -= 1;
+    if (delta < -0.5) delta += 1;
+
+    const RUN = 36;
+    for (let i = 1; i <= RUN; i++) {
+      const d = ductPath.at(sOpen + delta * (i / RUN));
+      pts.push({ x: d.x, z: d.z, t: exhaust });
+    }
+
+    // 4. Down the spine and into the chimney.
+    const join = ductPath.at(junction);
+    for (let i = 1; i <= 12; i++) {
+      const u = i / 12;
+      pts.push({ x: join.x * (1 - u), z: join.z * (1 - u), t: exhaust });
+    }
+
+    return pts;
+  }
+
+  /**
+   * Draw the arrow from a route.
+   *
+   * WIDTH IS ENERGY. It comes from the gas temperature at each point, so the
+   * arrow swells as the gas picks heat up off the chambers that have just
+   * fired, is fattest leaving the fire, and visibly thins as the green tiles
+   * ahead take that heat back out of it. That thinning is the kiln's whole
+   * argument, drawn from the model rather than asserted.
+   *
+   * Tangents come from consecutive points, not from path.at: the route leaves
+   * the chamber centreline to reach the chimney, so there is no `s` to ask.
+   */
+  function buildAirRibbon(state) {
+    const pts = airRoute(state);
     const positions = [];
     const colours = [];
     const indices = [];
@@ -464,35 +658,37 @@ export function createRing(canvas, options = {}) {
     const edgeB = [];
     const col = new THREE.Color();
     const AIR = new THREE.Color(PALETTE.air);
-    const atFire = (cool + 0.5) / (cool + pre + 1);
 
-    for (let i = 0; i <= STEPS; i++) {
-      const u = i / STEPS;
-      const { x, z, nx, nz } = path.at(from + (to - from) * u);
+    const minW = P.airRibbonWidth * 0.18;
+    const maxW = P.airRibbonWidth;
 
-      // Narrow where air comes in, widest at the fire, tapering as the
-      // chambers ahead take the heat back out of it.
-      const w = (P.airRibbonWidth / 2) * (0.28 + 0.72 * Math.sin(Math.PI * Math.min(1, u * 1.1)));
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i];
+      const a = pts[Math.max(0, i - 1)];
+      const b = pts[Math.min(pts.length - 1, i + 1)];
+      let tx = b.x - a.x;
+      let tz = b.z - a.z;
+      const tl = Math.hypot(tx, tz) || 1;
+      tx /= tl; tz /= tl;
+      const nx = tz;
+      const nz = -tx;
 
-      const h = u < atFire
-        ? (u / atFire) * 0.92
-        : 0.92 - ((u - atFire) / (1 - atFire)) * 0.78;
+      const h = relativeHeat(p.t);
+      const w = (minW + (maxW - minW) * h) / 2;
+
       heatColour(h, col);
-
-      // The cold end is air, not a dull ember, so it takes the one cool tone
-      // the palette reserves for air. It warms into the heat ramp from there.
+      // The cold end is air, which the palette gives its one cool tone.
       if (h < 0.18) col.lerp(AIR, (0.18 - h) / 0.18);
 
-      const ax = x + nx * w; const az = z + nz * w;
-      const bx = x - nx * w; const bz = z - nz * w;
-
+      const ax = p.x + nx * w; const az = p.z + nz * w;
+      const bx = p.x - nx * w; const bz = p.z - nz * w;
       positions.push(ax, Y.air, az, bx, Y.air, bz);
       colours.push(col.r, col.g, col.b, col.r, col.g, col.b);
       edgeA.push([ax, az]);
       edgeB.push([bx, bz]);
-      if (i < STEPS) {
-        const a = i * 2;
-        indices.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+      if (i < pts.length - 1) {
+        const k = i * 2;
+        indices.push(k, k + 1, k + 2, k + 1, k + 3, k + 2);
       }
     }
 
@@ -504,7 +700,6 @@ export function createRing(canvas, options = {}) {
     airRibbon.geometry.dispose();
     airRibbon.geometry = g;
 
-    // Outline down both flanks.
     const edgePos = [];
     for (const side of [edgeA, edgeB]) {
       for (let i = 0; i < side.length - 1; i++) {
@@ -516,33 +711,27 @@ export function createRing(canvas, options = {}) {
     airEdge.geometry = new THREE.BufferGeometry()
       .setAttribute('position', new THREE.Float32BufferAttribute(edgePos, 3));
 
-    // Arrowhead at the exit, pointing the way the gas leaves.
-    const tipAt = path.at(to);
-    const justBefore = path.at(to - 0.004);
-    let tx = tipAt.x - justBefore.x;
-    let tz = tipAt.z - justBefore.z;
-    const tl = Math.hypot(tx, tz) || 1;
-    tx /= tl; tz /= tl;
-    const headHalf = P.airRibbonWidth * 1.05;
-    const headLen = P.airRibbonWidth * 1.7;
+    // The arrowhead is at the CHIMNEY now, pointing in. The exhaust has
+    // somewhere to go, which is the end of the story the arrow tells.
+    const tip = pts[pts.length - 1];
+    const before = pts[pts.length - 6] ?? pts[0];
+    let hx = tip.x - before.x;
+    let hz = tip.z - before.z;
+    const hl = Math.hypot(hx, hz) || 1;
+    hx /= hl; hz /= hl;
+    const headHalf = P.airRibbonWidth * 0.75;
+    const headLen = P.airRibbonWidth * 1.3;
     airHead.geometry.dispose();
     airHead.geometry = new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(tipAt.x + tx * headLen, Y.air, tipAt.z + tz * headLen),
-      new THREE.Vector3(tipAt.x + tipAt.nx * headHalf, Y.air, tipAt.z + tipAt.nz * headHalf),
-      new THREE.Vector3(tipAt.x - tipAt.nx * headHalf, Y.air, tipAt.z - tipAt.nz * headHalf),
+      new THREE.Vector3(tip.x + hx * headLen * 0.4, Y.air, tip.z + hz * headLen * 0.4),
+      new THREE.Vector3(tip.x - hz * headHalf - hx * headLen * 0.6, Y.air,
+        tip.z + hx * headHalf - hz * headLen * 0.6),
+      new THREE.Vector3(tip.x + hz * headHalf - hx * headLen * 0.6, Y.air,
+        tip.z - hx * headHalf - hz * headLen * 0.6),
     ]);
+    airHead.material.color.set(PALETTE['sand-dim']);
 
-    const open = (((firePos + pre) % count) + count) % count;
-    /**
-     * Only one damper is open: the one ahead of the fire, pulling exhaust down
-     * into the flue. Shown by colour alone — these are bands whose vertices are
-     * already in world space, so scaling one would slide it off the kiln rather
-     * than make it bigger.
-     *
-     * Open takes the cool tone the palette reserves for air, because that is
-     * what is moving through it. A shut damper is masonry like the wall it is
-     * cut into.
-     */
+    const open = ((state.firePos + C.windows.preheat) % count + count) % count;
     dampers.forEach((d, i) => {
       d.material.color.set(i === open ? PALETTE.air : PALETTE['sand-dim']);
     });
@@ -551,6 +740,11 @@ export function createRing(canvas, options = {}) {
 
   let lastFire = -1;
   let openDamper = 0;
+  // The arrow's width follows gas temperature, which moves continuously, so it
+  // cannot only redraw when the fire does. Rebuilt on a short timer instead —
+  // often enough to look live, rarely enough not to churn geometry at 60fps.
+  let sinceRibbon = 1e9;
+  const RIBBON_REBUILD_MS = 120;
 
   function resize() {
     const w = canvas.clientWidth || 1;
@@ -559,8 +753,9 @@ export function createRing(canvas, options = {}) {
     renderer.setSize(w, h, false);
 
     const b = path.bounds;
-    const halfX = (b.maxX - b.minX) / 2 + halfBand + 0.25;
-    const halfZ = (b.maxZ - b.minZ) / 2 + halfBand + 0.25;
+    const margin = halfBand + AIR_TAIL + 0.12;
+    const halfX = (b.maxX - b.minX) / 2 + margin;
+    const halfZ = (b.maxZ - b.minZ) / 2 + margin;
     const aspect = w / h;
 
     let viewW = halfX * FIT_MARGIN;
@@ -580,9 +775,11 @@ export function createRing(canvas, options = {}) {
    * because what physically moves every two hours is unknown (5.2).
    */
   function update(state, dtMs = 16) {
-    if (state.firePos !== lastFire) {
-      openDamper = buildAirRibbon(state.firePos);
+    sinceRibbon += dtMs;
+    if (state.firePos !== lastFire || sinceRibbon >= RIBBON_REBUILD_MS) {
+      openDamper = buildAirRibbon(state);
       lastFire = state.firePos;
+      sinceRibbon = 0;
     }
 
     // No fire, no draught: nothing is moving through a kiln that has not been
@@ -704,7 +901,8 @@ export function createRing(canvas, options = {}) {
       { id: 'zoneFire', pos: at(state.firePos, edge) },
       { id: 'zonePreheat', pos: at(state.firePos + Math.ceil(pre / 2), edge) },
       { id: 'zoneCool', pos: at(state.firePos - cool, -edge) },
-      { id: 'airIn', pos: at(state.firePos - cool - 1, edge) },
+      // Where the tail actually reaches, not a chamber short of it.
+      { id: 'airIn', pos: at(state.firePos - cool, edge + AIR_TAIL * 0.7) },
     ];
   }
 
@@ -789,8 +987,7 @@ export function createRing(canvas, options = {}) {
   }
 
   resize();
-  buildAirRibbon(0);
-  render();
+  render();        // the arrow needs engine state, so it waits for update()
 
   return {
     update, resize, dispose, render, anchors, attachScrub,
