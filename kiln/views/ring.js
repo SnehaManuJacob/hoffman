@@ -131,8 +131,20 @@ export function createRing(canvas, options = {}) {
 
   const scene = new THREE.Scene();
 
-  // Straight down. `up` along -Z so the kiln's long axis lies across the
-  // screen the way it would on a plan drawing.
+  /**
+   * Straight down. `up` along -Z so the kiln's long axis lies across the
+   * screen the way it would on a plan drawing.
+   *
+   * CAREFUL: resize() gives this camera an INVERTED frustum — top negative,
+   * bottom positive — to get that orientation. An inverted frustum mirrors the
+   * image, and a mirrored image reverses triangle winding, so anything flat
+   * added to this scene is BACK-FACING and will be silently culled unless its
+   * material sets `side`. It renders no pixels while reporting a perfectly
+   * healthy colour, which is a miserable thing to debug.
+   *
+   * The band geometry below happens to be wound the other way, so it survives.
+   * Every circle must say DoubleSide.
+   */
   const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
   camera.position.set(0, 20, 0);
   camera.up.set(0, 0, -1);
@@ -305,16 +317,33 @@ export function createRing(canvas, options = {}) {
       const t = (h + 0.5) / P.stokeHolesPerChamber;
       const { x, z } = path.at(sStart(i) + (sEnd(i) - sStart(i)) * t);
 
+      /**
+       * Drawn last, on top of everything.
+       *
+       * Height alone is not enough. The airflow ribbon is transparent, and
+       * three.js renders every transparent object AFTER every opaque one, so
+       * the ribbon painted straight over these discs no matter how high they
+       * sat — they were only visible through its 5% of translucency. Joining
+       * the transparent pass with a higher renderOrder, and ignoring depth,
+       * puts the openings genuinely on top.
+       */
+      const onTop = {
+        transparent: true, opacity: 1, depthTest: false, depthWrite: false,
+        side: THREE.DoubleSide,        // mirrored projection: see the camera note
+      };
+
       const disc = new THREE.Mesh(stokeGeo, new THREE.MeshBasicMaterial({
-        color: new THREE.Color(PALETTE.soot),
+        color: new THREE.Color(PALETTE.soot), ...onTop,
       }));
       disc.position.set(x, Y.stoke, z);
+      disc.renderOrder = 10;
       stokeGroup.add(disc);
 
       const ring = new THREE.LineLoop(ringGeo, new THREE.LineBasicMaterial({
-        color: new THREE.Color(PALETTE['sand-faint']),
+        color: new THREE.Color(PALETTE['sand-faint']), ...onTop,
       }));
       ring.position.set(x, Y.stoke, z);
+      ring.renderOrder = 11;
       stokeGroup.add(ring);
 
       perChamber.push({ disc, ring });
@@ -349,7 +378,7 @@ export function createRing(canvas, options = {}) {
   const chimneyGeo = new THREE.CircleGeometry(P.chimneyRadius, 28);
   chimneyGeo.rotateX(-Math.PI / 2);
   const chimney = new THREE.Mesh(chimneyGeo, new THREE.MeshBasicMaterial({
-    color: new THREE.Color(PALETTE['soot-raised']),
+    color: new THREE.Color(PALETTE['soot-raised']), side: THREE.DoubleSide,
   }));
   chimney.position.y = Y.damper;
   chimneyGroup.add(chimney);
@@ -378,7 +407,7 @@ export function createRing(canvas, options = {}) {
     const mid = (sStart(i) + sEnd(i)) / 2;
     const { x, z, nx, nz } = path.at(mid);
     const m = new THREE.Mesh(damperGeo, new THREE.MeshBasicMaterial({
-      color: new THREE.Color(PALETTE['sand-faint']),
+      color: new THREE.Color(PALETTE['sand-faint']), side: THREE.DoubleSide,
     }));
     m.position.set(x - nx * (halfBand + 0.2), Y.damper, z - nz * (halfBand + 0.2));
     damperGroup.add(m);
@@ -613,21 +642,18 @@ export function createRing(canvas, options = {}) {
       seg.material.color.set(ch.loaded ? PALETTE.soot : PALETTE[STAGE_COLOUR.empty.key]);
 
       /**
-       * Fuel only goes into the chamber that is burning, so only its holes are
-       * open and glowing. Everywhere else they read as dark openings.
+       * Fuel only goes into the chamber that is burning, so its holes are the
+       * ones that read. They are drawn black: against the one chamber on the
+       * page that is bright red, a dark opening is the strongest mark
+       * available, and a hole punched through a roof is a dark thing anyway.
        *
-       * The lit disc takes the PALEST value on the ramp, not the hottest. That
-       * looks backwards until you check it: the hottest value is the same red
-       * the firing chamber is drawn in, so a red hole on a red chamber came out
-       * at 1.00:1 contrast — perfectly invisible. What the hole shows is flame
-       * at the opening, brighter than the chamber around it, so the brightest
-       * colour is also the honest one. The ramp index is about chamber
-       * temperature; this is an opening, not a chamber.
+       * Elsewhere the holes sit on a dark chamber, so there the rim does the
+       * work and the fill stays near the background.
        */
       const lit = ch.stage === 'fire';
       stokeHoles[i].forEach(({ disc, ring }) => {
-        disc.material.color.set(lit ? PALETTE['heat-0'] : PALETTE['soot-raised']);
-        ring.material.color.set(lit ? PALETTE['heat-3'] : PALETTE['sand-faint']);
+        disc.material.color.set(lit ? PALETTE.soot : PALETTE['soot-raised']);
+        ring.material.color.set(lit ? PALETTE.soot : PALETTE['sand-faint']);
       });
 
       // A bricked-up door is solid; an empty chamber stands open.
