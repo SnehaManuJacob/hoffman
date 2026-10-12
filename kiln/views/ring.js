@@ -157,6 +157,10 @@ export function createRing(canvas, options = {}) {
   const Y = {
     masonry: 0, floor: 0.01, tiles: 0.02, wall: 0.03,
     flue: 0.04, damper: 0.05, air: 0.06, outline: 0.07,
+    // Stoke holes sit above the airflow arrow. They are openings in the roof,
+    // so nothing inside the kiln can be drawn over them — and the arrow runs
+    // down the same centre line, which hid them completely until now.
+    stoke: 0.09,
   };
 
   // ---------------------------------------------------------------- masonry
@@ -277,20 +281,43 @@ export function createRing(canvas, options = {}) {
   // new part that is actually Kundapur.
   const stokeGroup = componentGroup('stokeHoles');
   root.add(stokeGroup);
-  const stokeGeo = new THREE.CircleGeometry(P.stokeHoleRadius, 10);
+  /**
+   * Each hole is a disc with a ring around it, so it reads as an opening cut
+   * through the roof rather than a dot painted on it. The ring is always
+   * there — every chamber has its holes — but only the chamber being stoked
+   * is lit, which is what shows where the fuel is going in right now.
+   */
+  const stokeGeo = new THREE.CircleGeometry(P.stokeHoleRadius, 18);
   stokeGeo.rotateX(-Math.PI / 2);
+
+  const ringGeo = new THREE.BufferGeometry().setFromPoints(
+    Array.from({ length: 24 }, (_, k) => {
+      const a = (k / 24) * Math.PI * 2;
+      const r = P.stokeHoleRadius * 1.35;
+      return new THREE.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r);
+    }),
+  );
+
   const stokeHoles = [];
   for (let i = 0; i < count; i++) {
     const perChamber = [];
     for (let h = 0; h < P.stokeHolesPerChamber; h++) {
       const t = (h + 0.5) / P.stokeHolesPerChamber;
       const { x, z } = path.at(sStart(i) + (sEnd(i) - sStart(i)) * t);
-      const m = new THREE.Mesh(stokeGeo, new THREE.MeshBasicMaterial({
+
+      const disc = new THREE.Mesh(stokeGeo, new THREE.MeshBasicMaterial({
         color: new THREE.Color(PALETTE.soot),
       }));
-      m.position.set(x, Y.damper, z);
-      stokeGroup.add(m);
-      perChamber.push(m);
+      disc.position.set(x, Y.stoke, z);
+      stokeGroup.add(disc);
+
+      const ring = new THREE.LineLoop(ringGeo, new THREE.LineBasicMaterial({
+        color: new THREE.Color(PALETTE['sand-faint']),
+      }));
+      ring.position.set(x, Y.stoke, z);
+      stokeGroup.add(ring);
+
+      perChamber.push({ disc, ring });
     }
     stokeHoles.push(perChamber);
   }
@@ -585,9 +612,23 @@ export function createRing(canvas, options = {}) {
       // The void stays dark so an empty chamber still reads as a chamber.
       seg.material.color.set(ch.loaded ? PALETTE.soot : PALETTE[STAGE_COLOUR.empty.key]);
 
-      // Fuel only goes into the chamber that is burning.
+      /**
+       * Fuel only goes into the chamber that is burning, so only its holes are
+       * open and glowing. Everywhere else they read as dark openings.
+       *
+       * The lit disc takes the PALEST value on the ramp, not the hottest. That
+       * looks backwards until you check it: the hottest value is the same red
+       * the firing chamber is drawn in, so a red hole on a red chamber came out
+       * at 1.00:1 contrast — perfectly invisible. What the hole shows is flame
+       * at the opening, brighter than the chamber around it, so the brightest
+       * colour is also the honest one. The ramp index is about chamber
+       * temperature; this is an opening, not a chamber.
+       */
       const lit = ch.stage === 'fire';
-      stokeHoles[i].forEach((m) => m.material.color.set(lit ? PALETTE['heat-4'] : PALETTE.soot));
+      stokeHoles[i].forEach(({ disc, ring }) => {
+        disc.material.color.set(lit ? PALETTE['heat-0'] : PALETTE['soot-raised']);
+        ring.material.color.set(lit ? PALETTE['heat-3'] : PALETTE['sand-faint']);
+      });
 
       // A bricked-up door is solid; an empty chamber stands open.
       wickets[i].material.color.set(ch.loaded ? PALETTE['sand-dim'] : PALETTE.soot);

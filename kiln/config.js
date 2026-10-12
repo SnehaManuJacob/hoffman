@@ -171,7 +171,7 @@ const defs = {
     // abstraction that carries them.
     walkwayWidth: [0.30, 'A', 'Stands in for the roof workers walk along. Kept narrow so the chamber below stays visible.'],
     stokeHolesPerChamber: [5, 'A', 'The holes are field-documented; how many per chamber is not.'],
-    stokeHoleRadius: [0.062, 'A'],
+    stokeHoleRadius: [0.085, 'A', 'Drawn large enough to read as an opening at the size the kiln is shown.'],
 
     wicketWidth: [0.62, 'A'],
     wicketHeight: [0.34, 'A'],
