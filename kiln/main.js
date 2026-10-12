@@ -7,11 +7,13 @@
  */
 
 import { C, PALETTE, STAGE_COLOUR, TAGS, OPEN_QUESTIONS } from './config.js';
-import { createEngine } from './engine.js';
+import { createEngine, gasProfile, relativeHeat, flowPath } from './engine.js';
 import { createRing } from './views/ring.js';
 import { createPanel } from './views/panel.js';
 import { createLabels } from './views/labels.js';
 import { createChart } from './views/chart.js';
+import { createHeat } from './views/heat.js';
+import { heatHex } from './views/heatRamp.js';
 import './checks.js';                 // exposes window.kilnChecks()
 
 const engine = createEngine();
@@ -21,6 +23,9 @@ const ring = createRing(document.getElementById('ring-canvas'), {
 });
 
 const labels = createLabels(document.getElementById('label-layer'), ring);
+
+// Parcels of gas on the air path, drawn into the ring's own scene.
+const heat = createHeat(ring);
 
 // The chart draws recorded history; the kiln drags through it. Both send the
 // same scrubTo action, so neither knows the other exists.
@@ -120,8 +125,11 @@ function frame(now) {
   last = now;                             // dump a huge dt into the simulation
 
   try {
-    engine.step(dt);
+    // step() returns the simulated hours that passed, which is what the heat
+    // particles move on — they travel in kiln-time, not frame-time.
+    const simHours = engine.step(dt);
 
+    heat.update(engine.state, simHours);
     // The ring needs dt to settle chamber colours at a rate tied to the cycle.
     ring.update(engine.state, dt);
     labels.update(engine.state);     // must follow ring: it reads the camera
@@ -145,6 +153,12 @@ window.kiln = engine;
 window.__ring = ring;        // segments[], path — inspect the drawing
 window.__cfg = { C, PALETTE, STAGE_COLOUR, TAGS, OPEN_QUESTIONS };
 window.__chart = chart;
+window.__heat = heat;
+/**
+ * The model's own view of the gas, for the console. `gasProfile(kiln.state)`
+ * answers "what is the air doing right now" without reading it off the screen.
+ */
+window.__model = { gasProfile, relativeHeat, flowPath, heatHex };
 console.log(
   '%c kiln %c engine ready — run kilnChecks() · inspect window.kiln.state',
   'background:#8a5a3c;color:#fff', '',

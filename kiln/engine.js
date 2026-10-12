@@ -97,6 +97,50 @@ export function flowPath(state) {
   return path;
 }
 
+/**
+ * Gas temperature along the flow path, as a profile the views can draw.
+ *
+ * PURE — it mutates nothing. One pass applying the same exchange rule the
+ * thermal model uses, so the drawing and the simulation cannot disagree about
+ * the same kiln. The constants come from the same config block for the same
+ * reason.
+ *
+ * Returns `temps` with one more entry than `path`: temps[0] is the gas going
+ * in, temps[k+1] is the gas after it has passed path[k].
+ *
+ * This is the whole Hoffmann argument in one array. Gas enters cold, is warmed
+ * by the chambers that have just fired, is lifted by the fire, and then gives
+ * that heat up to the green tiles ahead — so it leaves cooler than it left the
+ * fire. The difference is the heat that did a second job.
+ *
+ * Derived rather than stored, like stage and heat: scrubbing gets the right
+ * profile for free, because the chamber temperatures it reads are restored.
+ */
+export function gasProfile(state) {
+  const M = C.thermalModel;
+  const ambient = C.temperature.ambientC;
+  const path = state.phase === 'charging' ? [] : flowPath(state);
+
+  const temps = [ambient];
+  let gas = ambient;
+
+  for (const i of path) {
+    const ch = state.chambers[i];
+
+    // Same rule as integrateThermal: positive means the chamber is hotter and
+    // is giving heat up to the gas.
+    const q = M.exchangeRate * (ch.temp - gas) * M.subStepHours;
+    gas += q / M.gasMass;
+
+    // The fire sets the temperature of the gas leaving it.
+    if (i === state.firePos) gas = Math.max(gas, ch.temp);
+
+    temps.push(gas);
+  }
+
+  return { path, temps };
+}
+
 function makeChambers(count) {
   return Array.from({ length: count }, () => ({
     // The kiln starts cold and empty and fills as the first cycle runs, so a
@@ -478,8 +522,13 @@ export function createEngine(options = {}) {
    * Advance simulated time. `dtMs` is real elapsed milliseconds.
    * One tick = params.tickSeconds of real time at speed 1.
    */
+  /**
+   * Advance by `dtMs` of real time. Returns the SIMULATED hours that passed,
+   * so views animating in kiln-time (the heat particles) can use the engine's
+   * own conversion instead of duplicating the formula and drifting from it.
+   */
   function step(dtMs) {
-    if (state.paused || state.fork) return;
+    if (state.paused || state.fork) return 0;
 
     const perTick = state.params.tickSeconds / state.params.speed;
     const ticksElapsed = (dtMs / 1000) / perTick;
@@ -502,6 +551,8 @@ export function createEngine(options = {}) {
       state.subTime -= 1;
       if (!advanceTick()) break;     // fork raised: stop here
     }
+
+    return state.phase === 'charging' ? 0 : ticksElapsed * C.time.tickHours;
   }
 
   function dispatch(action) {

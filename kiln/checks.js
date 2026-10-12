@@ -9,7 +9,7 @@
  * so running them never disturbs the kiln on screen.
  */
 
-import { createEngine } from './engine.js';
+import { createEngine, gasProfile } from './engine.js';
 import { C, PALETTE, STAGE_COLOUR, COMPONENTS } from './config.js';
 import { createLoopPath } from './views/kilnPath.js';
 
@@ -654,6 +654,134 @@ export function kilnChecks() {
     assert(drift < 1.0, `1x and 4x differ by ${drift.toFixed(2)} C over the same simulated time`);
 
     return `frames differ by ${worst.toFixed(3)} C, speeds by ${drift.toFixed(3)} C`;
+  }));
+
+  // 26. Gas goes in at ambient. If the inlet were warm the kiln would be
+  //     getting heat from nowhere.
+  results.push(check('gas enters the kiln cold', () => {
+    const e = light(createEngine());
+    for (let i = 0; i < count * 3; i++) e.dispatch({ type: 'tick' });
+    const g = gasProfile(e.state);
+    assert(g.temps[0] === C.temperature.ambientC,
+      `gas enters at ${g.temps[0]}, not ambient ${C.temperature.ambientC}`);
+    return `in at ${g.temps[0]} C`;
+  }));
+
+  // 27. HEAT DOES USEFUL WORK TWICE — section 1's third success test, as an
+  //     assertion rather than a hope.
+  //
+  //     Two things have to be true at once: the gas must arrive at the fire
+  //     already warmed by the chambers that just fired, and it must leave the
+  //     kiln cooler than it left the fire. The first is heat recovered; the
+  //     second is heat handed on. Either alone would not be reuse.
+  results.push(check('heat does useful work twice', () => {
+    const e = light(createEngine());
+    for (let i = 0; i < count * 4; i++) e.dispatch({ type: 'tick' });
+
+    const g = gasProfile(e.state);
+    const at = g.path.indexOf(e.state.firePos);
+    assert(at > 0, 'the fire is not on the flow path');
+
+    const inlet = g.temps[0];
+    const intoFire = g.temps[at];          // after the cooling run
+    const leftFire = g.temps[at + 1];
+    const exhaust = g.temps[g.temps.length - 1];
+
+    assert(intoFire > inlet + 50,
+      `gas reaches the fire at ${Math.round(intoFire)} C, barely above the ${Math.round(inlet)} C it came in at — nothing was recovered from the cooling chambers`);
+    assert(leftFire > intoFire,
+      `the fire did not lift the gas: ${Math.round(intoFire)} -> ${Math.round(leftFire)} C`);
+    assert(exhaust < leftFire - 50,
+      `gas leaves at ${Math.round(exhaust)} C against ${Math.round(leftFire)} C at the fire — it gave nothing to the chambers ahead`);
+
+    return `in ${Math.round(inlet)}, reaches the fire at ${Math.round(intoFire)} `
+      + `(recovered ${Math.round(intoFire - inlet)}), leaves the fire at ${Math.round(leftFire)}, `
+      + `out at ${Math.round(exhaust)} (gave ${Math.round(leftFire - exhaust)} to the tiles ahead)`;
+  }));
+
+  // 28. The profile the particles draw must be the kiln the model is running.
+  //     Two copies of an exchange rule would disagree the day one changed.
+  results.push(check('the drawn gas profile matches the model', () => {
+    const e = light(createEngine());
+    for (let i = 0; i < count * 3; i++) e.dispatch({ type: 'tick' });
+
+    const g = gasProfile(e.state);
+    assert(g.path.length === C.windows.preheat + C.windows.cool + 1,
+      `path has ${g.path.length} chambers, expected ${C.windows.preheat + C.windows.cool + 1}`);
+    assert(g.temps.length === g.path.length + 1,
+      'the profile needs one more temperature than it has chambers');
+
+    // Reading it twice without touching the kiln must give the same answer:
+    // it is derived, not accumulated, so scrubbing restores it for free.
+    const again = gasProfile(e.state);
+    const drift = Math.max(...g.temps.map((t, i) => Math.abs(t - again.temps[i])));
+    assert(drift === 0, `the profile is not pure: re-reading drifted by ${drift}`);
+
+    // And it must mutate nothing.
+    const before = e.state.chambers.map((c) => c.temp);
+    gasProfile(e.state);
+    const after = e.state.chambers.map((c) => c.temp);
+    assert(before.every((t, i) => t === after[i]), 'gasProfile changed the kiln');
+
+    return `${g.path.length} chambers, ${g.temps.length} temperatures, pure`;
+  }));
+
+  // 29. Nothing flows through an unlit kiln.
+  results.push(check('no gas moves before the kiln is lit', () => {
+    const cold = createEngine();
+    cold.dispatch({ type: 'tick' });
+    const g = gasProfile(cold.state);
+    assert(cold.state.phase === 'charging', 'expected a charging kiln');
+    assert(g.path.length === 0, `${g.path.length} chambers on the path while charging`);
+    return 'no path, no draught';
+  }));
+
+  // 30. Parcels travel in kiln-time. step() returns the simulated hours it
+  //     advanced, so the particles cannot drift from the simulation whatever
+  //     the frame rate or the speed setting.
+  results.push(check('step reports the simulated hours it advanced', () => {
+    const e = light(createEngine());
+    e.dispatch({ type: 'setPaused', value: false });
+
+    e.dispatch({ type: 'setSpeed', value: 1 });
+    const oneX = e.step(1000);
+    e.dispatch({ type: 'setSpeed', value: 4 });
+    const fourX = e.step(1000);
+
+    assert(oneX > 0, 'a running kiln reported no simulated time');
+    assert(Math.abs(fourX / oneX - 4) < 1e-9,
+      `4x should advance 4x the simulated time, got ${(fourX / oneX).toFixed(3)}x`);
+
+    const paused = light(createEngine());
+    assert(paused.step(1000) === 0, 'a paused kiln reported simulated time passing');
+
+    // Charging burns nothing, so no simulated time passes there either.
+    const charging = createEngine();
+    charging.dispatch({ type: 'setPaused', value: false });
+    assert(charging.step(1000) === 0, 'a charging kiln reported simulated time passing');
+
+    return `1x -> ${oneX.toFixed(3)} h/s, 4x -> ${fourX.toFixed(3)} h/s, paused and charging -> 0`;
+  }));
+
+  // 31. The gas is hottest at the fire and nowhere else along the path.
+  results.push(check('the gas peaks at the fire', () => {
+    const e = light(createEngine());
+    for (let i = 0; i < count * 4; i++) e.dispatch({ type: 'tick' });
+    const g = gasProfile(e.state);
+    const at = g.path.indexOf(e.state.firePos);
+
+    const peak = Math.max(...g.temps);
+    assert(g.temps[at + 1] === peak,
+      `the gas peaks at step ${g.temps.indexOf(peak)}, not leaving the fire at ${at + 1}`);
+
+    // Rising all the way in, falling all the way out.
+    for (let k = 1; k <= at; k++) {
+      assert(g.temps[k] > g.temps[k - 1], `gas cooled on the way in, at step ${k}`);
+    }
+    for (let k = at + 2; k < g.temps.length; k++) {
+      assert(g.temps[k] < g.temps[k - 1], `gas warmed on the way out, at step ${k}`);
+    }
+    return `${g.temps.map((t) => Math.round(t)).join(' -> ')} C`;
   }));
 
   const passed = results.filter((r) => r.pass).length;

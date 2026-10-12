@@ -406,10 +406,18 @@ export function createRing(canvas, options = {}) {
   // kiln is shaped like this at all. Not observed here.
   const airGroup = componentGroup('airPath');
   root.add(airGroup);
+
+  /**
+   * The air route, rebuilt whenever the fire moves, and shared with the heat
+   * particles so the parcels and the channel can never drift apart. Each entry
+   * carries position, outward normal and the channel's half-width there.
+   */
+  const routePoints = [];
   const airRibbon = new THREE.Mesh(
     new THREE.BufferGeometry(),
     new THREE.MeshBasicMaterial({
-      vertexColors: true, transparent: true, opacity: 0.95,
+      color: new THREE.Color(PALETTE['soot-raised']),
+      transparent: true, opacity: 0.9,
       side: THREE.DoubleSide, depthWrite: false,
     }),
   );
@@ -451,38 +459,35 @@ export function createRing(canvas, options = {}) {
     const STEPS = 170;
 
     const positions = [];
-    const colours = [];
     const indices = [];
     const edgeA = [];
     const edgeB = [];
-    const col = new THREE.Color();
-    const AIR = new THREE.Color(PALETTE.air);
-    const atFire = (cool + 0.5) / (cool + pre + 1);
 
+    /**
+     * A channel, not a gradient.
+     *
+     * This used to colour itself from a curve written by hand — a drawing of
+     * what heat reuse ought to look like, sitting next to a model that knows
+     * what it actually looks like. The particles carry the temperature now,
+     * read from the simulation, and this is just the conduit they run in.
+     */
+    routePoints.length = 0;
     for (let i = 0; i <= STEPS; i++) {
       const u = i / STEPS;
-      const { x, z, nx, nz } = path.at(from + (to - from) * u);
+      const p = path.at(from + (to - from) * u);
+      const { x, z, nx, nz } = p;
 
       // Narrow where air comes in, widest at the fire, tapering as the
       // chambers ahead take the heat back out of it.
       const w = (P.airRibbonWidth / 2) * (0.28 + 0.72 * Math.sin(Math.PI * Math.min(1, u * 1.1)));
 
-      const h = u < atFire
-        ? (u / atFire) * 0.92
-        : 0.92 - ((u - atFire) / (1 - atFire)) * 0.78;
-      heatColour(h, col);
-
-      // The cold end is air, not a dull ember, so it takes the one cool tone
-      // the palette reserves for air. It warms into the heat ramp from there.
-      if (h < 0.18) col.lerp(AIR, (0.18 - h) / 0.18);
-
       const ax = x + nx * w; const az = z + nz * w;
       const bx = x - nx * w; const bz = z - nz * w;
 
       positions.push(ax, Y.air, az, bx, Y.air, bz);
-      colours.push(col.r, col.g, col.b, col.r, col.g, col.b);
       edgeA.push([ax, az]);
       edgeB.push([bx, bz]);
+      routePoints.push({ x, z, nx, nz, w });
       if (i < STEPS) {
         const a = i * 2;
         indices.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
@@ -491,7 +496,6 @@ export function createRing(canvas, options = {}) {
 
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    g.setAttribute('color', new THREE.Float32BufferAttribute(colours, 3));
     g.setIndex(indices);
     g.computeBoundingSphere();
     airRibbon.geometry.dispose();
@@ -775,6 +779,8 @@ export function createRing(canvas, options = {}) {
 
   return {
     update, resize, dispose, render, anchors, attachScrub,
+    // The particle layer draws into this group and samples this route.
+    airGroup, routePoints, airY: Y.air,
     segments, path, ductPath, scene, camera, renderer, tileMeshes,
     groups: {
       massGroup, chambersGroup, tilesGroup, wallsGroup, wicketGroup,
