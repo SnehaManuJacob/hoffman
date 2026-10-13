@@ -782,10 +782,22 @@ export function createRing(canvas, options = {}) {
     airHead.material.color.set(heatHex(exitH * 0.6));
 
     // --- the opening the air comes in through ------------------------------
-    // Air has to get in somewhere. Without a way through the outer wall the
-    // ribbon would still be arriving from nowhere, just further out.
-    const inletMid = from + 0.5 / count;
-    const inletHalf = (P.damperWidthFraction / 2) / count;
+    /**
+     * Air has to get in somewhere. Without a way through the outer wall the
+     * ribbon would still be arriving from nowhere, just further out.
+     *
+     * It must sit exactly where the ribbon crosses the wall. Putting it half a
+     * chamber further on landed it on a DIVIDING WALL between two chambers —
+     * an opening cut through a divider, nowhere near the air going through it.
+     *
+     * The inlet curve carries an offset of (1 - e) * (halfBand + lead), so it
+     * is midway through the wall when that equals halfBand - inset/2. Solve
+     * for e and the crossing point follows.
+     */
+    const reach = halfBand + P.airInletLead;
+    const eCross = 1 - (halfBand - inset / 2) / reach;
+    const inletMid = from + eCross * turnIn;
+    const inletHalf = (P.airInletWidthFraction / 2) / count;
     airInlet.geometry.dispose();
     airInlet.geometry = bandGeometry(
       path, inletMid - inletHalf, inletMid + inletHalf,

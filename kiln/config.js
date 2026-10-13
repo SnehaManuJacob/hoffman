@@ -249,6 +249,7 @@ const defs = {
     islandCornerRadius: [0.35, 'A'],
     airInletLead: [0, 'A', 'The incoming air starts flush at the kiln\'s outer face and turns in through the wall. Reaching out beyond the kiln only forced the camera to pull back and shrank the whole drawing for no gain.'],
     airInletTurn: [0.3, 'A', 'How much of a chamber the air takes to turn from coming through the wall to running along the kiln. Short, so it reads as entering rather than drifting in diagonally.'],
+    airInletWidthFraction: [0.34, 'A', 'Share of the chamber length the air inlet takes up. Its own value, not the damper\'s — they are different openings in different walls.'],
     airSmoothSamples: [420, 'A', 'Points the route is resampled to before smoothing, so the rounding is even along its whole length.'],
     airSmoothRadius: [9, 'A', 'How many points either side are averaged. Bigger rounds the corners harder.'],
     airSmoothPasses: [2, 'A'],
