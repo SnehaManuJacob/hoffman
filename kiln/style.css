@@ -449,17 +449,36 @@ input:focus-visible {
 
 .recovery-head .pane-title { padding-bottom: 0; }
 
-.fuel-compare { margin: var(--space-3) 0 0; }
+.fuel-compare { margin: 0; }
 
+/*
+   A fixed leading column for the marker, so both labels start at the same x
+   whether or not they carry it. Without it the active row shifts sideways as
+   the switch is thrown, and the panel reads as twitching rather than updating.
+*/
 .fuel-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 5px 1fr auto;
   align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-3);
+  gap: var(--space-2);
   padding: var(--space-2) 0;
   border-top: 1px solid var(--hairline);
   color: var(--sand-faint);
 }
+
+/* The same small square the kiln labels use, rather than a second marker shape. */
+.fuel-mark {
+  width: 5px;
+  height: 5px;
+  background: transparent;
+  justify-self: start;
+  align-self: center;
+}
+
+.fuel-row.is-active .fuel-mark { background: var(--sand-bright); }
+
+/* The note explains the mechanism; it needs air after the last figure. */
+.recovery-pane .qualifier { margin-top: var(--space-4); }
 
 .fuel-row dt {
   font-family: var(--font-mono);
@@ -480,8 +499,9 @@ input:focus-visible {
 /* The setting currently on screen. Brighter, never "better". */
 .fuel-row.is-active { color: var(--sand-bright); }
 
+/* Now sits ABOVE the figures: what they are, before they are read. */
 .fuel-unit {
-  margin: var(--space-2) 0 var(--space-3);
+  margin: var(--space-4) 0 var(--space-2);
   font-family: var(--font-mono);
   font-size: var(--fs-micro);
   letter-spacing: var(--track-wide);

@@ -99,18 +99,33 @@
           </label>
         </div>
 
-        <!-- Simulated, relative, and labelled as such. Section 4. -->
+        <!--
+          What the figures are, BEFORE the figures. Two bare numbers followed by
+          their unit means reading them twice.
+        -->
+        <p class="fuel-unit muted">Fuel per chamber fired &middot; relative units</p>
+
+        <!--
+          The rows are named after the two routes the exhaust can take, not after
+          the setting that chooses between them. That is what keeps the word
+          "reuse" on the control and nowhere else — and it means each figure is
+          labelled with something the visitor can see the arrow doing.
+
+          Simulated, relative, and labelled as such. Section 4.
+        -->
         <dl class="fuel-compare" id="fuel-compare" data-ev="S">
           <div class="fuel-row" data-mode="on">
-            <dt>Reusing heat</dt>
+            <span class="fuel-mark" aria-hidden="true"></span>
+            <dt>Over the tiles ahead</dt>
             <dd><span class="fuel-value" id="fuel-on">&ndash;</span></dd>
           </div>
           <div class="fuel-row" data-mode="off">
-            <dt>Straight to chimney</dt>
+            <span class="fuel-mark" aria-hidden="true"></span>
+            <dt>Straight to the chimney</dt>
             <dd><span class="fuel-value" id="fuel-off">&ndash;</span></dd>
           </div>
         </dl>
-        <p class="fuel-unit muted">Fuel index per chamber fired &middot; relative units</p>
+
         <p class="qualifier" id="recovery-note" data-ev="L"></p>
       </section>
 

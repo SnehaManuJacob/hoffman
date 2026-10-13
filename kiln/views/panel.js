@@ -143,9 +143,19 @@ export function createPanel({ contextEl, debugEl, clockEl, recoveryEl }, dispatc
     recoveryEl.on.textContent = fuelRate(on, firings);
     recoveryEl.off.textContent = fuelRate(off, firings);
 
+    /**
+     * Which row is on screen. Carried by a marker and by `aria-current` as well
+     * as by brightness — a difference in tone alone is the one cue a visitor
+     * can miss entirely, and it says nothing to anything that is not looking.
+     */
     const reusing = state.params.recovery !== false;
     recoveryEl.rowOn.classList.toggle('is-active', reusing);
     recoveryEl.rowOff.classList.toggle('is-active', !reusing);
+
+    const active = reusing ? recoveryEl.rowOn : recoveryEl.rowOff;
+    const other = reusing ? recoveryEl.rowOff : recoveryEl.rowOn;
+    active.setAttribute('aria-current', 'true');
+    other.removeAttribute('aria-current');
 
     /**
      * The note says what reuse IS, not what it saves. The saving is the number
