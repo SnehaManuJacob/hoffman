@@ -62,8 +62,16 @@
   --heat-3: #ef6c1a;
   --heat-4: #d8321a;   /* the fire */
 
-  /** One cool pale tone. RESERVED FOR AIR (Day 7). Nothing else may use it. */
-  --air:     #9db4b8;
+  /**
+   * One cool pale tone, RESERVED FOR AIR. Nothing else may use it.
+   *
+   * Two versions of the same tone, not two colours: `--air` is fresh air
+   * drawn in, `--air-spent` is the same air on its way out, desaturated
+   * towards grey. Gas that has already given up its heat should not look
+   * identical to gas about to collect it.
+   */
+  --air:       #9db4b8;
+  --air-spent: #a5a39b;
   --air-dim: #53666a;
 
   /* --- type: two extremes, nothing between --- */
