@@ -84,6 +84,36 @@
         </div>
       </section>
 
+      <!--
+        Heat recovery (Day 8). Switch and figures together, so the cause sits
+        beside the effect. Both rows are always shown: brief section 7 asks for
+        a side-by-side comparison and rules out anything that reads as a score,
+        so there is no delta, no percentage saved and no target here.
+      -->
+      <section class="recovery-pane">
+        <div class="recovery-head">
+          <h2 class="pane-title">Heat recovery</h2>
+          <label class="pill">
+            <input type="checkbox" id="recovery" checked>
+            <span>Reuse heat</span>
+          </label>
+        </div>
+
+        <!-- Simulated, relative, and labelled as such. Section 4. -->
+        <dl class="fuel-compare" id="fuel-compare" data-ev="S">
+          <div class="fuel-row" data-mode="on">
+            <dt>Reusing heat</dt>
+            <dd><span class="fuel-value" id="fuel-on">&ndash;</span></dd>
+          </div>
+          <div class="fuel-row" data-mode="off">
+            <dt>Straight to chimney</dt>
+            <dd><span class="fuel-value" id="fuel-off">&ndash;</span></dd>
+          </div>
+        </dl>
+        <p class="fuel-unit muted">Fuel index per chamber fired &middot; relative units</p>
+        <p class="qualifier" id="recovery-note" data-ev="L"></p>
+      </section>
+
       <section class="context-pane">
         <h2 class="pane-title">What is happening</h2>
         <div id="context" class="context"></div>

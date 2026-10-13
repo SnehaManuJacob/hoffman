@@ -84,14 +84,24 @@ export function relativeHeat(tempC) {
  * the airflow arrow draws, and the reason the kiln is shaped like a loop at
  * all: one pass of air does two useful jobs.
  *
+ * With `recovery` off the second job is cut: the gas leaves through a damper at
+ * the fire and goes straight up the chimney, still hot. The chambers ahead get
+ * nothing and arrive at the fire cold. That one changed index is the whole of
+ * section 6.5.
+ *
+ * The intake leg stays either way. That is simply how air reaches the fire, and
+ * removing it would mean inventing a separate cold-air inlet the brief does not
+ * describe.
+ *
  * Literature, not observation (config `thermal.counterCurrent`, tag L). The
  * flow path at Kundapur was not seen.
  */
-export function flowPath(state) {
+export function flowPath(state, recovery = true) {
   const count = state.chambers.length;
   const { pre, cool } = state.params.window;
   const path = [];
-  for (let k = -cool; k <= pre; k++) {
+  const last = recovery ? pre : 0;
+  for (let k = -cool; k <= last; k++) {
     path.push(((state.firePos + k) % count + count) % count);
   }
   return path;
@@ -137,6 +147,16 @@ export function createEngine(options = {}) {
       ...options.params,
     },
     fuelIndex: 0,                    // relative units only, never kg or MJ
+    /**
+     * Chambers that have actually had their firing. The denominator for the
+     * recovery comparison, and deliberately not `tick`: waiting at a fork
+     * passes ticks without firing anything, and "fire empty" spends fuel on a
+     * chamber holding no tiles. Both should make the rate look worse, which
+     * only works if this counts tiles fired rather than hours elapsed.
+     */
+    firings: 0,
+    // Fuel for both recovery settings, published by the thermal model.
+    fuelCompare: { on: 0, off: 0, firings: 0 },
     // 'charging' while the cold kiln is being filled, 'running' once lit.
     // No simulated time passes while charging.
     phase: C.loading.startEmpty ? 'charging' : 'running',
@@ -145,12 +165,56 @@ export function createEngine(options = {}) {
     ui: { layer: 'structure', evidenceMode: false, fieldOnly: false },
   };
 
-  const history = createHistory();
-  syncStages(state);
-  history.push(state);
-
   // Simulated hours banked but not yet integrated — see integrateThermal.
   let thermalCarry = 0;
+
+  /**
+   * TWO thermal worlds: the same kiln, the same schedule, one difference.
+   *
+   * `on` reuses its heat the way a Hoffmann kiln is meant to; `off` sends the
+   * exhaust straight up the chimney at the fire. Both are integrated every
+   * sub-step from tick 0, over the identical firing and loading history, so the
+   * fuel figures beside each other are a controlled comparison rather than two
+   * runs of different lengths laid side by side.
+   *
+   * Only temperature and fuel are duplicated. Everything structural — where the
+   * fire is, what is loaded, what the fork did — is shared, which is what makes
+   * the two worlds differ in exactly one thing and no more.
+   */
+  const worlds = {
+    on: { temps: new Array(count).fill(C.temperature.ambientC), fuel: 0 },
+    off: { temps: new Array(count).fill(C.temperature.ambientC), fuel: 0 },
+  };
+  // Engine-owned, exposed so history can record both and the console can read
+  // them. No view touches this: views read `chamber.heat` and nothing else.
+  state.thermal = worlds;
+
+  /** The world the views are currently looking at. */
+  const activeWorld = () => (state.params.recovery ? worlds.on : worlds.off);
+
+  /**
+   * Copy the active world onto the chambers the views read, and publish the
+   * comparison. Temperatures stay in degrees for the console; `heat` is the
+   * relative 0-1 everything on screen is drawn from (section 4).
+   */
+  function publishThermal() {
+    const w = activeWorld();
+    for (let i = 0; i < count; i++) {
+      state.chambers[i].temp = w.temps[i];
+      state.chambers[i].heat = relativeHeat(w.temps[i]);
+    }
+    state.fuelIndex = w.fuel;
+    // Relative units and a count, never a mass. Per chamber fired rather than a
+    // running total: a total only says how long you have been watching.
+    state.fuelCompare = { on: worlds.on.fuel, off: worlds.off.fuel, firings: state.firings };
+  }
+
+  // After the worlds exist: the opening snapshot has to record them too, or
+  // scrubbing back to tick 0 would find nothing to restore them from.
+  const history = createHistory();
+  syncStages(state);
+  publishThermal();
+  history.push(state);
 
   /**
    * The thermal model (brief section 6.2).
@@ -175,11 +239,62 @@ export function createEngine(options = {}) {
    * SIMULATED throughout (tag S), in relative masses and rates. Section 4
    * forbids kg and MJ for simulated values, so there are no real units here.
    */
+
+  /**
+   * One sub-step of one world. The rules live here and nowhere else, so the
+   * recovery comparison cannot turn into two models that drifted apart.
+   */
+  function stepWorld(world, recovery, dt) {
+    const M = C.thermalModel;
+    const ambient = C.temperature.ambientC;
+
+    // Nothing is burning before the kiln is lit, so it only loses heat.
+    const path = state.phase === 'charging' ? [] : flowPath(state, recovery);
+    const onPath = new Set(path);
+
+    let gas = ambient;
+    for (const i of path) {
+      // Gas and chamber trade heat. Positive q means the chamber is the hotter
+      // of the two and is giving heat up to the gas.
+      const q = M.exchangeRate * (world.temps[i] - gas) * dt;
+      world.temps[i] -= q / M.chamberMass;
+      gas += q / M.gasMass;
+
+      if (i === state.firePos) {
+        /**
+         * Fuel is fed at whatever rate holds the band. That is an assumption:
+         * how the crew actually decides a feed rate is unknown (section 4
+         * lists what workers watch and adjust as unknown).
+         *
+         * It is also the whole of Day 8. The feed answers demand, so a chamber
+         * that arrived cold costs more to bring to the same peak — and with
+         * recovery off every chamber arrives cold. Nothing here knows about
+         * recovery; the difference arrives through `flowPath` alone.
+         */
+        const rate = Math.max(0, Math.min(
+          M.maxFuelRate, (M.targetC - world.temps[i]) * M.fuelGain,
+        ));
+        world.temps[i] += (rate * dt * M.heatPerFuel) / M.chamberMass;
+        gas = Math.max(gas, world.temps[i]);   // the fire sets the gas leaving it
+        world.fuel += rate * dt;               // relative units, never a mass
+      }
+    }
+
+    // Everything off the flow path just loses heat to the outside.
+    for (let i = 0; i < count; i++) {
+      if (onPath.has(i)) continue;
+      world.temps[i] += (ambient - world.temps[i]) * Math.min(1, M.ambientLossRate * dt);
+    }
+
+    for (let i = 0; i < count; i++) {
+      if (world.temps[i] < ambient) world.temps[i] = ambient;  // nothing goes below the yard
+    }
+  }
+
   function integrateThermal(simHours) {
     if (simHours <= 0) return;
 
     const M = C.thermalModel;
-    const ambient = C.temperature.ambientC;
 
     /**
      * Only ever integrate WHOLE sub-steps, carrying the remainder to the next
@@ -192,54 +307,12 @@ export function createEngine(options = {}) {
 
     while (thermalCarry >= M.subStepHours) {
       thermalCarry -= M.subStepHours;
-      const dt = M.subStepHours;
-
-      // Nothing is burning before the kiln is lit, so it only loses heat.
-      const path = state.phase === 'charging' ? [] : flowPath(state);
-      const onPath = new Set(path);
-
-      let gas = ambient;
-      for (const i of path) {
-        const ch = state.chambers[i];
-
-        // Gas and chamber trade heat. Positive q means the chamber is the
-        // hotter of the two and is giving heat up to the gas.
-        const q = M.exchangeRate * (ch.temp - gas) * dt;
-        ch.temp -= q / M.chamberMass;
-        gas += q / M.gasMass;
-
-        if (i === state.firePos) {
-          /**
-           * Fuel is fed at whatever rate holds the band. That is an
-           * assumption: how the crew actually decides a feed rate is unknown
-           * (section 4 lists what workers watch and adjust as unknown).
-           *
-           * It is also what makes Day 8 possible. With heat recovery off the
-           * chambers ahead arrive cold, more fuel is needed to reach the same
-           * peak, and the fuel index rises — section 6.5's stated outcome.
-           */
-          const rate = Math.max(0, Math.min(
-            M.maxFuelRate, (M.targetC - ch.temp) * M.fuelGain,
-          ));
-          ch.temp += (rate * dt * M.heatPerFuel) / M.chamberMass;
-          gas = Math.max(gas, ch.temp);        // the fire sets the gas leaving it
-          state.fuelIndex += rate * dt;        // relative units, never a mass
-        }
-      }
-
-      // Everything off the flow path just loses heat to the outside.
-      for (let i = 0; i < count; i++) {
-        if (onPath.has(i)) continue;
-        const ch = state.chambers[i];
-        ch.temp += (ambient - ch.temp) * Math.min(1, M.ambientLossRate * dt);
-      }
-
-      for (let i = 0; i < count; i++) {
-        const ch = state.chambers[i];
-        if (ch.temp < ambient) ch.temp = ambient;   // nothing goes below the yard
-        state.chambers[i].heat = relativeHeat(ch.temp);
-      }
+      // Both worlds advance together, on the same schedule and the same clock.
+      stepWorld(worlds.on, true, M.subStepHours);
+      stepWorld(worlds.off, false, M.subStepHours);
     }
+
+    publishThermal();
   }
 
   /**
@@ -416,6 +489,7 @@ export function createEngine(options = {}) {
     // The chamber now in the fire has had its firing. That is what later marks
     // it ready to be unloaded once it goes idle.
     state.chambers[next].fired = true;
+    state.firings += 1;              // a chamber of tiles fired, not just a tick
 
     /**
      * The crew works AFTER the fire has moved — during the two hours that
@@ -452,11 +526,17 @@ export function createEngine(options = {}) {
       // cooling and the chambers ahead sit warm for longer than they should.
       state.tick += 1;
     } else if (policy === 'skip') {
-      // The fire jumps over the empty chamber to the one beyond it.
+      // The fire jumps over the empty chamber to the one beyond it. That
+      // chamber has its firing like any other, so it is marked and counted —
+      // without which it would never come round to be unloaded.
       state.firePos = (at + 1) % count;
       state.tick += 1;
+      state.chambers[state.firePos].fired = true;
+      if (state.chambers[state.firePos].loaded) state.firings += 1;
     } else if (policy === 'fireEmpty') {
-      // The fire moves in and burns fuel on a chamber holding no tiles.
+      // The fire moves in and burns fuel on a chamber holding no tiles. No
+      // increment to `firings`: fuel is spent and nothing is fired, which is
+      // the whole cost of this choice and should show in the fuel rate.
       state.firePos = at;
       state.tick += 1;
     } else {
@@ -559,6 +639,20 @@ export function createEngine(options = {}) {
           state.subTime = 0;
           state.paused = true;
           thermalCarry = 0;        // sub-tick bookkeeping does not survive a jump
+
+          /**
+           * BOTH worlds are restored, not just the one on screen. Restoring
+           * only the active world would leave the other still standing at the
+           * end of the run, and the comparison beside it would quietly stop
+           * describing the same moment.
+           */
+          state.firings = snap.firings;
+          worlds.on.temps = snap.thermal.on.slice();
+          worlds.on.fuel = snap.thermal.onFuel;
+          worlds.off.temps = snap.thermal.off.slice();
+          worlds.off.fuel = snap.thermal.offFuel;
+          publishThermal();
+
           syncStages(state);
         }
         break;
@@ -595,9 +689,15 @@ export function createEngine(options = {}) {
         break;
 
       case 'setRecovery':
-        // Stored now, acted on in Day 8. Keeping the action in the vocabulary
-        // from the start means later days add behaviour, not plumbing.
+        /**
+         * Both worlds have been running since tick 0, so this only chooses
+         * which one the views read. No simulated time passes and no history is
+         * rewritten — throwing the switch is a change of view onto a kiln that
+         * was always being modelled both ways.
+         */
         state.params.recovery = !!action.value;
+        publishThermal();
+        syncStages(state);
         break;
 
       case 'chooseForkPolicy':

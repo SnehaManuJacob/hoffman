@@ -422,12 +422,70 @@ input:focus-visible {
 .context { font-size: var(--fs-lead); line-height: 1.4; color: var(--sand-bright); }
 .context p { margin: 0 0 var(--space-3); }
 
-.context .qualifier {
+.context .qualifier,
+.recovery-pane .qualifier {
   font-size: var(--fs-micro);
   line-height: 1.6;
   color: var(--sand-faint);
   letter-spacing: 0.02em;
   margin-bottom: 0;
+}
+
+/* --------------------------------------------------------------------------
+   heat recovery — the switch and its two figures (Day 8)
+
+   Deliberately NOT a scoreboard. Both rows always read the same way, the
+   inactive one is dimmed rather than struck through or marked worse, and the
+   larger figure gets no warning colour. Brief section 7: a comparison, not a
+   score to minimise.
+   -------------------------------------------------------------------------- */
+
+.recovery-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.recovery-head .pane-title { padding-bottom: 0; }
+
+.fuel-compare { margin: var(--space-3) 0 0; }
+
+.fuel-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--hairline);
+  color: var(--sand-faint);
+}
+
+.fuel-row dt {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  letter-spacing: var(--track-wide);
+  text-transform: uppercase;
+}
+
+.fuel-row dd { margin: 0; }
+
+.fuel-value {
+  font-family: var(--font-mono);
+  font-size: 1.25rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--track-tight);
+}
+
+/* The setting currently on screen. Brighter, never "better". */
+.fuel-row.is-active { color: var(--sand-bright); }
+
+.fuel-unit {
+  margin: var(--space-2) 0 var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  letter-spacing: var(--track-wide);
+  text-transform: uppercase;
 }
 
 /* Day 3 debug table. Scaffolding, not design — but it obeys the palette. */

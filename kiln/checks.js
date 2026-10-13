@@ -542,25 +542,47 @@ export function kilnChecks() {
     return `${Math.round(Math.min(...seen))}-${Math.round(Math.max(...seen))} C over ${seen.length} firings`;
   }));
 
-  // 21. A cold kiln warms; it does not snap to temperature. If the feed can
-  //     reach the band on the first firing, the kiln has no warm-up at all and
-  //     the opening says nothing true about starting a kiln.
-  results.push(check('a cold kiln warms up instead of snapping to the band', () => {
-    const [lo] = C.temperature.peakBandC;
+  /**
+   * 21. A cold KILN warms over a loop or two; it does not snap to temperature.
+   *
+   * About the kiln, not about the firing chamber. The chamber in the fire has a
+   * fire in it and reaches the band quickly — it should. What takes time is the
+   * mass of the whole kiln coming up, and that is what makes the opening of the
+   * simulation say something true about starting one.
+   *
+   * This used to assert that the FIRST firing fell short of the band, which was
+   * really a statement about the fuel ceiling. Day 8 raised that ceiling so the
+   * crew can hold the band with heat recovery off, and the first firing now
+   * reaches it. The kiln still takes a loop and a half to warm, which is the
+   * thing the check was always for.
+   */
+  results.push(check('a cold kiln warms far slower than the chamber in the fire', () => {
     const e = light(createEngine());
+    const ambient = C.temperature.ambientC;
+    const [lo] = C.temperature.peakBandC;
 
-    e.dispatch({ type: 'tick' });
-    const first = e.state.chambers[e.state.firePos].temp;
-    assert(first < lo, `the first firing already reached ${Math.round(first)} C`);
-
-    let reached = null;
-    for (let i = 2; i <= count * 4 && reached === null; i++) {
+    const means = [];
+    const fires = [];
+    for (let i = 0; i < count * 4; i++) {
       e.dispatch({ type: 'tick' });
-      if (e.state.chambers[e.state.firePos].temp >= lo) reached = e.state.tick;
+      means.push(e.state.chambers.reduce((a, c) => a + c.temp, 0) / count);
+      fires.push(e.state.chambers[e.state.firePos].temp);
     }
-    assert(reached !== null, 'the kiln never reached the band');
-    return `first firing ${Math.round(first)} C, band reached at tick ${reached} `
-      + `(${reached * C.time.tickHours} simulated hours)`;
+    const final = means[means.length - 1];
+
+    const kilnWarm = means.findIndex((m) => m - ambient >= (final - ambient) * 0.95) + 1;
+    const fireWarm = fires.findIndex((t) => t >= lo) + 1;
+    assert(fireWarm > 0, 'the fire never reached the band at all');
+
+    // The kiln's mass is the slow part. Measured: the fire is in the band by
+    // tick 2, the kiln takes a full loop of 8 to come within 5% of settling.
+    assert(kilnWarm >= count / 2,
+      `the whole kiln was warm by tick ${kilnWarm}, less than half a loop`);
+    assert(kilnWarm >= fireWarm * 3,
+      `the kiln warmed in ${kilnWarm} ticks against the fire's ${fireWarm} — barely slower`);
+
+    return `fire in the band at tick ${fireWarm}; kiln mean ${Math.round(ambient)} -> `
+      + `${Math.round(final)} C, within 5% at tick ${kilnWarm}`;
   }));
 
   // 22. Heat grades away from the fire in BOTH directions, and the chamber
@@ -654,6 +676,135 @@ export function kilnChecks() {
     assert(drift < 1.0, `1x and 4x differ by ${drift.toFixed(2)} C over the same simulated time`);
 
     return `frames differ by ${worst.toFixed(3)} C, speeds by ${drift.toFixed(3)} C`;
+  }));
+
+  // ---------------------------------------------------------------- Day 8
+  // Heat recovery. The engine runs the kiln BOTH ways at once over one firing
+  // schedule, so these read two live worlds rather than comparing two runs.
+
+  /** Run to steady state and hand back the engine. */
+  const settled = (params) => {
+    const e = light(createEngine(params));
+    for (let i = 0; i < count * 5; i++) e.dispatch({ type: 'tick' });
+    return e;
+  };
+
+  /**
+   * 26. The peak holds whichever way the kiln is run.
+   *
+   * This is the decision the day was built on: recovery changes the FUEL, not
+   * the temperature. If the peak moved too, the comparison beside it could not
+   * say whether the extra fuel bought heat or was thrown away.
+   */
+  results.push(check('the band holds with heat recovery on or off', () => {
+    const [lo, hi] = C.temperature.peakBandC;
+    const e = settled();
+    const seen = { on: [], off: [] };
+    for (let i = 0; i < count * 2; i++) {
+      e.dispatch({ type: 'tick' });
+      seen.on.push(e.state.thermal.on.temps[e.state.firePos]);
+      seen.off.push(e.state.thermal.off.temps[e.state.firePos]);
+    }
+    for (const key of ['on', 'off']) {
+      const out = seen[key].filter((t) => t < lo || t > hi);
+      assert(out.length === 0,
+        `recovery ${key}: ${out.length} firings outside the band, e.g. ${Math.round(out[0])} C`);
+    }
+    return `on ${Math.round(Math.min(...seen.on))}-${Math.round(Math.max(...seen.on))} C, `
+      + `off ${Math.round(Math.min(...seen.off))}-${Math.round(Math.max(...seen.off))} C`;
+  }));
+
+  /**
+   * 27. Section 6.5's stated outcome, MEASURED. There is deliberately no
+   * penalty constant in config.js for this to read; the figure has to come out
+   * of the model or it is not a finding.
+   */
+  results.push(check('running without heat recovery burns more fuel', () => {
+    const e = settled();
+    const { on, off, firings } = e.state.fuelCompare;
+    assert(firings > 0, 'nothing was fired, so there is nothing to compare');
+    const rateOn = on / firings;
+    const rateOff = off / firings;
+    assert(rateOff > rateOn,
+      `without recovery ${rateOff.toFixed(0)} per firing, with ${rateOn.toFixed(0)} — no penalty at all`);
+    return `${rateOn.toFixed(0)} vs ${rateOff.toFixed(0)} per chamber fired `
+      + `(${(rateOff / rateOn).toFixed(2)}x) over ${firings} firings`;
+  }));
+
+  // 28. The other half of 6.5: with the exhaust going straight up the chimney
+  //     the chambers ahead get nothing and arrive at the fire cold.
+  results.push(check('without recovery the chambers ahead stay cold', () => {
+    const e = settled();
+    const f = e.state.firePos;
+    const ahead = (k) => (f + k) % count;
+    for (let k = 1; k <= C.windows.preheat; k++) {
+      const warm = e.state.thermal.on.temps[ahead(k)];
+      const cold = e.state.thermal.off.temps[ahead(k)];
+      assert(cold < warm,
+        `offset ${k}: ${Math.round(cold)} C without recovery is not below ${Math.round(warm)} C with it`);
+    }
+    const list = (w) => [1, 2, 3].map((k) => Math.round(e.state.thermal[w].temps[ahead(k)])).join('/');
+    return `ahead of the fire: ${list('on')} C with reuse, ${list('off')} C without`;
+  }));
+
+  /**
+   * 29. The comparison is CONTROLLED: the two worlds differ in recovery and in
+   * nothing else. If the setting changed where the fire went or what got
+   * loaded, the two fuel figures would be measuring two different kilns and the
+   * number beside them would mean nothing.
+   */
+  results.push(check('the two recovery settings share one firing schedule', () => {
+    const a = light(createEngine({ params: { recovery: true } }));
+    const b = light(createEngine({ params: { recovery: false } }));
+
+    for (let i = 0; i < count * 3; i++) {
+      a.dispatch({ type: 'tick' });
+      b.dispatch({ type: 'tick' });
+      assert(a.state.firePos === b.state.firePos,
+        `tick ${i}: fire at ${a.state.firePos} with recovery, ${b.state.firePos} without`);
+      assert(a.state.firings === b.state.firings,
+        `tick ${i}: ${a.state.firings} firings with recovery, ${b.state.firings} without`);
+      for (let c = 0; c < count; c++) {
+        assert(a.state.chambers[c].loaded === b.state.chambers[c].loaded,
+          `tick ${i}: chamber ${c} loaded differently`);
+      }
+    }
+
+    // And each engine computes the SAME pair of figures, whichever it is showing.
+    assert(Math.abs(a.state.fuelCompare.off - b.state.fuelCompare.off) < 1e-6
+      && Math.abs(a.state.fuelCompare.on - b.state.fuelCompare.on) < 1e-6,
+      'the two engines disagree about the counterfactual');
+
+    return `${count * 3} ticks, identical schedule and identical figures`;
+  }));
+
+  /**
+   * 30. Scrubbing restores BOTH worlds. Restoring only the one on screen would
+   * leave the other standing at the end of the run, and the figure beside the
+   * kiln would quietly stop describing the moment being shown.
+   */
+  results.push(check('scrubbing back restores both recovery figures', () => {
+    const e = settled();
+    const mid = Math.floor(e.state.tick / 2);
+    const snap = e.history.at(mid);
+    assert(snap, `no snapshot at tick ${mid}`);
+
+    e.dispatch({ type: 'scrubTo', tick: mid });
+    assert(e.state.fuelCompare.on === snap.thermal.onFuel,
+      `recovery-on fuel ${e.state.fuelCompare.on} != recorded ${snap.thermal.onFuel}`);
+    assert(e.state.fuelCompare.off === snap.thermal.offFuel,
+      `recovery-off fuel ${e.state.fuelCompare.off} != recorded ${snap.thermal.offFuel}`);
+    assert(e.state.firings === snap.firings,
+      `${e.state.firings} firings restored, ${snap.firings} recorded`);
+
+    // Flipping the switch there must still show that moment, not the run's end.
+    e.dispatch({ type: 'setRecovery', value: false });
+    const worst = Math.max(...e.state.chambers.map(
+      (c, i) => Math.abs(c.temp - snap.thermal.off[i]),
+    ));
+    assert(worst < 1e-9, `after flipping the switch, chambers are off by ${worst.toFixed(3)} C`);
+
+    return `tick ${mid}: both figures and both worlds restored`;
   }));
 
   const passed = results.filter((r) => r.pass).length;

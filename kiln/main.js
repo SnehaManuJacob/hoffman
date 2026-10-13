@@ -31,6 +31,13 @@ const panel = createPanel({
   contextEl: document.getElementById('context'),
   debugEl: document.getElementById('debug'),
   clockEl: document.getElementById('clock-value'),
+  recoveryEl: {
+    on: document.getElementById('fuel-on'),
+    off: document.getElementById('fuel-off'),
+    rowOn: document.querySelector('.fuel-row[data-mode="on"]'),
+    rowOff: document.querySelector('.fuel-row[data-mode="off"]'),
+    note: document.getElementById('recovery-note'),
+  },
 }, engine.dispatch);
 
 // --- controls ---------------------------------------------------------------
@@ -64,6 +71,17 @@ tabs.addEventListener('click', (ev) => {
   tabs.querySelectorAll('.tab').forEach((t) => {
     t.classList.toggle('is-active', t === tab);
   });
+});
+
+/**
+ * Heat recovery. Both kilns are already running inside the engine, so this
+ * only chooses which one is on screen — no simulated time passes and nothing
+ * is recomputed. One dispatch and nothing else, like every other control.
+ */
+const recovery = document.getElementById('recovery');
+recovery.checked = engine.state.params.recovery;
+recovery.addEventListener('change', (ev) => {
+  engine.dispatch({ type: 'setRecovery', value: ev.target.checked });
 });
 
 // Evidence mode. Day 11 builds the legend and the field-only filter.

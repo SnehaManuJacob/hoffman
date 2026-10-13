@@ -113,7 +113,7 @@ const defs = {
     targetC: [872, 'A', 'What the feed aims at. Inside the field-documented 850-900 band.'],
     heatPerFuel: [40, 'A', 'Degrees a unit of fuel puts into a unit of chamber mass. Relative, like the masses it works on.'],
     fuelGain: [10, 'A', 'How hard the feed responds to being under target. Stiff, so a chamber reaches the band within its two hours in the fire.'],
-    maxFuelRate: [260, 'A', 'Ceiling on the feed. Comfortably above what a warm kiln needs, but NOT enough to bring a cold chamber to the band in its two hours — so a cold start has to warm over a loop or two, as a real one does.'],
+    maxFuelRate: [500, 'A', 'Ceiling on the feed. High enough that the crew can hold the band even when a chamber arrives cold — which is what Day 8 needs, so that turning heat recovery off changes the FUEL and not the peak. Measured: at 400 both settings just hold the band; 500 leaves margin. The whole kiln still takes a full loop to warm from cold (mean 30 to 473 C, within 5% at tick 8) while the chamber in the fire is in the band by tick 2 — it is the chamber with a fire in it that heats fast, not the kiln.'],
     heatRefC: [900, 'A', 'Top of the band. Normalises temperature into the 0-1 the views read.'],
   },
 
@@ -123,6 +123,12 @@ const defs = {
     // Core Hoffmann principle: air in behind the fire, exhaust out ahead of it.
     counterCurrent: [true, 'L', 'Air drawn in behind the fire cools fired tiles, warms, feeds combustion, then preheats green tiles ahead before the chimney. Flow path at Kundapur not observed.'],
     dampersToChimney: [true, 'L', 'Dampers and flues route the gas to a chimney.'],
+    /**
+     * L, not S. That reusing the heat saves fuel is the documented reason
+     * Hoffmann kilns are built as a loop. HOW MUCH it saves on this screen is a
+     * simulated result and lives in `state.fuelCompare`, not here.
+     */
+    recoveryPrinciple: [true, 'L', 'Reusing the exhaust to preheat the chambers ahead is the point of the continuous kiln. The size of the saving here is simulated, not documented.'],
   },
 
   fuel: {
@@ -135,6 +141,12 @@ const defs = {
     // There is deliberately no "penalty multiplier" for running without heat
     // recovery either. That number is what Day 8 exists to MEASURE; writing it
     // down here would be stating a simulated result as a given.
+    //
+    // Day 8 measured it. The engine now runs the kiln both ways at once over
+    // the same firing schedule, and the figure comes out of the model into
+    // `state.fuelCompare`. It is a RESULT, so it is not a constant here and it
+    // changes if the model is retuned — which is the point of not writing it
+    // down.
   },
 
   drying: {

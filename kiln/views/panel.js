@@ -57,13 +57,36 @@ function contextFor(state) {
     };
   }
 
+  // Heat recovery off: the exhaust leaves at the fire and the chambers ahead
+  // get nothing. Worth saying, because the kiln looks the same at a glance and
+  // only the tiles ahead of the fire give it away.
+  if (state.params.recovery === false) {
+    return {
+      line: `Chamber ${fire} is firing, but its exhaust is going straight up the chimney. The chambers ahead stay cold until the fire reaches them.`,
+      qualifier: `${hours} hours in. Peak firing still sits in the ${band[0]}–${band[1]} °C band — the crew simply burns more to hold it.`,
+    };
+  }
+
   return {
     line: `Chamber ${fire} is firing. The chambers ahead of it are warming on its exhaust; the ones behind are cooling.`,
     qualifier: `${hours} hours in. Peak firing sits in the ${band[0]}–${band[1]} °C band.`,
   };
 }
 
-export function createPanel({ contextEl, debugEl, clockEl }, dispatch) {
+/**
+ * Fuel per chamber fired, as a string. Relative units (section 4), and a RATE
+ * rather than a running total — a total only tells you how long you have been
+ * watching, and two totals from runs of different lengths cannot be compared.
+ *
+ * Nothing until a chamber has actually finished firing: a rate with nothing in
+ * the denominator would be a number made up to fill the space.
+ */
+function fuelRate(fuel, firings) {
+  if (!firings) return '–';
+  return String(Math.round(fuel / firings));
+}
+
+export function createPanel({ contextEl, debugEl, clockEl, recoveryEl }, dispatch) {
   // Build the debug table once, then only update cell text each frame.
   debugEl.innerHTML = `
     <table>
@@ -108,6 +131,32 @@ export function createPanel({ contextEl, debugEl, clockEl }, dispatch) {
     dispatch({ type: btn.dataset.action === 'load' ? 'loadChamber' : 'emptyChamber', index });
   });
 
+  /**
+   * The recovery comparison. Both figures come straight from the engine, which
+   * runs the kiln both ways at once over one schedule — so this reads two live
+   * numbers and computes nothing (rule 14.2).
+   */
+  function updateRecovery(state) {
+    if (!recoveryEl) return;
+    const { on, off, firings } = state.fuelCompare;
+
+    recoveryEl.on.textContent = fuelRate(on, firings);
+    recoveryEl.off.textContent = fuelRate(off, firings);
+
+    const reusing = state.params.recovery !== false;
+    recoveryEl.rowOn.classList.toggle('is-active', reusing);
+    recoveryEl.rowOff.classList.toggle('is-active', !reusing);
+
+    /**
+     * The note says what reuse IS, not what it saves. The saving is the number
+     * above it; repeating it as a sentence would turn the pair into a verdict,
+     * which section 7 rules out.
+     */
+    recoveryEl.note.textContent = firings
+      ? 'Air drawn in behind the fire arrives hot, and leaves the fire still hot enough to warm the tiles ahead. Shutting that off costs fuel, not temperature.'
+      : 'Nothing has finished firing yet, so there is nothing to compare.';
+  }
+
   function update(state) {
     for (let i = 0; i < rows.length; i++) {
       const ch = state.chambers[i];
@@ -141,6 +190,8 @@ export function createPanel({ contextEl, debugEl, clockEl }, dispatch) {
 
     // Simulated hours, not ticks: the 2-hour interval is the field-documented fact.
     clockEl.textContent = String(state.tick * C.time.tickHours);
+
+    updateRecovery(state);
 
     const { line, qualifier } = contextFor(state);
     contextEl.innerHTML = '';

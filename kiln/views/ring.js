@@ -625,12 +625,19 @@ export function createRing(canvas, options = {}) {
    * Built from a polyline rather than straight off the path, because the route
    * leaves the chamber loop twice — once coming in through the wall, once
    * going out through the damper into the flue.
+   *
+   * With `recovery` off the fourth line of that list is cut: a damper at the
+   * fire itself takes the gas straight to the chimney, still at full heat. The
+   * route gets shorter and — because its colour follows the gas — it stops
+   * arriving grey and arrives red instead. That is the whole argument for
+   * building a kiln in a loop, made in one picture.
    */
-  function buildAirRibbon(firePos) {
-    const pre = C.windows.preheat;
+  function buildAirRibbon(firePos, recovery = true) {
     const cool = C.windows.cool;
+    // How far past the fire the gas travels before it finds an open damper.
+    const lead = recovery ? C.windows.preheat : 0;
     const from = (firePos - cool - 0.5) / count;
-    const to = (firePos + pre + 0.5) / count;
+    const to = (firePos + lead + 0.5) / count;
 
     const maxW = P.airRibbonWidth / 2;
     const AIR = new THREE.Color(PALETTE.air);
@@ -678,20 +685,37 @@ export function createRing(canvas, options = {}) {
 
     // --- 2. along the chambers: cooling run, fire, preheat run -------------
     const MAIN = 150;
-    const atFire = (cool + 0.5) / (cool + pre + 1);
+    const PEAK_H = 0.92;                      // the gas at its hottest, at the fire
+    const atFire = (cool + 0.5) / (cool + lead + 1);
+    /**
+     * How much heat the gas gives up after the fire. With recovery on it spends
+     * it on the green tiles ahead and arrives at the chimney nearly cold; with
+     * recovery off there are no tiles ahead to spend it on, so it keeps it.
+     */
+    const drop = recovery ? 0.78 : 0;
     for (let i = 1; i <= MAIN; i++) {
       const u = i / MAIN;
       const s = from + turnIn + (to - from - turnIn) * u;
       const p = path.at(s);
       const w = maxW * (0.34 + 0.66 * Math.sin(Math.PI * Math.min(1, u * 1.08)));
       const h = u < atFire
-        ? (u / atFire) * 0.92
-        : 0.92 - ((u - atFire) / (1 - atFire)) * 0.78;
+        ? (u / atFire) * PEAK_H
+        : PEAK_H - ((u - atFire) / (1 - atFire)) * drop;
       push(p.x, p.z, w, h);
     }
 
     // --- 3. out through the open damper, into the flue ---------------------
     const exitH = route[route.length - 1].h;
+    /**
+     * How spent the gas is on its way out, DERIVED rather than assumed: the
+     * fraction of its heat it actually gave up. Spent gas reads grey, gas that
+     * kept its heat stays red.
+     *
+     * This used to be a fixed ramp to 1.0, which was fine while the exhaust was
+     * always nearly cold — and would have greyed out the one thing the recovery
+     * switch exists to show.
+     */
+    const spentMax = Math.max(0, 1 - exitH / PEAK_H);
     const exitW = maxW * P.airExhaustScale;
     const OUT = 10;
     const flueOff = halfBand + (ductInset - halfBand) / 2;   // mid-flue
@@ -699,7 +723,7 @@ export function createRing(canvas, options = {}) {
       const t = i / OUT;
       const e = t * t * (3 - 2 * t);
       const p = path.at(to + e * (0.25 / count));
-      push(p.x - p.nx * e * flueOff, p.z - p.nz * e * flueOff, exitW, exitH * (1 - 0.15 * e), e * 0.35);
+      push(p.x - p.nx * e * flueOff, p.z - p.nz * e * flueOff, exitW, exitH * (1 - 0.15 * e), spentMax * e * 0.35);
     }
 
     // --- 4. along the flue to the nearer mouth of the channel --------------
@@ -714,7 +738,7 @@ export function createRing(canvas, options = {}) {
     for (let i = 1; i <= FLUE; i++) {
       const t = i / FLUE;
       const q = ductPath.at(sDuct + span * t);
-      push(q.x, q.z, exitW, exitH * (0.85 - 0.25 * t), 0.35 + 0.45 * t);
+      push(q.x, q.z, exitW, exitH * (0.85 - 0.25 * t), spentMax * (0.35 + 0.45 * t));
     }
 
     // --- 5. down the channel into the chimney ------------------------------
@@ -724,7 +748,7 @@ export function createRing(canvas, options = {}) {
     const DOWN = 24;
     for (let i = 1; i <= DOWN; i++) {
       const t = i / DOWN;
-      push(0, mouthPt.z + (stopZ - mouthPt.z) * t, exitW * (1 - 0.15 * t), exitH * 0.6, 0.8 + 0.2 * t);
+      push(0, mouthPt.z + (stopZ - mouthPt.z) * t, exitW * (1 - 0.15 * t), exitH * 0.6, spentMax * (0.8 + 0.2 * t));
     }
 
     // --- even the spacing, then round off the joins ------------------------
@@ -828,22 +852,30 @@ export function createRing(canvas, options = {}) {
     );
 
     /**
-     * Only one damper is open: the one ahead of the fire that pulls the
-     * exhaust into the flue. Open reads in the air tone — the palette reserves
-     * that for air, and air is exactly what is going through it. Closed reads
-     * as masonry, like a bricked-up wicket.
+     * Only one damper is open: the one that pulls the exhaust into the flue.
+     * With heat recovery it sits at the far end of the preheat run, so the gas
+     * has to cross every green chamber to reach it. Without, it is the damper
+     * at the fire — which is exactly what turning recovery off means in a real
+     * kiln: you open a different damper.
+     *
+     * Open reads in the air tone — the palette reserves that for air, and air
+     * is exactly what is going through it. Closed reads as masonry, like a
+     * bricked-up wicket.
      *
      * Colour only: these are world-space bands, so scaling one would drag it
      * across the kiln rather than making it bigger.
      */
-    const open = (((firePos + pre) % count) + count) % count;
+    const open = (((firePos + lead) % count) + count) % count;
     dampers.forEach((d, i) => {
       d.material.color.set(i === open ? PALETTE.air : PALETTE['sand-dim']);
     });
     return open;
   }
 
-  let lastFire = -1;
+  // The route is rebuilt only when something about it changes. Recovery is part
+  // of that key: the switch reroutes the gas, and keying on the fire alone left
+  // the old route on screen until the fire next moved.
+  let lastRoute = '';
   let openDamper = 0;
 
   function resize() {
@@ -877,9 +909,11 @@ export function createRing(canvas, options = {}) {
    * because what physically moves every two hours is unknown (5.2).
    */
   function update(state, dtMs = 16) {
-    if (state.firePos !== lastFire) {
-      openDamper = buildAirRibbon(state.firePos);
-      lastFire = state.firePos;
+    const recovery = state.params.recovery !== false;
+    const routeKey = `${state.firePos}:${recovery}`;
+    if (routeKey !== lastRoute) {
+      openDamper = buildAirRibbon(state.firePos, recovery);
+      lastRoute = routeKey;
     }
 
     // No fire, no draught: nothing is moving through a kiln that has not been

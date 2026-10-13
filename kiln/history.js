@@ -20,6 +20,20 @@ export function createHistory() {
       tick: state.tick,
       firePos: state.firePos,
       fuelIndex: state.fuelIndex,
+      // Chambers actually fired, the denominator of the recovery comparison.
+      firings: state.firings,
+      /**
+       * BOTH thermal worlds, not just the one being watched. The recovery
+       * comparison is only honest if scrubbing back restores the kiln that was
+       * on screen AND the counterfactual beside it — otherwise the figure in
+       * the other row would still belong to the end of the run.
+       */
+      thermal: {
+        on: state.thermal.on.temps.slice(),
+        onFuel: state.thermal.on.fuel,
+        off: state.thermal.off.temps.slice(),
+        offFuel: state.thermal.off.fuel,
+      },
       chambers: state.chambers.map((c) => ({
         loaded: c.loaded,
         // Whether a chamber has had its firing, and whether it is being held
