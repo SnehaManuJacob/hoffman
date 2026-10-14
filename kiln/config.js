@@ -234,6 +234,38 @@ const defs = {
      * Kept under 1 so a stack always completes before the fire moves again.
      */
     tileFillFraction: [0.85, 'A', 'Share of one tick spent stacking or emptying a chamber.'],
+
+    /**
+     * The mark on a load that has been through the fire.
+     *
+     * THAT tiles change in the firing is real — it is the whole purpose of the
+     * kiln. This particular mark is not a picture of what a fired Mangalore
+     * tile looks like; it is a DRAWING CONVENTION for "this load is baked", so
+     * a finished load and a fresh green one stop being indistinguishable the
+     * moment they happen to be the same temperature. Every value here is a
+     * drawing decision, tag A.
+     *
+     * Spacing is in world units and the stripes are phased in band space, so
+     * the six tiles of an end row line up into one continuous hatch while each
+     * still clips its own slice. A tile on its own is about 73 x 10 px on
+     * screen — far too thin to carry slanted lines — but a whole end row is
+     * roughly 73 x 74 px, which is.
+     *
+     * The angle is measured in BAND space, so the stripes meet every tile at
+     * the same angle wherever it sits on the kiln — but their apparent slant on
+     * screen turns with the kiln, matching the chart's +45 empty-cell hatch on
+     * the short runs and opposing it on the long ones. The direction is
+     * therefore not what keeps the two marks apart; their ground and weight are
+     * (faint light lines on a dark void against heavy dark lines on a bright
+     * tile). Worth knowing before trusting the angle to do that job.
+     */
+    tileHatch: {
+      period: [0.17, 'A', 'Stripe spacing in world units — about four across an end row.'],
+      angleDeg: [-45, 'A', 'Across the band rather than along it, so the stripes always cut the tile rather than running with it.'],
+      thickness: [0.34, 'A', 'Share of the period the dark stripe takes up.'],
+      opacity: [0.85, 'A', 'Not quite solid, so the heat colour still shows through a fired load.'],
+      texturePx: [128, 'A', 'Size of the generated stripe tile. Power of two so it mipmaps.'],
+    },
     flueWidth: [0.46, 'A'],
     /**
      * Wicket doors and dampers are both openings cut through a chamber wall,

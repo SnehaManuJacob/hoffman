@@ -60,14 +60,34 @@ function heatColour(h, out = new THREE.Color()) {
   return out.set(heatHex(h));
 }
 
-/** A flat band between two normal offsets, at height y. */
+/**
+ * A flat band between two normal offsets, at height y.
+ *
+ * UVs are in BAND SPACE and world units: u is arc length along the kiln, v is
+ * the offset across it. Two consequences worth the two lines it costs.
+ *
+ * Any two bands built from the same path tile continuously against each other,
+ * because both are measuring the same kiln rather than each normalising to
+ * itself. That is what lets the six separate tiles of an end row carry one
+ * unbroken hatch while each still clips its own slice.
+ *
+ * And a texture's `repeat` is then a real distance, so stripe spacing can be a
+ * number in config.js with a meaning rather than a figure tuned by eye.
+ *
+ * Unused by every other component here: MeshBasicMaterial without a map ignores
+ * the attribute entirely.
+ */
 function bandGeometry(path, s0, s1, offInner, offOuter, y, steps = 40) {
   const positions = [];
+  const uvs = [];
   const indices = [];
+  const arc = path.totalLength ?? 1;
   for (let i = 0; i <= steps; i++) {
-    const { x, z, nx, nz } = path.at(s0 + (s1 - s0) * (i / steps));
+    const s = s0 + (s1 - s0) * (i / steps);
+    const { x, z, nx, nz } = path.at(s);
     positions.push(x + nx * offInner, y, z + nz * offInner);
     positions.push(x + nx * offOuter, y, z + nz * offOuter);
+    uvs.push(s * arc, offInner, s * arc, offOuter);
   }
   for (let i = 0; i < steps; i++) {
     const a = i * 2;
@@ -75,9 +95,46 @@ function bandGeometry(path, s0, s1, offInner, offOuter, y, steps = 40) {
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   g.setIndex(indices);
   g.computeBoundingSphere();
   return g;
+}
+
+/**
+ * A repeating stripe, drawn into a canvas rather than loaded from a file so the
+ * exhibition laptop needs no network and the repo needs no binary asset.
+ *
+ * The stripes are drawn VERTICAL and turned by `texture.rotation`, not drawn at
+ * an angle. Drawing a diagonal into a square and repeating it only tiles without
+ * a seam at exactly 45 degrees; rotating the sampling coordinates of a pattern
+ * that varies in one axis gives parallel stripes at ANY angle with no seam at
+ * all, from a smaller texture.
+ *
+ * Mipmaps and anisotropy are not optional here: these end up around three pixels
+ * wide on screen, and without them they crawl and shimmer as the kiln animates.
+ */
+function stripeTexture(renderer, { texturePx, thickness, angleDeg }) {
+  const canvas = document.createElement('canvas');
+  canvas.width = texturePx;
+  canvas.height = texturePx;
+  const ctx = canvas.getContext('2d');
+
+  // White where the stripe is, transparent elsewhere. The material's colour
+  // does the tinting, so one texture could serve any number of marks.
+  ctx.clearRect(0, 0, texturePx, texturePx);
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, Math.round(texturePx * thickness), texturePx);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.magFilter = THREE.LinearFilter;
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  tex.center.set(0.5, 0.5);
+  tex.rotation = (angleDeg * Math.PI) / 180;
+  return tex;
 }
 
 /** Outline of a band, as a closed loop of line segments. */
@@ -154,7 +211,7 @@ export function createRing(canvas, options = {}) {
 
   // Heights are only a draw order under an orthographic top-down camera.
   const Y = {
-    masonry: 0, floor: 0.01, tiles: 0.02, wall: 0.03,
+    masonry: 0, floor: 0.01, tiles: 0.02, tileHatch: 0.025, wall: 0.03,
     flue: 0.04, damper: 0.05, air: 0.06, outline: 0.07,
     // The island fills the middle, inside the duct, so it never overlaps the
     // band geometry — its height only has to sit under the chimney.
@@ -198,6 +255,9 @@ export function createRing(canvas, options = {}) {
       // How much of the chamber's stack is in place, 0 to 1. Animated, so
       // tiles go in and come out one at a time instead of blinking.
       fill: 0,
+      // Whether the tiles ON SCREEN have been through the fire. Latched — see
+      // the update loop for why it cannot just read `chamber.fired`.
+      baked: false,
     });
   }
 
@@ -208,10 +268,41 @@ export function createRing(canvas, options = {}) {
   const tilesGroup = componentGroup('tiles');
   root.add(tilesGroup);
   const tileMeshes = [];
+  const tileHatches = [];
   const tileColour = new THREE.Color();
+
+  /**
+   * The mark on a load that has been through the fire.
+   *
+   * Without it the kiln never shows the thing it is FOR. A chamber cooling with
+   * a finished load and one preheating with fresh green tiles are drawn from
+   * the same ramp, so at the moment they happen to be the same temperature they
+   * are the same picture — and the tiles going in raw and coming out baked, the
+   * whole product of the place, is invisible.
+   *
+   * One texture and one material for every overlay in the kiln. The stripes are
+   * phased in band space (see bandGeometry), so the six tiles of an end row line
+   * up into one continuous hatch while each clips its own slice — which is what
+   * keeps the mark disappearing tile by tile as a chamber is unloaded.
+   *
+   * A — a drawing convention for "this load is baked", not a picture of what a
+   * fired Mangalore tile looks like.
+   */
+  const hatchTexture = stripeTexture(renderer, P.tileHatch);
+  const hatchMaterial = new THREE.MeshBasicMaterial({
+    color: new THREE.Color(PALETTE.soot),
+    map: hatchTexture,
+    transparent: true,
+    opacity: P.tileHatch.opacity,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  });
+  // World units: the repeat is a real stripe spacing, not a figure tuned by eye.
+  hatchTexture.repeat.set(1 / P.tileHatch.period, 1 / P.tileHatch.period);
 
   for (let i = 0; i < count; i++) {
     const perChamber = [];
+    const perChamberHatch = [];
     const s0 = sStart(i);
     const s1 = sEnd(i);
     const innerEdge = -halfBand + inset + P.tileInset;
@@ -244,9 +335,20 @@ export function createRing(canvas, options = {}) {
         );
         tilesGroup.add(m);
         perChamber.push(m);
+
+        // The fired mark, on exactly the tile's own footprint so it is clipped
+        // to that tile and goes when the tile goes.
+        const h = new THREE.Mesh(
+          bandGeometry(path, t0, t1, o0, o1, Y.tileHatch, 4),
+          hatchMaterial,
+        );
+        h.visible = false;
+        tilesGroup.add(h);
+        perChamberHatch.push(h);
       }
     }
     tileMeshes.push(perChamber);
+    tileHatches.push(perChamberHatch);
   }
 
   // ------------------------------------------------------------- cross walls
@@ -965,11 +1067,37 @@ export function createRing(canvas, options = {}) {
       else if (seg.fill < target) seg.fill = Math.min(target, seg.fill + fillRate);
       else if (seg.fill > target) seg.fill = Math.max(target, seg.fill - fillRate);
 
+      /**
+       * Has this load been through the fire?
+       *
+       * `fired` is set the moment the fire ARRIVES, so the first condition is
+       * the decision: the mark lands when the fire moves ON. A chamber under
+       * the flame is being fired, not yet fired, and leaving it clean keeps the
+       * one burning chamber the simplest brightest thing on the page. The mark
+       * appearing as the fire leaves also gives each tick a readable beat —
+       * that one is done.
+       *
+       * LATCHED while a chamber empties, and this part matters. The engine
+       * clears `fired` in the same instant it clears `loaded`, which is right —
+       * once the load is out there is no load to have been fired. But the tiles
+       * still on screen are the finished ones being carried out, over the next
+       * two hours of stacking animation. Read straight off `ch.fired` and the
+       * mark vanishes the moment unloading begins, so the kiln would show plain
+       * tiles leaving at exactly the moment the finished product is the point.
+       */
+      if (ch.loaded) seg.baked = ch.fired && ch.stage !== 'fire';
+      const baked = seg.baked;
+
       const stack = tileMeshes[i];
+      const hatch = tileHatches[i];
       const placed = Math.round(seg.fill * stack.length);
       for (let n = 0; n < stack.length; n++) {
-        stack[n].visible = n < placed;
+        const shown = n < placed;
+        stack[n].visible = shown;
         stack[n].material.color.copy(seg.current);
+        // Tied to the tile's own visibility, so unloading takes the mark away
+        // one tile at a time instead of leaving it hanging over an empty slot.
+        hatch[n].visible = shown && baked;
       }
 
       // The void stays dark so an empty chamber still reads as a chamber.
@@ -1122,7 +1250,7 @@ export function createRing(canvas, options = {}) {
 
   return {
     update, resize, dispose, render, anchors, attachScrub,
-    segments, path, ductPath, scene, camera, renderer, tileMeshes,
+    segments, path, ductPath, scene, camera, renderer, tileMeshes, tileHatches,
     groups: {
       massGroup, chambersGroup, tilesGroup, wallsGroup, wicketGroup,
       stokeGroup, ductGroup, islandGroup, chimneyGroup, damperGroup, airGroup,
