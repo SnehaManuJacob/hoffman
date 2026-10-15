@@ -77,6 +77,69 @@ export function relativeHeat(tempC) {
 }
 
 /**
+ * The gas temperature between the points the model computes.
+ *
+ * `gasProfile` gives the gas at each chamber BOUNDARY. Joining those with
+ * straight lines — which is what this replaced — says the gas changes at one
+ * steady rate all the way through a chamber and then changes rate instantly
+ * at the dividing wall. It does neither. The result was a polyline: a crease
+ * at every boundary and, worst of all, a sharp spike at the fire, where the
+ * gas stops climbing and starts falling in the space of one sample.
+ *
+ * So: a monotone cubic (Fritsch-Carlson) through the model's own values.
+ *
+ *   - it passes exactly through every temperature the model computed, so
+ *     nothing is smoothed away;
+ *   - it is smooth everywhere, including across dividing walls and over the
+ *     fire, whose crest is now rounded rather than pointed;
+ *   - it is MONOTONE, which is the part that matters for honesty. An ordinary
+ *     spline would overshoot on the way up to the fire and draw gas hotter
+ *     than anything in the kiln. The harmonic-mean tangent cannot: where the
+ *     gas turns from rising to falling the tangent is pinned at zero.
+ *
+ * Built once per frame and sampled a few hundred times, so the tangents are
+ * computed here and the sampling is a separate call.
+ */
+export function gasCurve(profile) {
+  // Knots sit at integer positions 0..n, one per chamber boundary. A chamber's
+  // `inC` is the previous chamber's `outC`, so the boundaries are just the
+  // entry gas followed by every exit gas.
+  const y = [profile[0].inC];
+  for (const g of profile) y.push(g.outC);
+
+  const n = y.length - 1;
+  const d = [];
+  for (let k = 0; k < n; k++) d.push(y[k + 1] - y[k]);
+
+  const m = new Array(n + 1);
+  m[0] = d[0] ?? 0;
+  m[n] = d[n - 1] ?? 0;
+  for (let k = 1; k < n; k++) {
+    // Zero at a turning point, harmonic mean elsewhere: both are what keep
+    // the curve from leaving the range the model produced.
+    m[k] = d[k - 1] * d[k] <= 0
+      ? 0
+      : (2 * d[k - 1] * d[k]) / (d[k - 1] + d[k]);
+  }
+  return { y, m };
+}
+
+/** Sample a `gasCurve` at `pos` chambers along the gas's journey. Degrees. */
+export function gasAt(curve, pos) {
+  const { y, m } = curve;
+  const n = y.length - 1;
+  const k = Math.max(0, Math.min(n - 1, Math.floor(pos)));
+  const t = Math.max(0, Math.min(1, pos - k));
+  const t2 = t * t;
+  const t3 = t2 * t;
+  // Cubic Hermite. Spacing is one chamber, so no interval width appears.
+  return (2 * t3 - 3 * t2 + 1) * y[k]
+    + (t3 - 2 * t2 + t) * m[k]
+    + (-2 * t3 + 3 * t2) * y[k + 1]
+    + (t3 - t2) * m[k + 1];
+}
+
+/**
  * The order gas travels through the kiln, as chamber indices.
  *
  * In behind the chambers that have just fired, forward through them, through

@@ -31,7 +31,7 @@
 
 import * as THREE from 'three';
 import { C, PALETTE, STAGE_COLOUR, COMPONENTS } from '../config.js';
-import { relativeHeat } from '../engine.js';
+import { relativeHeat, gasCurve, gasAt } from '../engine.js';
 import { createLoopPath } from './kilnPath.js';
 import { heatHex } from './heatRamp.js';
 
@@ -739,21 +739,6 @@ export function createRing(canvas, options = {}) {
   }
 
   /**
-   * Gas temperature in degrees at `pos` chambers along the journey, read from
-   * the engine's profile. Each entry records the gas entering and leaving one
-   * chamber, and one chamber's `outC` is the next one's `inC`, so a straight
-   * interpolation inside each entry gives a continuous curve — and it is a
-   * curve, steepest where the gas and the chamber are furthest apart, not the
-   * straight ramp the arrow used to draw.
-   */
-  function gasAt(profile, pos) {
-    const n = Math.max(0, Math.min(profile.length - 1, Math.floor(pos)));
-    const t = Math.max(0, Math.min(1, pos - n));
-    const g = profile[n];
-    return g.inC + (g.outC - g.inC) * t;
-  }
-
-  /**
    * Half the arrow's width where the gas carries `h` relative heat.
    *
    * The heat a gas stream carries past a point is its mass times how far above
@@ -766,9 +751,18 @@ export function createRing(canvas, options = {}) {
    * PROPORTIONAL to that, with a floor rather than a blend from it. Blending
    * `min + (max - min) * h` would compress the whole range and quietly draw
    * cold air as though it carried a third of the fire's heat.
+   *
+   * The floor arrives SOFTLY. A plain `Math.max` leaves a crease where the
+   * clamp lets go — measured as the second-largest kink in the whole ribbon,
+   * right in the stretch where the arrow is supposed to be visibly growing.
+   * This is the standard smooth maximum: far above the floor it is exactly
+   * proportional, far below it is exactly the floor, and in between it turns
+   * a corner into an arc.
    */
   function gasHalfWidth(h) {
-    return Math.max(P.airWidthMin, P.airWidthMax * h) / 2;
+    const over = P.airWidthMax * h - P.airWidthMin;
+    const k = P.airWidthSoftness;
+    return (P.airWidthMin + (over + Math.sqrt(over * over + k * k)) / 2) / 2;
   }
 
   /**
@@ -787,6 +781,9 @@ export function createRing(canvas, options = {}) {
     if (!airRoute || !profile || !profile.length) return;
     const { route, posAttr, colourAttr, edgeAttr, headAttr } = airRoute;
 
+    // The model's values, joined smoothly. Built once, sampled per vertex.
+    const curve = gasCurve(profile);
+
     /**
      * How spent the exhaust is: the share of its heat the gas gave up between
      * the fire and the damper. Derived, not assumed — with recovery off it
@@ -803,7 +800,7 @@ export function createRing(canvas, options = {}) {
 
     for (let i = 0; i < route.length; i++) {
       const p = route[i];
-      const h = relativeHeat(gasAt(profile, p.pos));
+      const h = relativeHeat(gasAt(curve, p.pos));
       const w = gasHalfWidth(h);
       if (i === route.length - 1) tipHalf = w;
 
@@ -862,7 +859,7 @@ export function createRing(canvas, options = {}) {
 
     // Literally the ribbon's final colour, so the join is invisible.
     airHead.material.color.copy(
-      gasColour(relativeHeat(gasAt(profile, tip.pos)), tip.spentShape * spentMax, gasCol),
+      gasColour(relativeHeat(gasAt(curve, tip.pos)), tip.spentShape * spentMax, gasCol),
     );
   }
 

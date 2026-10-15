@@ -9,7 +9,7 @@
  * so running them never disturbs the kiln on screen.
  */
 
-import { createEngine } from './engine.js';
+import { createEngine, gasCurve, gasAt } from './engine.js';
 import { C, PALETTE, STAGE_COLOUR, COMPONENTS } from './config.js';
 import { createLoopPath } from './views/kilnPath.js';
 
@@ -877,6 +877,47 @@ export function kilnChecks() {
       + `to ${Math.round(exit(on))} C`);
 
     return `exhaust ${Math.round(exit(on))} C with reuse, ${Math.round(exit(off))} C without`;
+  }));
+
+  /**
+   * 33. The curve the arrow is drawn along may be smooth, but it may not be
+   * creative.
+   *
+   * `gasCurve` exists so the gas reads as a curve rather than a run of
+   * straight lines meeting at corners. The risk in any smoothing is that it
+   * invents values between the ones it was given — an ordinary spline
+   * overshoots on the way up to the fire and would draw gas hotter than
+   * anything in the kiln, which is a temperature claim nobody made.
+   */
+  results.push(check('the gas curve stays inside what the model computed', () => {
+    const e = settled();
+    const p = e.state.gasProfile;
+    const curve = gasCurve(p);
+    const knots = [p[0].inC, ...p.map((g) => g.outC)];
+
+    // It must pass exactly through every value the model produced.
+    for (let k = 0; k < knots.length; k++) {
+      assert(Math.abs(gasAt(curve, k) - knots[k]) < 1e-9,
+        `at chamber boundary ${k} the curve reads ${gasAt(curve, k).toFixed(1)} C, `
+        + `not the model's ${knots[k].toFixed(1)} C`);
+    }
+
+    // And between them it must stay inside the pair it is travelling between.
+    let worst = 0;
+    for (let k = 0; k < knots.length - 1; k++) {
+      const lo = Math.min(knots[k], knots[k + 1]);
+      const hi = Math.max(knots[k], knots[k + 1]);
+      for (let s = 1; s < 32; s++) {
+        const v = gasAt(curve, k + s / 32);
+        assert(v >= lo - 1e-6 && v <= hi + 1e-6,
+          `between chambers ${k} and ${k + 1} the curve reaches ${v.toFixed(1)} C, `
+          + `outside the ${lo.toFixed(1)}-${hi.toFixed(1)} C the model computed`);
+        worst = Math.max(worst, Math.max(lo - v, v - hi));
+      }
+    }
+
+    return `${knots.length} boundaries hit exactly, no overshoot between them `
+      + `(worst ${worst.toExponential(1)} C)`;
   }));
 
   const passed = results.filter((r) => r.pass).length;

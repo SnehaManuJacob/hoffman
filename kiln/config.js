@@ -315,6 +315,7 @@ const defs = {
      */
     airWidthMax: [0.42, 'A', 'Width of the arrow at full heat. 49% of the 0.85-wide chamber void, so the tile stacks still read either side of it, and inside the 0.52-wide flue duct with a little to spare.'],
     airWidthMin: [0.10, 'A', 'Floor, so air arriving at ambient is still a line. Gas at ambient carries no heat above the yard it came from, and a width straight off the model would draw nothing at all.'],
+    airWidthSoftness: [0.04, 'A', 'How wide a band the width takes to settle onto its floor. A hard floor leaves a crease where the clamp releases — the second-largest kink in the ribbon, and right in the stretch that is meant to read as growing. Purely how the corner is turned; it changes no width by more than this.'],
     zoneBandWidth: [0.26, 'A'],
     zoneBandOffset: [0.42, 'A', 'How far outside the kiln wall the zone band sits.'],
   },
