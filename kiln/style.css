@@ -125,7 +125,7 @@ h1, h2 { margin: 0; font-weight: 500; }
   text-transform: uppercase;
 }
 
-td, output, .clock-value, .debug-summary, .qualifier { font-family: var(--font-mono); }
+td, output, .clock-value, .debug-summary, .qualifier, .fuel-basis { font-family: var(--font-mono); }
 
 .muted { color: var(--sand-dim); }
 
@@ -466,13 +466,27 @@ input:focus-visible {
   color: var(--sand-faint);
 }
 
-/* The same small square the kiln labels use, rather than a second marker shape. */
+/*
+   The same small square the kiln labels use, rather than a second marker shape.
+
+   Aligned to the FIRST line, not centred in the row. The labels are now
+   conditions and wrap to two lines; centring floated the marker into the gap
+   between them, where it marked the row rather than its label.
+*/
 .fuel-mark {
   width: 5px;
   height: 5px;
   background: transparent;
   justify-self: start;
-  align-self: center;
+  /*
+     Baseline, so the square sits ON the label's first line the way a bullet
+     would. An empty block's baseline is its bottom edge, which is exactly the
+     behaviour wanted here — and unlike a measured top margin it does not go
+     wrong the moment the figure beside it changes size.
+  */
+  align-self: baseline;
+  /* Lifted to the middle of the cap height rather than sitting on the line. */
+  margin-bottom: 0.2em;
 }
 
 .fuel-row.is-active .fuel-mark { background: var(--sand-bright); }
@@ -485,7 +499,26 @@ input:focus-visible {
   font-size: var(--fs-micro);
   letter-spacing: var(--track-wide);
   text-transform: uppercase;
+  /* Two-line conditions need their lines held together, or the row reads as
+     two labels rather than one wrapping over. */
+  line-height: 1.45;
 }
+
+/*
+   How the figures were arrived at. Sits between the figures and the note
+   about the kiln itself, and has to read as belonging to the figures above
+   rather than to the paragraph below — so it is tighter to the numbers, and
+   the note keeps its own space-4 above it.
+*/
+.fuel-basis {
+  margin: var(--space-2) 0 0;
+  font-size: var(--fs-micro);
+  line-height: 1.6;
+  color: var(--sand-faint);
+  letter-spacing: 0.02em;
+}
+
+.fuel-basis:empty { display: none; }
 
 .fuel-row dd { margin: 0; }
 

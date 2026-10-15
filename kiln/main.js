@@ -37,6 +37,7 @@ const panel = createPanel({
     rowOn: document.querySelector('.fuel-row[data-mode="on"]'),
     rowOff: document.querySelector('.fuel-row[data-mode="off"]'),
     note: document.getElementById('recovery-note'),
+    basis: document.getElementById('fuel-basis'),
   },
 }, engine.dispatch);
 

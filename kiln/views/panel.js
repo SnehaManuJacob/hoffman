@@ -158,6 +158,25 @@ export function createPanel({ contextEl, debugEl, clockEl, recoveryEl }, dispatc
     other.removeAttribute('aria-current');
 
     /**
+     * How the figures are arrived at, which is not obvious and changes what
+     * they mean: both are averaged over every firing since the kiln was lit,
+     * so the cold start is still in them and the gap goes on widening for a
+     * loop or so. Measured: 1.27x at tick 5, 1.73x at tick 25, 1.88x at 65.
+     *
+     * Said rather than smoothed away. A trailing window would hold still and
+     * read the same to every visitor, but it would also hide the fact that a
+     * cold kiln is expensive, which is a real thing the model knows.
+     *
+     * Nothing before the first firing: describing how two dashes were averaged
+     * would be explaining figures that do not exist yet.
+     */
+    if (recoveryEl.basis) {
+      recoveryEl.basis.textContent = firings
+        ? 'Averaged over every firing since the kiln was lit, so a cold start is still being paid off — the gap goes on widening as the run settles.'
+        : '';
+    }
+
+    /**
      * The note says what reuse IS, not what it saves. The saving is the number
      * above it; repeating it as a sentence would turn the pair into a verdict,
      * which section 7 rules out.
