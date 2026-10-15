@@ -157,6 +157,13 @@ export function createEngine(options = {}) {
     firings: 0,
     // Fuel for both recovery settings, published by the thermal model.
     fuelCompare: { on: 0, off: 0, firings: 0 },
+    /**
+     * The gas temperature at each chamber boundary along the flow path, in the
+     * order the gas travels. Degrees, simulated; views take it through
+     * `relativeHeat`. Empty until the kiln is lit, because nothing is moving.
+     */
+    gasProfile: [],
+    gasCompare: { on: [], off: [] },
     // 'charging' while the cold kiln is being filled, 'running' once lit.
     // No simulated time passes while charging.
     phase: C.loading.startEmpty ? 'charging' : 'running',
@@ -207,6 +214,12 @@ export function createEngine(options = {}) {
     // Relative units and a count, never a mass. Per chamber fired rather than a
     // running total: a total only says how long you have been watching.
     state.fuelCompare = { on: worlds.on.fuel, off: worlds.off.fuel, firings: state.firings };
+    // The gas on its way round, for the airflow arrow. Degrees, like `temp`.
+    // Both worlds, so the console can compare them; the arrow draws the active
+    // one, which is the one the fuel figure in bold belongs to.
+    const gas = gasProfiles();
+    state.gasCompare = gas;
+    state.gasProfile = state.params.recovery ? gas.on : gas.off;
   }
 
   // After the worlds exist: the opening snapshot has to record them too, or
@@ -252,8 +265,22 @@ export function createEngine(options = {}) {
     const path = state.phase === 'charging' ? [] : flowPath(state, recovery);
     const onPath = new Set(path);
 
+    /**
+     * The gas temperature at every point on its journey, written down as it
+     * goes and returned to the caller.
+     *
+     * Nothing here is computed FOR this: `gas` is the model's own working
+     * value, recorded at each chamber boundary instead of being thrown away.
+     * The airflow arrow draws it, which is the only way the picture and the
+     * fuel figures can be two readings of one model rather than two
+     * independent claims about the same kiln.
+     */
+    const profile = [];
+
     let gas = ambient;
     for (const i of path) {
+      const inC = gas;
+
       // Gas and chamber trade heat. Positive q means the chamber is the hotter
       // of the two and is giving heat up to the gas.
       const q = M.exchangeRate * (world.temps[i] - gas) * dt;
@@ -278,6 +305,8 @@ export function createEngine(options = {}) {
         gas = Math.max(gas, world.temps[i]);   // the fire sets the gas leaving it
         world.fuel += rate * dt;               // relative units, never a mass
       }
+
+      profile.push({ chamber: i, inC, outC: gas, fire: i === state.firePos });
     }
 
     // Everything off the flow path just loses heat to the outside.
@@ -289,6 +318,28 @@ export function createEngine(options = {}) {
     for (let i = 0; i < count; i++) {
       if (world.temps[i] < ambient) world.temps[i] = ambient;  // nothing goes below the yard
     }
+
+    // Degrees, like `temps`. Views take it through `relativeHeat`, the same
+    // way they take a chamber's — so arrow and tiles share one scale.
+    return profile;
+  }
+
+  /**
+   * The gas profile for both worlds, as they stand.
+   *
+   * Recomputed rather than remembered. A walk of the path produces it, so this
+   * runs one against a COPY of each world: no temperature moves, no fuel is
+   * spent, and the only rule involved is the one in `stepWorld`. That matters
+   * three ways — the arrow is lit correctly the moment the kiln is lit and
+   * before any time has passed, scrubbing back gets the profile that belongs
+   * to the restored temperatures without history having to store it, and there
+   * is no second copy of the exchange rule to drift.
+   */
+  function gasProfiles() {
+    const dt = C.thermalModel.subStepHours;
+    const dry = (world, recovery) =>
+      stepWorld({ temps: world.temps.slice(), fuel: 0 }, recovery, dt);
+    return { on: dry(worlds.on, true), off: dry(worlds.off, false) };
   }
 
   function integrateThermal(simHours) {
@@ -459,6 +510,11 @@ export function createEngine(options = {}) {
         // this one chamber would keep its original load for ever.
         state.chambers[state.firePos].fired = true;
       }
+      // Lighting the kiln gives the gas somewhere to go, and the arrow appears
+      // the same instant. Publishing here means it appears already coloured,
+      // rather than waiting for the first sub-step to be integrated — which,
+      // with the kiln paused on the tick it was lit, could be a long wait.
+      publishThermal();
       history.push(state);
       return true;
     }

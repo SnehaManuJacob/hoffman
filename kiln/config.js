@@ -499,7 +499,7 @@ export const COMPONENTS = {
   },
   airPath: {
     label: 'Air path', tag: 'L',
-    note: 'Counter-current flow: in behind the fire, through the cooling chambers, past the fire, through the preheating chambers, out. The core Hoffmann principle — and not observed here.',
+    note: 'Counter-current flow: in behind the fire, through the cooling chambers, past the fire, through the preheating chambers, out. The core Hoffmann principle — and not observed here. The arrow\'s colour is the thermal model\'s own gas temperature at each point, so it is simulated (tag S) and it moves when the model does; it is not a drawn impression of what the gas is doing.',
   },
   zones: {
     label: 'Zones', tag: 'A',

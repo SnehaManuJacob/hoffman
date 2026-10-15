@@ -807,6 +807,78 @@ export function kilnChecks() {
     return `tick ${mid}: both figures and both worlds restored`;
   }));
 
+  /**
+   * 31. The gas profile is the model's own working value, not a second story.
+   *
+   * The airflow arrow is drawn from this, so if it ever stopped agreeing with
+   * the temperatures beside it the picture and the fuel figures would be two
+   * independent claims about the same kiln — which is exactly what this
+   * replaced.
+   */
+  results.push(check('the gas carries one temperature all the way round', () => {
+    const e = settled();
+    const p = e.state.gasProfile;
+    const ambient = C.temperature.ambientC;
+
+    assert(p.length === C.windows.cool + C.windows.preheat + 1,
+      `${p.length} entries for a flow path of ${C.windows.cool + C.windows.preheat + 1}`);
+    assert(Math.abs(p[0].inC - ambient) < 1e-9,
+      `gas enters at ${p[0].inC.toFixed(1)} C, not ambient ${ambient} C`);
+
+    for (let i = 1; i < p.length; i++) {
+      assert(Math.abs(p[i].inC - p[i - 1].outC) < 1e-9,
+        `a gap at chamber ${p[i].chamber}: gas left the last one at `
+        + `${p[i - 1].outC.toFixed(1)} C and arrives at ${p[i].inC.toFixed(1)} C`);
+    }
+
+    // The order of the entries is the order the gas travels, so the fire —
+    // the only place heat is added — has to be where the gas is hottest.
+    const hottest = p.reduce((b, g, i) => (g.outC > p[b].outC ? i : b), 0);
+    assert(p[hottest].fire,
+      `gas is hottest leaving chamber ${p[hottest].chamber}, which is not the fire`);
+
+    /**
+     * And it leaves the fire AT the fire, not merely warmed by brushing past
+     * it. Gas coming off a flame cannot be cooler than the flame.
+     *
+     * The weaker test above — hottest at the fire — does not catch this:
+     * delete the line that sets it and the gas is still hottest there, just
+     * 170 C short. Measured, not assumed; that break passed 32/32 before
+     * this assertion was added.
+     */
+    const atFire = p.find((g) => g.fire);
+    const fireTemp = e.state.thermal[e.state.params.recovery ? 'on' : 'off'].temps[atFire.chamber];
+    assert(atFire.outC >= fireTemp - 1e-6,
+      `gas leaves the fire at ${Math.round(atFire.outC)} C, `
+      + `below the burning chamber's ${Math.round(fireTemp)} C`);
+
+    return `${p.map((g) => Math.round(g.outC)).join(' -> ')} C`;
+  }));
+
+  /**
+   * 32. What the switch does to the gas, stated where the arrow reads it.
+   *
+   * Check 28 says the chambers ahead stay cold; this says the other half out
+   * loud — the heat they are not getting goes up the chimney instead.
+   */
+  results.push(check('without recovery the exhaust leaves at the fire\'s heat', () => {
+    const e = settled();
+    const { on, off } = e.state.gasCompare;
+    const exit = (p) => p[p.length - 1].outC;
+    const peak = (p) => Math.max(...p.map((g) => g.outC));
+
+    assert(off.length === C.windows.cool + 1,
+      `${off.length} chambers on the path without recovery, expected ${C.windows.cool + 1}`);
+    assert(exit(off) >= peak(off) - 1e-9,
+      `exhaust leaves at ${Math.round(exit(off))} C with nothing ahead to cool it, `
+      + `below the peak ${Math.round(peak(off))} C`);
+    assert(exit(on) < exit(off) * 0.7,
+      `reusing heat only brings the exhaust from ${Math.round(exit(off))} C `
+      + `to ${Math.round(exit(on))} C`);
+
+    return `exhaust ${Math.round(exit(on))} C with reuse, ${Math.round(exit(off))} C without`;
+  }));
+
   const passed = results.filter((r) => r.pass).length;
   const style = passed === results.length
     ? 'background:#2b6;color:#fff'

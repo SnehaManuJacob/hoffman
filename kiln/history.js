@@ -33,6 +33,9 @@ export function createHistory() {
         onFuel: state.thermal.on.fuel,
         off: state.thermal.off.temps.slice(),
         offFuel: state.thermal.off.fuel,
+        // The gas profile is NOT recorded: it is a pure function of these
+        // temperatures and the fire's position, and the engine recomputes it
+        // from them. Recording it would be a second copy free to disagree.
       },
       chambers: state.chambers.map((c) => ({
         loaded: c.loaded,

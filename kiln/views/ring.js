@@ -31,6 +31,7 @@
 
 import * as THREE from 'three';
 import { C, PALETTE, STAGE_COLOUR, COMPONENTS } from '../config.js';
+import { relativeHeat } from '../engine.js';
 import { createLoopPath } from './kilnPath.js';
 import { heatHex } from './heatRamp.js';
 
@@ -656,8 +657,8 @@ export function createRing(canvas, options = {}) {
         x: a.x + (b.x - a.x) * t,
         z: a.z + (b.z - a.z) * t,
         w: a.w + (b.w - a.w) * t,
-        h: a.h + (b.h - a.h) * t,
-        spent: a.spent + (b.spent - a.spent) * t,
+        pos: a.pos + (b.pos - a.pos) * t,
+        spentShape: a.spentShape + (b.spentShape - a.spentShape) * t,
       });
     }
     return out;
@@ -685,10 +686,10 @@ export function createRing(canvas, options = {}) {
         let sx = 0; let sz = 0; let sw = 0; let sh = 0; let sp = 0;
         for (let k = -r; k <= r; k++) {
           sx += pts[i + k].x; sz += pts[i + k].z;
-          sw += pts[i + k].w; sh += pts[i + k].h; sp += pts[i + k].spent;
+          sw += pts[i + k].w; sh += pts[i + k].pos; sp += pts[i + k].spentShape;
         }
         const n = r * 2 + 1;
-        return { x: sx / n, z: sz / n, w: sw / n, h: sh / n, spent: sp / n };
+        return { x: sx / n, z: sz / n, w: sw / n, pos: sh / n, spentShape: sp / n };
       });
     }
     return pts;
@@ -706,6 +707,88 @@ export function createRing(canvas, options = {}) {
     }
     return best;
   }
+
+  const AIR = new THREE.Color(PALETTE.air);
+  const AIR_SPENT = new THREE.Color(PALETTE['air-spent']);
+  const gasCol = new THREE.Color();
+  const coolTone = new THREE.Color();
+
+  /**
+   * The colour of the gas, from its relative heat and how spent it is. ONE
+   * function, so the ribbon and the arrowhead cannot disagree — they did,
+   * because the head was coloured straight off the heat ramp while the ribbon
+   * was blended towards the air tone, and the two met as a grey line ending in
+   * a tan triangle.
+   */
+  function gasColour(h, spent, out) {
+    heatColour(h, out);
+    coolTone.copy(AIR).lerp(AIR_SPENT, spent);
+    // Cold gas leaves the heat ramp for the air tone; spent gas goes further
+    // still, towards grey, however little heat it has left.
+    const t = Math.max((0.18 - h) / 0.18, spent * P.airSpentBlend);
+    if (t > 0) out.lerp(coolTone, Math.min(1, t));
+    return out;
+  }
+
+  /**
+   * Gas temperature in degrees at `pos` chambers along the journey, read from
+   * the engine's profile. Each entry records the gas entering and leaving one
+   * chamber, and one chamber's `outC` is the next one's `inC`, so a straight
+   * interpolation inside each entry gives a continuous curve — and it is a
+   * curve, steepest where the gas and the chamber are furthest apart, not the
+   * straight ramp the arrow used to draw.
+   */
+  function gasAt(profile, pos) {
+    const n = Math.max(0, Math.min(profile.length - 1, Math.floor(pos)));
+    const t = Math.max(0, Math.min(1, pos - n));
+    const g = profile[n];
+    return g.inC + (g.outC - g.inC) * t;
+  }
+
+  /**
+   * Colour the airflow arrow from the gas the engine actually computed.
+   *
+   * Runs every frame; the geometry underneath it does not. The view decides
+   * nothing about temperature here — it reads degrees, converts them with the
+   * engine's own `relativeHeat`, and hands them to the same ramp the tiles
+   * use. The arrow and the chamber it crosses are now the same number.
+   */
+  function paintAirRibbon(profile) {
+    if (!airRoute || !profile || !profile.length) return;
+    const { route, colourAttr } = airRoute;
+
+    /**
+     * How spent the exhaust is: the share of its heat the gas gave up between
+     * the fire and the damper. Derived, not assumed — with recovery off it
+     * gives up nothing, this is 0, and the tail stays as red as the fire.
+     */
+    const peak = relativeHeat(Math.max(...profile.map((g) => g.outC)));
+    const exit = relativeHeat(profile[profile.length - 1].outC);
+    const spentMax = peak > 0 ? Math.max(0, 1 - exit / peak) : 0;
+
+    const arr = colourAttr.array;
+    for (let i = 0; i < route.length; i++) {
+      const p = route[i];
+      gasColour(relativeHeat(gasAt(profile, p.pos)), p.spentShape * spentMax, gasCol);
+      const k = i * 6;
+      arr[k] = gasCol.r; arr[k + 1] = gasCol.g; arr[k + 2] = gasCol.b;
+      arr[k + 3] = gasCol.r; arr[k + 4] = gasCol.g; arr[k + 5] = gasCol.b;
+    }
+    colourAttr.needsUpdate = true;
+
+    // Literally the ribbon's final colour, so the join is invisible.
+    const tip = route[route.length - 1];
+    airHead.material.color.copy(
+      gasColour(relativeHeat(gasAt(profile, tip.pos)), tip.spentShape * spentMax, gasCol),
+    );
+  }
+
+  /**
+   * The built route, kept so the colour pass can rewrite it without rebuilding
+   * any geometry. The route's SHAPE depends only on where the fire is and
+   * which damper is open; only the gas inside it is live.
+   */
+  let airRoute = null;
 
   /**
    * The airflow arrow: ONE continuous route, from outside the kiln to the
@@ -742,37 +825,24 @@ export function createRing(canvas, options = {}) {
     const to = (firePos + lead + 0.5) / count;
 
     const maxW = P.airRibbonWidth / 2;
-    const AIR = new THREE.Color(PALETTE.air);
-    const AIR_SPENT = new THREE.Color(PALETTE['air-spent']);
-    const col = new THREE.Color();
-    const coolTone = new THREE.Color();
 
     /**
-     * The colour of the gas at a point on the route. ONE function, so the
-     * ribbon and the arrowhead cannot disagree — they did, because the head
-     * was coloured straight off the heat ramp while the ribbon was blended
-     * towards the air tone, and the two met as a grey line ending in a tan
-     * triangle.
+     * Each entry is a point on the centre of the route, carrying its
+     * half-width and two things the colour pass needs:
+     *
+     *   `pos`        where the gas is on its journey, in CHAMBERS travelled.
+     *                The engine's gas profile is one entry per chamber on the
+     *                flow path, in the same order, so this indexes straight
+     *                into it. Nothing here guesses a temperature.
+     *   `spentShape` the 0-1 ramp from fresh air to used-up gas. A shape only:
+     *                how far along it the exhaust actually gets is decided by
+     *                the model, in paintAirRibbon.
+     *
+     * Geometry and colour are separated because the route only moves when the
+     * fire does, while the gas in it changes every sub-step.
      */
-    const gasColour = (p, out) => {
-      heatColour(p.h, out);
-      coolTone.copy(AIR).lerp(AIR_SPENT, p.spent);
-      // Cold gas leaves the heat ramp for the air tone; spent gas goes further
-      // still, towards grey, however little heat it has left.
-      const t = Math.max((0.18 - p.h) / 0.18, p.spent * P.airSpentBlend);
-      if (t > 0) out.lerp(coolTone, Math.min(1, t));
-      return out;
-    };
-
-    // Each entry is a point on the centre of the route, with the half-width
-    // and the gas temperature there.
     const route = [];
-    /**
-     * `spent` runs 0 for air on its way in to 1 for gas on its way out. It is
-     * what lets the two ends read differently: fresh air is the cool blue the
-     * palette reserves for air, spent gas is that same tone desaturated.
-     */
-    const push = (x, z, w, h, spent = 0) => route.push({ x, z, w, h, spent });
+    const push = (x, z, w, pos, spentShape = 0) => route.push({ x, z, w, pos, spentShape });
 
     // --- 1. in from outside, through the wall ------------------------------
     const ENTRY = 14;
@@ -782,42 +852,39 @@ export function createRing(canvas, options = {}) {
       const e = t * t * (3 - 2 * t);        // smoothstep, so the turn is not a corner
       const p = path.at(from + e * turnIn);
       const off = (1 - e) * (halfBand + P.airInletLead);
-      push(p.x + p.nx * off, p.z + p.nz * off, maxW * 0.34, 0);
+      // Already inside the first chamber by the time the curve straightens, so
+      // the gas starts picking up heat here rather than at a hard line.
+      push(p.x + p.nx * off, p.z + p.nz * off, maxW * 0.34, e * P.airInletTurn);
     }
 
     // --- 2. along the chambers: cooling run, fire, preheat run -------------
-    const MAIN = 150;
-    const PEAK_H = 0.92;                      // the gas at its hottest, at the fire
-    const atFire = (cool + 0.5) / (cool + lead + 1);
     /**
-     * How much heat the gas gives up after the fire. With recovery on it spends
-     * it on the green tiles ahead and arrives at the chimney nearly cold; with
-     * recovery off there are no tiles ahead to spend it on, so it keeps it.
+     * The whole span from `from` to `to` is exactly (cool + lead + 1) chambers
+     * — the length of the flow path — so position in chambers is just how far
+     * along that span a point is. That is the entire mapping onto the model.
      */
-    const drop = recovery ? 0.78 : 0;
+    const MAIN = 150;
+    const spanChambers = cool + lead + 1;
     for (let i = 1; i <= MAIN; i++) {
       const u = i / MAIN;
       const s = from + turnIn + (to - from - turnIn) * u;
       const p = path.at(s);
       const w = maxW * (0.34 + 0.66 * Math.sin(Math.PI * Math.min(1, u * 1.08)));
-      const h = u < atFire
-        ? (u / atFire) * PEAK_H
-        : PEAK_H - ((u - atFire) / (1 - atFire)) * drop;
-      push(p.x, p.z, w, h);
+      push(p.x, p.z, w, (s - from) * count);
     }
 
     // --- 3. out through the open damper, into the flue ---------------------
-    const exitH = route[route.length - 1].h;
     /**
-     * How spent the gas is on its way out, DERIVED rather than assumed: the
-     * fraction of its heat it actually gave up. Spent gas reads grey, gas that
-     * kept its heat stays red.
+     * Past the last chamber the model has nothing more to say: it stops at the
+     * damper and does not simulate the flue or the chimney. So the tail holds
+     * the gas at the temperature it left the kiln at — `spanChambers` is the
+     * end of the profile — rather than inventing a cooling curve for it.
      *
-     * This used to be a fixed ramp to 1.0, which was fine while the exhaust was
-     * always nearly cold — and would have greyed out the one thing the recovery
-     * switch exists to show.
+     * With heat recovery that exit temperature is low and the tail greys out.
+     * Without, the gas reaches the chimney still carrying the fire's heat and
+     * the tail stays red the whole way. That contrast is the argument for
+     * building a kiln in a loop, and it is now the model making it.
      */
-    const spentMax = Math.max(0, 1 - exitH / PEAK_H);
     const exitW = maxW * P.airExhaustScale;
     const OUT = 10;
     const flueOff = halfBand + (ductInset - halfBand) / 2;   // mid-flue
@@ -825,7 +892,7 @@ export function createRing(canvas, options = {}) {
       const t = i / OUT;
       const e = t * t * (3 - 2 * t);
       const p = path.at(to + e * (0.25 / count));
-      push(p.x - p.nx * e * flueOff, p.z - p.nz * e * flueOff, exitW, exitH * (1 - 0.15 * e), spentMax * e * 0.35);
+      push(p.x - p.nx * e * flueOff, p.z - p.nz * e * flueOff, exitW, spanChambers, e * 0.35);
     }
 
     // --- 4. along the flue to the nearer mouth of the channel --------------
@@ -840,7 +907,7 @@ export function createRing(canvas, options = {}) {
     for (let i = 1; i <= FLUE; i++) {
       const t = i / FLUE;
       const q = ductPath.at(sDuct + span * t);
-      push(q.x, q.z, exitW, exitH * (0.85 - 0.25 * t), spentMax * (0.35 + 0.45 * t));
+      push(q.x, q.z, exitW, spanChambers, 0.35 + 0.45 * t);
     }
 
     // --- 5. down the channel into the chimney ------------------------------
@@ -850,7 +917,7 @@ export function createRing(canvas, options = {}) {
     const DOWN = 24;
     for (let i = 1; i <= DOWN; i++) {
       const t = i / DOWN;
-      push(0, mouthPt.z + (stopZ - mouthPt.z) * t, exitW * (1 - 0.15 * t), exitH * 0.6, spentMax * (0.8 + 0.2 * t));
+      push(0, mouthPt.z + (stopZ - mouthPt.z) * t, exitW * (1 - 0.15 * t), spanChambers, 0.8 + 0.2 * t);
     }
 
     // --- even the spacing, then round off the joins ------------------------
@@ -879,12 +946,11 @@ export function createRing(canvas, options = {}) {
       const nx = dz;          // perpendicular to the direction of travel
       const nz = -dx;
 
-      gasColour(p, col);
-
       const ax = p.x + nx * p.w; const az = p.z + nz * p.w;
       const bx = p.x - nx * p.w; const bz = p.z - nz * p.w;
       positions.push(ax, Y.air, az, bx, Y.air, bz);
-      colours.push(col.r, col.g, col.b, col.r, col.g, col.b);
+      // Filled in by paintAirRibbon, which runs before anything is drawn.
+      colours.push(0, 0, 0, 0, 0, 0);
       edgeA.push([ax, az]);
       edgeB.push([bx, bz]);
       if (i < route.length - 1) {
@@ -927,8 +993,10 @@ export function createRing(canvas, options = {}) {
       new THREE.Vector3(tip.x + tz * headHalf, Y.air, tip.z - tx * headHalf),
       new THREE.Vector3(tip.x - tz * headHalf, Y.air, tip.z + tx * headHalf),
     ]);
-    // Literally the ribbon's final colour, so the join is invisible.
-    airHead.material.color.copy(gasColour(tip, col));
+
+    // Keep the route: the colour pass rewrites it every frame without any of
+    // the geometry above being rebuilt.
+    airRoute = { route: route.slice(), colourAttr: g.attributes.color };
 
     // --- the opening the air comes in through ------------------------------
     /**
@@ -1017,6 +1085,8 @@ export function createRing(canvas, options = {}) {
       openDamper = buildAirRibbon(state.firePos, recovery);
       lastRoute = routeKey;
     }
+    // Every frame, unlike the route: the gas moves while the pipework does not.
+    paintAirRibbon(state.gasProfile);
 
     // No fire, no draught: nothing is moving through a kiln that has not been
     // lit, so the airflow arrow stays off until it is.
