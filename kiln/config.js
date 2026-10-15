@@ -327,6 +327,21 @@ const defs = {
    * It draws only what history recorded, so everything in it is as simulated
    * as the run that produced it.
    */
+  /**
+   * The dial in the transport bar. All 'A': how a clock is drawn is a
+   * presentation choice. The one fact it carries — two hours per move — is
+   * `time.tickHours`, and the dial is marked from it rather than from
+   * anything here, so the face cannot go on claiming an interval the model
+   * has stopped using.
+   */
+  clock: {
+    dialHours: [12, 'A', 'Hours to one revolution. The ordinary clock face, kept because it is the one everybody can already read.'],
+    flashSeconds: [1, 'A', 'How long the dial holds the fire red when the fire moves.'],
+    flashMaxOfTick: [0.4, 'A', 'Ceiling on the flash as a fraction of one tick in REAL seconds. A flat second outlasts a tick at 4x speed, which would leave the dial permanently red — the mark would stop being a mark. Under half so there is more dark than red at any speed: at 0.5 the dial spends 4x as a square wave and reads as a flicker rather than a beat.'],
+    handSettle: [0.3, 'A', 'How fast the hand closes on the angle the model is at. Step jumps the model 60 degrees at once; without this the hand teleports.'],
+    handSnapDeg: [0.05, 'A', 'Below this the hand is simply placed. Stops it creeping towards a target it will never quite reach.'],
+  },
+
   chart: {
     windowTicks: [16, 'A', 'Ticks visible at once. A loop is 8 ticks, so 16 is two full loops — 32 simulated hours, enough to see the pattern repeat once.'],
     minRowHeight: [11, 'A', 'Tall enough that the firing front reads as a diagonal rather than a smear.'],

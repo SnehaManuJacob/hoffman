@@ -329,9 +329,81 @@ input:focus-visible {
 .clock {
   margin-left: auto;
   display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
+  align-items: center;
+  gap: var(--space-3);
 }
+
+/* --------------------------------------------------------------------------
+   the dial
+
+   Outline only — no fill anywhere, hairlines throughout. The brief asked for
+   white; there is none in this palette and principle 2 is the reason, so
+   `--sand-bright` is what white means here. It is the brightest ink on the
+   page and the page stays warm two-tone.
+
+   Matched to the HOURS FIGURE beside it, not to the buttons — the dial and
+   the number are one instrument saying two things about the same fact, and a
+   dial smaller than the number it belongs to reads as an icon decorating it.
+   42px is what the figure measures, which is also what sets the bar's height,
+   so the bar does not grow. It sits in the same flex column as the canvas: a
+   taller bar is a shorter kiln.
+   -------------------------------------------------------------------------- */
+
+.dial {
+  width: 2.625rem;
+  height: 2.625rem;
+  flex: 0 0 auto;
+  overflow: visible;
+  fill: none;
+  stroke-linecap: round;
+}
+
+.dial-rim {
+  stroke: var(--sand-faint);
+  stroke-width: 2;
+}
+
+.dial-marks line {
+  stroke: var(--sand-dim);
+  stroke-width: 3;
+}
+
+.dial-hand {
+  stroke: var(--sand-bright);
+  stroke-width: 4;
+}
+
+.dial-pin {
+  fill: var(--sand-bright);
+  stroke: none;
+}
+
+/**
+ * The firing step, in the fire's own red.
+ *
+ * Section 9 reserves the heat ramp for temperature, and this is the one
+ * deliberate exception: the flash lands at the instant the fire moves to the
+ * next chamber, so it marks a heat event, and borrowing the burning chamber's
+ * exact colour ties the dial to the kiln rather than decorating it. Any other
+ * red would be decoration and would have to be argued for separately.
+ *
+ * The transition is on the way OUT only. A mark that fades in is not a mark —
+ * the moment it exists to catch is the arrival.
+ */
+.dial-rim,
+.dial-hand,
+.dial-marks line {
+  transition: stroke 420ms ease-out;
+}
+
+.dial.is-firing .dial-rim,
+.dial.is-firing .dial-hand,
+.dial.is-firing .dial-marks line {
+  stroke: var(--heat-4);
+  transition: none;
+}
+
+.dial.is-firing .dial-pin { fill: var(--heat-4); }
 
 .clock-value {
   font-size: 1.75rem;

@@ -15,6 +15,7 @@ import { createPanel } from './views/panel.js';
 import { createLabels, LABELLED_COMPONENTS } from './views/labels.js';
 import { createChart } from './views/chart.js';
 import { createEvidence } from './views/evidence.js';
+import { createClock } from './views/clock.js';
 import './checks.js';                 // exposes window.kilnChecks()
 
 const engine = createEngine();
@@ -44,6 +45,14 @@ const panel = createPanel({
     note: document.getElementById('recovery-note'),
   },
 }, engine.dispatch);
+
+// The dial beside the hours. The number says how much time has passed; the
+// dial says the beat it passed in.
+const clock = createClock({
+  dialEl: document.getElementById('dial'),
+  handEl: document.getElementById('dial-hand'),
+  marksEl: document.getElementById('dial-marks'),
+});
 
 /**
  * The legend and the details sheet.
@@ -176,7 +185,9 @@ function frame(now) {
     labels.update(engine.state);     // must follow ring: it reads the camera
     panel.update(engine.state);
     chart.update(engine.state);      // redraws only when the record changes
-    evidence.update(engine.state);   // the legend, the filter note, the sheet
+    evidence.update(engine.state);   // the legend and the sheet
+    clock.update(engine.state, dt);  // dt in REAL ms: the flash is a beat for
+                                     // the viewer, not an event in the kiln
 
     btnPlay.textContent = engine.state.paused ? 'Play' : 'Pause';
   } catch (err) {

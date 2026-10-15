@@ -146,7 +146,9 @@ These are unanswered. The model must make each one a setting in `config.js` so i
 
 - **One hero, not a dashboard.** The ring dominates; everything else is quieter.
 - **Motion only where something is happening.** Every moving pixel is fire, air or a tile. No decorative drift.
+  - **Day 11:** and the clock hand, which is a fourth thing. It is not drift — it is the simulation's own clock, and it stops dead whenever simulated time does — but the rule should say so rather than have the next reader find a hand moving and conclude it lapsed.
 - **Palette with meaning:** charcoal and clay as the ground; a blackbody heat ramp (dull red → orange → yellow-white) used **only** for temperature; one cool pale tone used **only** for air.
+  - **One exception, day 11:** the clock dial flashes `--heat-4` when the fire moves. The flash lands at the instant the fire arrives in the next chamber, so it marks a heat event, and borrowing the burning chamber's own red ties the dial to the kiln. Any other red would be decoration and would need arguing for separately. The dial is otherwise outline-only in sand, and nothing else on the page may spend the ramp.
 - **Glow driven by the simulation:** chamber brightness/bloom comes from simulated temperature, so the beauty is the data.
 - Clean, confident typography; flat surfaces; no gradients or shadows for decoration.
 - Polish happens on days 11–12. Before that: plain shapes and flat colours.
@@ -183,6 +185,7 @@ kiln/
   views/chart.js    D3: space–time chart
   views/panel.js    context text, fork card, switches
   views/evidence.js the legend, and the details sheet behind it
+  views/clock.js    the dial in the transport bar
   main.js           loop: input → engine.step → render views
 ```
 

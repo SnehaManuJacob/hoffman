@@ -87,8 +87,37 @@
           <output id="speed-out">1&times;</output>
         </label>
 
-        <!-- Simulated hours elapsed. 2 h per tick is the one hard field fact. -->
+        <!--
+          Simulated hours elapsed. 2 h per tick is the one hard field fact.
+
+          The dial and the number make the SAME claim, so they sit inside one
+          tagged element rather than carrying a tag each: nesting `data-ev`
+          multiplies opacities in evidence mode, and the number would come out
+          dimmer than the dial for no reason anyone could read.
+
+          A number that changes cannot show a rhythm. The dial is here because
+          the two-hour interval is the kiln's heartbeat and nothing on screen
+          made it feel like an interval — you watched the fire arrive somewhere
+          new and had to be told how long it took.
+
+          The face is EMPTY on purpose. Its marks are appended by
+          views/clock.js from `C.time.tickHours`, so a dial claiming two hours
+          exists only as long as the model does.
+        -->
         <div class="clock" data-ev="F">
+          <svg class="dial" id="dial" viewBox="-50 -50 100 100" aria-hidden="true">
+            <circle class="dial-rim" cx="0" cy="0" r="46"></circle>
+            <g class="dial-marks" id="dial-marks"></g>
+            <!--
+              The hand reaches almost to the marks. Stopping it short left a
+              visible gap at rest, and "the hand is on a mark" is the whole
+              reading — a hand that lands near one says the step is
+              approximate, which it is not.
+            -->
+            <line class="dial-hand" id="dial-hand" x1="0" y1="0" x2="0" y2="-37"></line>
+            <circle class="dial-pin" cx="0" cy="0" r="2.5"></circle>
+          </svg>
+
           <span class="clock-value" id="clock-value">0</span>
           <span class="clock-unit">h elapsed</span>
         </div>
