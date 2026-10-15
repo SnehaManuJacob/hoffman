@@ -77,29 +77,6 @@
 
     <!-- Right column: space-time chart (Day 5), then context panel -->
     <aside class="side">
-
-      <!--
-        The evidence legend (Day 11, brief section 8). Exists only in evidence
-        mode, which is why it carries the field-only filter: that control has
-        no meaning outside the mode, and a permanently visible checkbox for it
-        would be a third switch competing with the two real ones.
-
-        Rows are built in views/panel.js from the components the ring and the
-        labels ACTUALLY draw, not from the config — so a part that is listed
-        but never drawn cannot appear here claiming to be on screen.
-      -->
-      <section class="legend-pane" id="legend-pane">
-        <div class="legend-head">
-          <h2 class="pane-title">Where this comes from</h2>
-          <label class="pill">
-            <input type="checkbox" id="field-only">
-            <span>Kundapur only</span>
-          </label>
-        </div>
-        <dl class="legend" id="legend"></dl>
-        <p class="qualifier" id="legend-note"></p>
-      </section>
-
       <section class="chart-pane">
         <h2 class="pane-title">Space &amp; time</h2>
         <div id="chart" class="chart-placeholder">
@@ -165,22 +142,6 @@
         <p class="fuel-basis" id="fuel-basis" data-ev="S"></p>
 
         <p class="qualifier" id="recovery-note" data-ev="L"></p>
-      </section>
-
-      <!--
-        The Stall layer's pane. What the engine already models about a gap in
-        the ring: which chamber is not ready, and how long until the fire
-        reaches it. A fact, with no judgement attached — section 7 rules out
-        anything that reads as a warning or a score.
-
-        The answer to what the factory DOES about it is open question 5.1 and
-        is not known, so the note below says so rather than filling the space.
-        The Day 10 fork card lands in this pane.
-      -->
-      <section class="stall-pane">
-        <h2 class="pane-title">If a chamber is not ready</h2>
-        <p class="stall-state" id="stall-state" data-ev="S"></p>
-        <p class="qualifier" id="stall-note" data-ev="U"></p>
       </section>
 
       <section class="context-pane">

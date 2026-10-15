@@ -13,16 +13,10 @@
  */
 
 import * as THREE from 'three';
-import { COMPONENTS, LAYERS } from '../config.js';
+import { COMPONENTS } from '../config.js';
 
-/**
- * What each anchor is called on screen, and which component backs it.
- *
- * Exported because config.LAYERS names these ids, and a layer listing a label
- * that does not exist should be caught by a check rather than by a visitor
- * finding a tab with nothing on it.
- */
-export const LABEL_TEXT = {
+/** What each anchor is called on screen, and which component backs it. */
+const LABEL_TEXT = {
   chimney:     { text: 'Chimney',      component: 'chimney' },
   flueDuct:    { text: 'Flue duct',    component: 'flueDuct' },
   dampers:     { text: 'Open damper',  component: 'dampers' },
@@ -33,20 +27,7 @@ export const LABEL_TEXT = {
   zonePreheat: { text: 'Drying & preheating', component: 'zones' },
   zoneCool:    { text: 'Cooling',      component: 'zones' },
   airIn:       { text: 'Air in',       component: 'airPath' },
-  // The Stall layer's subject: the next chamber the fire will find empty.
-  // Tagged U through its component, because what happens when the fire gets
-  // there is open question 5.1 — not because the chamber is in doubt.
-  nextGap:     { text: 'Not ready',    component: 'unreadyChamber' },
 };
-
-/**
- * The components the labels name. The legend lists what the page actually
- * draws, and `zones` is drawn as nothing but a label — so without this it
- * would be missing from the legend while plainly being on screen.
- */
-export const LABEL_COMPONENTS = [
-  ...new Set(Object.values(LABEL_TEXT).map((s) => s.component)),
-];
 
 export function createLabels(layerEl, ring) {
   const projected = new THREE.Vector3();
@@ -119,22 +100,9 @@ export function createLabels(layerEl, ring) {
     const unlit = state.phase === 'charging';
     const needsFire = new Set(['zoneFire', 'zonePreheat', 'zoneCool', 'airIn', 'dampers', 'stokeHoles']);
 
-    /**
-     * Each layer names the parts it is about (config.LAYERS), and only those
-     * are labelled. This is most of what makes a tab worth pressing: the kiln
-     * underneath is the same kiln, but Structure names the building and Heat
-     * names the gas circuit, and ten labels at once name neither.
-     */
-    const shown = new Set(LAYERS[state.ui?.layer]?.labels ?? Object.keys(LABEL_TEXT));
-
     for (const anchor of ring.anchors(state)) {
       if (!LABEL_TEXT[anchor.id]) continue;
       const el = elementFor(anchor.id);
-
-      if (!shown.has(anchor.id)) {
-        el.classList.add('is-hidden');
-        continue;
-      }
 
       if (unlit && needsFire.has(anchor.id)) {
         el.classList.add('is-hidden');
@@ -178,7 +146,5 @@ export function createLabels(layerEl, ring) {
     entries.clear();
   }
 
-  // `text` so the console (and the checks) can map an anchor id to the words
-  // on screen. Brief rule 14.10: debugging starts in the console.
-  return { update, dispose, text: LABEL_TEXT };
+  return { update, dispose };
 }

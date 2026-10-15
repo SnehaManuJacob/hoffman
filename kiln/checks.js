@@ -10,12 +10,8 @@
  */
 
 import { createEngine, gasCurve, gasAt } from './engine.js';
-import {
-  C, PALETTE, STAGE_COLOUR, COMPONENTS, EVIDENCE, EVIDENCE_INK, GHOST_INK, LAYERS,
-} from './config.js';
+import { C, PALETTE, STAGE_COLOUR, COMPONENTS } from './config.js';
 import { createLoopPath } from './views/kilnPath.js';
-import { LABEL_TEXT } from './views/labels.js';
-import { heatHex, heatHexStepped, RAMP_STOPS } from './views/heatRamp.js';
 
 /** The same loop the ring draws, built from the same settings. */
 function buildPath() {
@@ -922,104 +918,6 @@ export function kilnChecks() {
 
     return `${knots.length} boundaries hit exactly, no overshoot between them `
       + `(worst ${worst.toExponential(1)} C)`;
-  }));
-
-  // 34. Every evidence code can actually be drawn. A code with no ink, or an
-  //     ink pointing at a palette entry that does not exist, would fall back
-  //     to whatever colour happened to be in the buffer — which is to say it
-  //     would silently draw the wrong provenance.
-  results.push(check('every evidence code has an ink the palette can draw', () => {
-    const codes = Object.keys(EVIDENCE);
-    const missing = codes.filter((c) => !EVIDENCE_INK[c]);
-    assert(missing.length === 0, `no ink for: ${missing.join(', ')}`);
-
-    const unpainted = codes.filter((c) => EVIDENCE_INK[c].key && !PALETTE[EVIDENCE_INK[c].key]);
-    assert(unpainted.length === 0, `ink points at a missing palette key: ${unpainted.join(', ')}`);
-
-    for (const where of ['fill', 'stroke']) {
-      assert(PALETTE[GHOST_INK[where].key],
-        `the ${where} ghost points at a missing palette key: ${GHOST_INK[where].key}`);
-    }
-
-    /**
-     * Exactly one code keeps the heat ramp. Colour in evidence mode means
-     * "simulated" and nothing else — a second code without an ink of its own
-     * would quietly join it and the statement would stop being true.
-     */
-    const rampKeepers = codes.filter((c) => !EVIDENCE_INK[c].key);
-    assert(rampKeepers.length === 1 && rampKeepers[0] === 'S',
-      `these codes keep the heat ramp, and only S may: ${rampKeepers.join(', ') || 'none'}`);
-
-    return `${codes.length} codes, ${codes.filter((c) => EVIDENCE_INK[c].dashed).length} dashed, `
-      + 'S keeps the ramp';
-  }));
-
-  // 35. The quantised ramp lands on the ramp's own stops, and is coarser than
-  //     the ramp it came from. The second half is what gives the first half
-  //     any meaning: snapping to stops is only a statement if NOT snapping
-  //     would have produced something else.
-  results.push(check('evidence mode quantises the heat ramp to its named stops', () => {
-    const stops = new Set(
-      Array.from({ length: RAMP_STOPS }, (_, k) => heatHex(k / (RAMP_STOPS - 1))),
-    );
-    assert(stops.size === RAMP_STOPS, `the ramp has ${stops.size} distinct stops, not ${RAMP_STOPS}`);
-
-    const smooth = new Set();
-    const stepped = new Set();
-    for (let k = 0; k <= 200; k++) {
-      const h = k / 200;
-      smooth.add(heatHex(h));
-      const s = heatHexStepped(h);
-      assert(stops.has(s), `relative heat ${h.toFixed(3)} stepped to ${s}, which is not a stop`);
-      stepped.add(s);
-    }
-    assert(stepped.size === RAMP_STOPS, `only ${stepped.size} of ${RAMP_STOPS} stops are reachable`);
-    assert(smooth.size > stepped.size * 4,
-      `the smooth ramp gives ${smooth.size} colours and the stepped one ${stepped.size} — `
-      + 'too close for the quantising to be saying anything');
-
-    return `${smooth.size} colours smooth, ${stepped.size} stepped`;
-  }));
-
-  // 36. Every layer is drawable: a real tab, a caption, labels that exist, and
-  //     parts that exist. A layer naming a label id that was renamed would
-  //     leave a tab with nothing on it and no error anywhere.
-  results.push(check('every layer names parts and labels that exist', () => {
-    const ids = Object.keys(LAYERS);
-    assert(ids.length > 0, 'no layers defined');
-
-    for (const id of ids) {
-      const layer = LAYERS[id];
-      assert(layer.caption && layer.caption.length > 20,
-        `layer "${id}" has no caption worth reading`);
-
-      const badLabels = (layer.labels ?? []).filter((l) => !LABEL_TEXT[l]);
-      assert(badLabels.length === 0,
-        `layer "${id}" names labels that do not exist: ${badLabels.join(', ')}`);
-
-      const badHides = (layer.hide ?? []).filter((c) => !COMPONENTS[c]);
-      assert(badHides.length === 0,
-        `layer "${id}" hides components that do not exist: ${badHides.join(', ')}`);
-
-      assert((layer.labels ?? []).length > 0, `layer "${id}" labels nothing`);
-    }
-
-    /**
-     * Nothing may be hidden in every layer. A part that no tab shows is a part
-     * nobody can ever see, which is worse than not drawing it: the config
-     * still claims it is on screen and the legend still lists it.
-     */
-    const always = Object.keys(COMPONENTS).filter(
-      (c) => ids.every((id) => (LAYERS[id].hide ?? []).includes(c)),
-    );
-    assert(always.length === 0, `hidden in every layer, so never visible: ${always.join(', ')}`);
-
-    // And the layer the page opens on must show the kiln itself.
-    const opening = LAYERS.structure;
-    assert(opening && !(opening.hide ?? []).includes('chambers'),
-      'the opening layer hides the chambers');
-
-    return `${ids.length} layers: ${ids.join(', ')}`;
   }));
 
   const passed = results.filter((r) => r.pass).length;
