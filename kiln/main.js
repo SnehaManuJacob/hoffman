@@ -64,17 +64,6 @@ speed.addEventListener('input', () => {
   speedOut.textContent = `${engine.state.params.speed}×`;
 });
 
-// Layer tabs. Day 11 makes them change what is drawn; for now they set state.
-const tabs = document.getElementById('layer-tabs');
-tabs.addEventListener('click', (ev) => {
-  const tab = ev.target.closest('.tab');
-  if (!tab) return;
-  engine.dispatch({ type: 'setLayer', layer: tab.dataset.layer });
-  tabs.querySelectorAll('.tab').forEach((t) => {
-    t.classList.toggle('is-active', t === tab);
-  });
-});
-
 /**
  * Heat recovery. Both kilns are already running inside the engine, so this
  * only chooses which one is on screen — no simulated time passes and nothing

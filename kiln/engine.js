@@ -24,7 +24,6 @@ export const ACTIONS = [
   'setRecovery',
   'setAutoLoad',
   'chooseForkPolicy',
-  'setLayer',
   'setEvidenceMode',
 ];
 
@@ -232,7 +231,10 @@ export function createEngine(options = {}) {
     phase: C.loading.startEmpty ? 'charging' : 'running',
     paused: true,                    // starts held so the page opens still
     fork: null,                      // set when the fire meets an empty chamber
-    ui: { layer: 'structure', evidenceMode: false, fieldOnly: false },
+    // No `layer`: the tabs are cut (day 11). Nothing here is kept as a hook for
+    // a control that does not exist — state that nothing reads goes stale
+    // silently. `fieldOnly` stays because section 8 still asks for it.
+    ui: { evidenceMode: false, fieldOnly: false },
   };
 
   // Simulated hours banked but not yet integrated — see integrateThermal.
@@ -821,10 +823,6 @@ export function createEngine(options = {}) {
 
       case 'chooseForkPolicy':
         resolveFork(action.policy);
-        break;
-
-      case 'setLayer':
-        state.ui.layer = action.layer;
         break;
 
       case 'setEvidenceMode':

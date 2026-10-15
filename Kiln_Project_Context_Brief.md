@@ -51,9 +51,9 @@ You are helping me build the **digital prototype** of my pre-thesis project. Rea
 - **Emptying a chamber** stalls the ring and opens a three-way choice: wait / skip / fire empty.
 - A **context panel** explains in one or two lines what is happening now.
 - A **"Show evidence" toggle** reveals where each part of the model comes from.
-- Layers (tabs): **Structure · Time · Heat · Stall** (later possibly Tiles, Seams).
+- ~~Layers (tabs): **Structure · Time · Heat · Stall**~~ — **cut on day 11.** Structure, time and heat are not four views of this kiln; they are one kiln doing all three at once, and the single live view already shows them together. Tabbing between them would have taken apart a picture that reads.
 
-Layout (from my wireframe): top bar with title, layer tabs, and the evidence toggle at right. Large ring on the left. Space–time chart top right. Context panel below the chart.
+Layout (from my wireframe): top bar with title and the evidence toggle at right. Large ring on the left. Space–time chart top right. Context panel below the chart.
 
 ---
 
@@ -246,7 +246,7 @@ The Arduino (later) will be one more input sending the same actions; the physica
 
 **Fallbacks if behind:** forward-only chart (no scrubbing back) · slider instead of ring drag · fewer particles, straight paths · recovery switch changes temperatures only · click to empty instead of drag · legend panel instead of restyled elements · fixed text per layer instead of live text.
 
-**Later (days 11–12 if time):** layer tabs · field-only filter · glow and polish · guided opening.
+**Later (days 11–12 if time):** ~~layer tabs~~ (cut — see section 3) · field-only filter · glow and polish · guided opening.
 
 **Out of scope for these two weeks** (do not build unless I ask): physical model connection · drag-and-drop drying yard · tile biographies · follow-a-parcel · other disruption cards (monsoon, interval change, stop/reverse fire) · algorithm lenses ("Model Seams") · sound · projection · 3D · comparison with batch/tunnel kilns.
 

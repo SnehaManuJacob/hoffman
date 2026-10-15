@@ -14,7 +14,9 @@
  *      ones raster density makes.
  *   3. Type at two extremes only: a heavy tight-tracked wordmark, and wide
  *      letterspaced small caps. Nothing in between.
- *   4. Centred wordmark, navigation left, pill control right.
+ *   4. Centred wordmark, pill control right. The source has navigation at the
+ *      left of the bar; here that slot is empty, because the layer tabs that
+ *      would have filled it are cut — this kiln is one view, not four.
  *
  * WHY INVERTED
  * Son Daven is dark-on-sand. Brief section 9 needs a dark ground so the heat
@@ -112,7 +114,6 @@ h1, h2 { margin: 0; font-weight: 500; }
 
 /* Every machine label and number is mono small caps. One of the two extremes. */
 .pane-title,
-.tab,
 .ctrl,
 .speed,
 .pill,
@@ -130,7 +131,7 @@ td, output, .clock-value, .debug-summary, .qualifier, .fuel-why { font-family: v
 .muted { color: var(--sand-dim); }
 
 /* --------------------------------------------------------------------------
-   top bar — nav left, wordmark centred, pill right
+   top bar — wordmark centred, pill right
    -------------------------------------------------------------------------- */
 
 .topbar {
@@ -155,35 +156,12 @@ td, output, .clock-value, .debug-summary, .qualifier, .fuel-why { font-family: v
   white-space: nowrap;
 }
 
-.tabs {
-  grid-column: 1;
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-}
-
-.tab {
-  color: var(--sand-dim);
-  background: none;
-  border: 0;
-  padding: var(--space-1) 0;
-  cursor: pointer;
-  position: relative;
-}
-
-.tab:hover { color: var(--sand); }
-
-/* The active marker is a raster tick, not a box — it belongs to the language. */
-.tab.is-active { color: var(--sand-bright); }
-.tab.is-active::after {
-  content: "";
-  position: absolute;
-  left: 0; right: 0; bottom: -2px;
-  height: 3px;
-  background-image: repeating-linear-gradient(
-    to right, var(--sand-bright) 0 1px, transparent 1px 3px
-  );
-}
+/*
+   Column 1 is deliberately left empty. The layer tabs that stood there are
+   cut, and the column is what keeps `auto` centred between two equal `1fr`s —
+   drop it and the wordmark slides left with the pill. An empty track is the
+   whole mechanism, not leftover scaffolding.
+*/
 
 .pill {
   grid-column: 3;
@@ -203,7 +181,6 @@ td, output, .clock-value, .debug-summary, .qualifier, .fuel-why { font-family: v
 .pill:hover { border-color: var(--sand-dim); }
 .pill input { accent-color: var(--sand); margin: 0; }
 
-.tab:focus-visible,
 .ctrl:focus-visible,
 .pill:focus-within,
 input:focus-visible {
