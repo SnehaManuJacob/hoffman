@@ -63,3 +63,21 @@ export function heatHex(h) {
 
 /** How many stops the ramp has. Used by the legend and by checks. */
 export const RAMP_STOPS = RAMP_KEYS.length;
+
+/**
+ * The same ramp, snapped to its nearest named stop. Evidence mode only.
+ *
+ * A continuous gradient looks like a reading off an instrument. The stops are
+ * the colours the palette actually declares, and landing on one of six says
+ * what a simulated temperature is: a model with buckets, not a measurement.
+ * Section 4 — simulated values in relative units, shown as bands rather than
+ * precise readings.
+ *
+ * Snapping `h` rather than the colour matters: it returns a palette entry
+ * exactly, so a check can assert the drawn pixel IS one of the named stops.
+ */
+export function heatHexStepped(h) {
+  if (!Number.isFinite(h)) return heatHex(h);
+  const steps = RAMP.length - 1;
+  return heatHex(Math.round(Math.max(0, Math.min(1, h)) * steps) / steps);
+}

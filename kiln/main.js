@@ -6,11 +6,14 @@
  * Controls do one thing only: dispatch a named action.
  */
 
-import { C, PALETTE, STAGE_COLOUR, TAGS, OPEN_QUESTIONS } from './config.js';
+import {
+  C, PALETTE, STAGE_COLOUR, TAGS, OPEN_QUESTIONS,
+  COMPONENTS, EVIDENCE, EVIDENCE_INK, LAYERS,
+} from './config.js';
 import { createEngine } from './engine.js';
-import { createRing } from './views/ring.js';
+import { createRing, COLOUR_TAG } from './views/ring.js';
 import { createPanel } from './views/panel.js';
-import { createLabels } from './views/labels.js';
+import { createLabels, LABEL_COMPONENTS } from './views/labels.js';
 import { createChart } from './views/chart.js';
 import './checks.js';                 // exposes window.kilnChecks()
 
@@ -39,6 +42,21 @@ const panel = createPanel({
     note: document.getElementById('recovery-note'),
     basis: document.getElementById('fuel-basis'),
   },
+  legendEl: {
+    list: document.getElementById('legend'),
+    note: document.getElementById('legend-note'),
+    fieldOnly: document.getElementById('field-only'),
+  },
+  stallEl: {
+    state: document.getElementById('stall-state'),
+    note: document.getElementById('stall-note'),
+  },
+  // What the page actually draws, for the legend to list. The union of the
+  // scene's components and the labels' — `zones` is only ever a label.
+  drawn: [...new Set([...ring.components(), ...LABEL_COMPONENTS])],
+  // The parts whose colour carries a different tag from the part itself. The
+  // ring inks by this table; the legend lists by it.
+  colourTags: COLOUR_TAG,
 }, engine.dispatch);
 
 // --- controls ---------------------------------------------------------------
@@ -63,16 +81,29 @@ speed.addEventListener('input', () => {
   speedOut.textContent = `${engine.state.params.speed}×`;
 });
 
-// Layer tabs. Day 11 makes them change what is drawn; for now they set state.
+/**
+ * Layer tabs. The views read `state.ui.layer` and decide what to draw from
+ * config.LAYERS; this only dispatches the change and mirrors it onto <body>,
+ * where the CSS uses it to bring the layer's own pane to the top of the
+ * column. One dispatch and nothing else, like every other control.
+ */
 const tabs = document.getElementById('layer-tabs');
+
+function showLayer(layer) {
+  document.body.dataset.layer = layer;
+  tabs.querySelectorAll('.tab').forEach((t) => {
+    t.classList.toggle('is-active', t.dataset.layer === layer);
+  });
+}
+
 tabs.addEventListener('click', (ev) => {
   const tab = ev.target.closest('.tab');
   if (!tab) return;
   engine.dispatch({ type: 'setLayer', layer: tab.dataset.layer });
-  tabs.querySelectorAll('.tab').forEach((t) => {
-    t.classList.toggle('is-active', t === tab);
-  });
+  showLayer(engine.state.ui.layer);
 });
+
+showLayer(engine.state.ui.layer);
 
 /**
  * Heat recovery. Both kilns are already running inside the engine, so this
@@ -85,11 +116,44 @@ recovery.addEventListener('change', (ev) => {
   engine.dispatch({ type: 'setRecovery', value: ev.target.checked });
 });
 
-// Evidence mode. Day 11 builds the legend and the field-only filter.
-document.getElementById('evidence-mode').addEventListener('change', (ev) => {
-  engine.dispatch({ type: 'setEvidenceMode', value: ev.target.checked });
-  document.body.classList.toggle('evidence-mode', engine.state.ui.evidenceMode);
+/**
+ * Evidence mode, and the field-only filter inside it (brief section 8).
+ *
+ * The filter is a filter WITHIN the mode, not a third state: turning evidence
+ * mode off takes field-only with it, so the kiln can never be left with most
+ * of itself missing and no legend on screen to say why.
+ */
+const evidenceInput = document.getElementById('evidence-mode');
+const fieldOnlyInput = document.getElementById('field-only');
+
+function showEvidence() {
+  const { evidenceMode, fieldOnly } = engine.state.ui;
+  document.body.classList.toggle('evidence-mode', evidenceMode);
+  document.body.classList.toggle('field-only', evidenceMode && fieldOnly);
+  evidenceInput.checked = evidenceMode;
+  fieldOnlyInput.checked = fieldOnly;
+}
+
+evidenceInput.addEventListener('change', (ev) => {
+  engine.dispatch({
+    type: 'setEvidenceMode',
+    value: ev.target.checked,
+    // Leaving the mode puts the filter back, so coming in again starts whole.
+    fieldOnly: ev.target.checked ? engine.state.ui.fieldOnly : false,
+  });
+  showEvidence();
 });
+
+fieldOnlyInput.addEventListener('change', (ev) => {
+  engine.dispatch({
+    type: 'setEvidenceMode',
+    value: engine.state.ui.evidenceMode,
+    fieldOnly: ev.target.checked,
+  });
+  showEvidence();
+});
+
+showEvidence();
 
 window.addEventListener('resize', () => {
   ring.resize();
@@ -162,7 +226,13 @@ requestAnimationFrame(frame);
 // Brief rule 14.10: debugging starts in the console.
 window.kiln = engine;
 window.__ring = ring;        // segments[], path — inspect the drawing
-window.__cfg = { C, PALETTE, STAGE_COLOUR, TAGS, OPEN_QUESTIONS };
+window.__labels = labels;    // text — which anchor shows which words
+window.__cfg = {
+  C, PALETTE, STAGE_COLOUR, TAGS, OPEN_QUESTIONS,
+  // Day 11's tables. On the console because the question "why is this part
+  // drawn like that" is now answerable, and the answer is in here.
+  COMPONENTS, EVIDENCE, EVIDENCE_INK, LAYERS,
+};
 window.__chart = chart;
 console.log(
   '%c kiln %c engine ready — run kilnChecks() · inspect window.kiln.state',

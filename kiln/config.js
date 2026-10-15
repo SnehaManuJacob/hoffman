@@ -334,6 +334,19 @@ const defs = {
     hoursLabelEvery: [4, 'A', 'Label the time axis every N ticks, so it does not crowd.'],
   },
 
+  /**
+   * Evidence mode's drawing values (brief section 8). All 'A': how loudly a
+   * provenance is drawn is a presentation choice, not a fact about the kiln.
+   */
+  evidence: {
+    fillFade: [0.72, 'A', 'How far a FILL is lerped towards the background in evidence mode. Fills become tinted ground and strokes stay at full strength, which is section 8\'s "solid lines, full colour" for F without turning the eight chamber voids into eight solid blocks.'],
+    dashSize: [0.16, 'A', 'Length of a dash on an L outline, in scene units.'],
+    gapSize: [0.11, 'A', 'Gap between dashes on an L outline. Set to 0 in normal mode, which renders solid.'],
+    // How many steps the quantised heat ramp has is deliberately NOT a number
+    // here: it is however many stops views/heatRamp.js declares, and a second
+    // copy of that would disagree the day a stop was added.
+  },
+
   // Things the model simulates. Shown as bands or spreads, never as readings.
   simulated: {
     perChamberCurves: [true, 'S', 'Temperature curves are simulated.'],
@@ -517,9 +530,123 @@ export const COMPONENTS = {
     label: 'Air path', tag: 'L',
     note: 'Counter-current flow: in behind the fire, through the cooling chambers, past the fire, through the preheating chambers, out. The core Hoffmann principle — and not observed here. The arrow\'s colour AND its thickness are the thermal model\'s own gas temperature at each point, so both are simulated (tag S) and both move when the model does; neither is a drawn impression of what the gas is doing. Thickness is the heat the gas is carrying, not how much air there is — the air entering and the air leaving are the same stream, and the arrow is thin at the inlet because cold air carries nothing, not because less of it is going in.',
   },
+  /**
+   * The one thing on screen drawn as an UNKNOWN, and the reason the U row in
+   * the legend is not permanently empty.
+   *
+   * A gap in the ring is real enough — it is drawn, and the fire's distance
+   * from it is arithmetic. What is not known is what the factory DOES when the
+   * fire arrives: open question 5.1. So the mark is tagged for the question it
+   * raises rather than for the chamber it sits on, and it does not survive the
+   * field-only filter, because nothing about it was observed at Kundapur.
+   */
+  unreadyChamber: {
+    label: 'A chamber that is not ready', tag: 'U',
+    note: 'A chamber the fire will reach with no tiles in it. What happens then — wait, skip, or fire it empty — was not observed and is not known. The gap is drawn; the response to it is not.',
+  },
   zones: {
     label: 'Zones', tag: 'A',
     note: 'Drying, firing and cooling bands are my abstraction of what each chamber is doing.',
+  },
+};
+
+/**
+ * How each evidence code is DRAWN once evidence mode is on (brief section 8).
+ *
+ * Two channels, deliberately kept apart so they never compete:
+ *
+ *   BRIGHTNESS says how well the part is known. F, L and A are one ordered
+ *   scale — sand, sand-dim, sand-faint — so the kiln drains to a grey diagram
+ *   in which the loudest marks are the ones that were actually seen.
+ *
+ *   COLOUR says the value is simulated. S keeps the heat ramp, so in evidence
+ *   mode the only colour left on the page is the invented part. It is quantised
+ *   to the ramp's five named stops as well: a continuous gradient looks like a
+ *   reading, five hard steps look like a model with buckets, which is what a
+ *   simulated temperature is.
+ *
+ * Dashes are section 8's mark for L, and they only reach the two L parts that
+ * are drawn as an outline. Most of the L components here — wicket doors,
+ * dampers, the air ribbon — are fills, and a fill cannot be dashed without a
+ * texture that would collide with the fired-tile hatch. For those, brightness
+ * is what carries the provenance. Worth knowing before reading the absence of a
+ * dash as a claim.
+ */
+export const EVIDENCE_INK = {
+  F: { key: 'sand',       dashed: false, tag: 'A', note: 'Full strength. What was seen at Kundapur is the loudest thing in evidence mode.' },
+  L: { key: 'sand-dim',   dashed: true,  tag: 'A', note: 'Dimmer, and dashed wherever it is drawn as an outline. Borrowed from writing about other kilns.' },
+  A: { key: 'sand-faint', dashed: false, tag: 'A', note: 'Faintest of the three. My modelling choice, barely there.' },
+  S: { key: null,         dashed: false, tag: 'A', note: 'No ink of its own: the heat ramp is kept, quantised to its five stops. Colour on the page means simulated.' },
+  U: { key: 'sand-faint', dashed: true,  tag: 'A', note: 'Nothing on screen is drawn as U, and that is the point — an unknown is a hole, not a part. It appears in the legend with nothing beside it.' },
+};
+
+/**
+ * What the field-only filter leaves of a part it removed: the fill drops to
+ * just above the background, and the outline stays as a hairline, so the shape
+ * of what is missing is legible without the page claiming to draw it.
+ *
+ * ONE ink for every ghost, rather than fading each part's own colour. Fading
+ * preserves how bright a thing was: a ghosted red-hot tile came out five times
+ * louder than ghosted masonry, so the filter appeared to spare the chambers'
+ * contents and remove the building, which is the opposite of what it does. The
+ * filter does not care how bright a part was, and now neither does its ghost.
+ *
+ * Done as colour rather than by hiding meshes, because the fills of the
+ * chambers, tiles, stoke holes and wickets are rewritten every frame by the
+ * ring's update loop — a visibility flag set outside it would last 16 ms.
+ */
+export const GHOST_INK = {
+  fill:   { key: 'soot-raised', tag: 'A', note: 'A hair above the background. Present, but not something to read.' },
+  stroke: { key: 'sand-faint',  tag: 'A', note: 'The faintest readable line. The outline is the ghost.' },
+};
+
+/**
+ * The four layer tabs (brief section 3), keyed by the `data-layer` values in
+ * index.html. All 'A': which parts a layer foregrounds is a presentation
+ * choice, not a fact about the kiln.
+ *
+ * Layers EMPHASISE, they do not amputate. The kiln stays whole and alive in all
+ * four — a tab changes which overlays are drawn, which labels appear, and which
+ * side pane rises to the top of the column. Nothing a visitor has been looking
+ * at disappears because they pressed a tab, and in particular the chambers keep
+ * their simulated heat in every layer.
+ *
+ *   hide    component ids NOT drawn in this layer
+ *   labels  anchor ids from LABEL_TEXT in views/labels.js
+ *   pane    which side pane moves to the top; null leaves the column alone
+ */
+export const LAYERS = {
+  structure: {
+    label: 'Structure',
+    caption: 'The building: eight chambers, the walls between them, and the holes the fuel goes through.',
+    hide: ['airPath'],
+    labels: ['chimney', 'flueDuct', 'wicketDoors', 'tiles', 'stokeHoles'],
+    pane: null,
+    tag: 'A',
+  },
+  time: {
+    label: 'Time',
+    caption: 'One fire, eight chambers, one move every two hours. The tiles never move again.',
+    hide: ['airPath'],
+    labels: ['zoneFire', 'zonePreheat', 'zoneCool', 'tiles'],
+    pane: 'chart',
+    tag: 'A',
+  },
+  heat: {
+    label: 'Heat',
+    caption: 'Air in behind the fire and out ahead of it, so the heat does its work twice.',
+    hide: [],
+    labels: ['airIn', 'dampers', 'flueDuct', 'chimney'],
+    pane: 'recovery',
+    tag: 'A',
+  },
+  stall: {
+    label: 'Stall',
+    caption: 'The chambers are coupled. One chamber that is not ready moves the problem to all the others.',
+    hide: ['airPath'],
+    labels: ['nextGap', 'wicketDoors', 'tiles'],
+    pane: 'stall',
+    tag: 'A',
   },
 };
 

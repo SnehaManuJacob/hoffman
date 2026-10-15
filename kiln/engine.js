@@ -194,6 +194,39 @@ function syncStages(state) {
     ch.stage = stageAt(state, i);
     ch.heat = relativeHeat(ch.temp);
   }
+  state.nextGap = findNextGap(state);
+}
+
+/**
+ * The first chamber ahead of the fire with no tiles in it, and how long until
+ * the fire gets there. Null when the ring is full.
+ *
+ * This is the coupling, stated as a fact: a gap three chambers ahead is six
+ * hours away whether anyone is watching or not. It is NOT a warning and NOT a
+ * score (section 7) — nothing here says the gap is bad or that the run would be
+ * better without it. What the factory actually does when the fire arrives is
+ * open question 5.1 and stays unanswered.
+ *
+ * Derived, never recorded. It is a pure function of where the fire is and which
+ * chambers are loaded, both of which history already keeps — the same reason
+ * the gas profile is recomputed rather than snapshotted (see history.js).
+ */
+function findNextGap(state) {
+  const n = state.chambers.length;
+  for (let k = 1; k <= n; k++) {
+    const at = (state.firePos + k) % n;
+    const ch = state.chambers[at];
+    if (ch.loaded) continue;
+    return {
+      at,
+      ticksAway: k,
+      hours: k * C.time.tickHours,
+      // Emptied by hand and held open, as against simply not stacked yet. The
+      // crew will fill the second on its own; the first is waiting for the user.
+      held: !!ch.heldEmpty,
+    };
+  }
+  return null;
 }
 
 export function createEngine(options = {}) {
@@ -227,6 +260,11 @@ export function createEngine(options = {}) {
      */
     gasProfile: [],
     gasCompare: { on: [], off: [] },
+    /**
+     * The first chamber ahead of the fire with nothing in it, and how far off
+     * it is. Derived by syncStages, never recorded — see findNextGap.
+     */
+    nextGap: null,
     // 'charging' while the cold kiln is being filled, 'running' once lit.
     // No simulated time passes while charging.
     phase: C.loading.startEmpty ? 'charging' : 'running',

@@ -30,10 +30,12 @@
  */
 
 import * as THREE from 'three';
-import { C, PALETTE, STAGE_COLOUR, COMPONENTS } from '../config.js';
+import {
+  C, PALETTE, STAGE_COLOUR, COMPONENTS, EVIDENCE_INK, GHOST_INK, LAYERS,
+} from '../config.js';
 import { relativeHeat, gasCurve, gasAt } from '../engine.js';
 import { createLoopPath } from './kilnPath.js';
-import { heatHex } from './heatRamp.js';
+import { heatHex, heatHexStepped } from './heatRamp.js';
 
 const SETTLE_FRACTION = 0.3;
 const SNAP_DISTANCE = 0.01;
@@ -53,12 +55,27 @@ const SNAP_DISTANCE = 0.01;
 const SCRUB_SIGN = 1;
 
 /**
+ * Components whose COLOUR carries a different evidence tag from the component
+ * itself, and what that tag is.
+ *
+ * The tile stacks are an assumption and the air path is literature, but both
+ * are drawn from the thermal model's own temperatures — so the shapes are A
+ * and L while the colour on them is S. One element, one tag, and a colour is
+ * its own element.
+ *
+ * Declared once because two readers need it: the drawing, which inks by it,
+ * and the legend, which would otherwise show an empty "simulated" row beside a
+ * kiln whose only remaining colour is simulated.
+ */
+export const COLOUR_TAG = { tiles: 'S', airPath: 'S' };
+
+/**
  * Relative heat to a colour. The ramp itself lives in views/heatRamp.js so the
  * space-time chart draws from exactly the same one — the chart is the same data
  * as the kiln, and two copies of a ramp would disagree the day one changed.
  */
-function heatColour(h, out = new THREE.Color()) {
-  return out.set(heatHex(h));
+function heatColour(h, out = new THREE.Color(), stepped = false) {
+  return out.set(stepped ? heatHexStepped(h) : heatHex(h));
 }
 
 /**
@@ -223,6 +240,138 @@ export function createRing(canvas, options = {}) {
     stoke: 0.09,
   };
 
+  // ----------------------------------------------------------- evidence ink
+  /**
+   * Evidence mode (section 8) and the layer tabs (section 3), in one place.
+   *
+   * ONE FUNNEL. Every colour this file draws goes through `paint`, because the
+   * update loop below rewrites the chambers, tiles, wickets and stoke holes
+   * sixty times a second: ink applied anywhere else would survive about 16 ms.
+   * Static materials keep their original colour in `userData.base` and are
+   * re-inked by `repaint` when the mode changes.
+   *
+   * WHAT THE INK SAYS is in config.EVIDENCE_INK — brightness for how well a
+   * part is known, colour reserved for the simulated values. The decisions are
+   * all there; this is only the machinery that applies them.
+   *
+   * Hiding is by LAYER only. The field-only filter fades instead of hiding, so
+   * that a removed part leaves a hairline outline behind — and so that the
+   * per-frame loop cannot quietly undo it on the next frame.
+   */
+  const view = { layer: null, evidence: null, fieldOnly: null, hidden: new Set() };
+  const SOOT = new THREE.Color(PALETTE.soot);
+  const inkScratch = new THREE.Color();
+
+  /**
+   * The colour to actually draw `colour` in, for a part of `component`.
+   *
+   * `opts.tag` overrides the component's own evidence tag, and the places that
+   * use it are the point of the whole scheme: the tile stacks and the gas
+   * ribbon are drawn from the simulated temperature, so their COLOUR is S even
+   * though the tiles themselves are an assumption and the air path is
+   * literature. One element, one tag — and a colour is its own element.
+   *
+   * `stroke` and `strong` are deliberately two flags, not one. Both draw the
+   * ink at full strength, but only `stroke` means "this is a line", and that
+   * is what the field-only filter keys on when it decides to leave a hairline
+   * behind. They were one flag for an afternoon, and a shut wicket door — a
+   * fill borrowed from literature, marked `stroke` only to keep it legible —
+   * survived the filter at ghost-stroke strength instead of going.
+   */
+  function paint(component, colour, out = inkScratch, opts = {}) {
+    out.set(colour);
+    if (!view.evidence) return out;
+
+    const own = COMPONENTS[component]?.tag;
+    const spec = EVIDENCE_INK[opts.tag ?? own ?? 'A'];
+    if (spec?.key) {
+      out.set(PALETTE[spec.key]);
+      // Fills become a tinted ground so that strokes can be the loud part.
+      if (!opts.stroke && !opts.strong) out.lerp(SOOT, C.evidence.fillFade);
+    }
+    if (view.fieldOnly && own !== 'F') {
+      out.set(PALETTE[GHOST_INK[opts.stroke ? 'stroke' : 'fill'].key]);
+    }
+    return out;
+  }
+
+  function componentOf(object) {
+    for (let o = object; o; o = o.parent) {
+      if (o.userData.component) return o.userData.component;
+    }
+    return null;
+  }
+
+  /**
+   * Remember what every material is drawn in BEFORE any ink is applied, so the
+   * mode can be turned off again. Called once, while the scene is still in
+   * normal mode; capturing later would record the ink as the base colour.
+   */
+  function captureInk() {
+    root.traverse((o) => {
+      const m = o.material;
+      if (!m || m.userData.base || m.userData.skipInk) return;
+      m.userData.base = m.color.clone();
+      m.userData.component = componentOf(o);
+      m.userData.stroke = !!o.isLine;
+    });
+  }
+
+  /** Re-ink every static material. Only runs when the mode changes. */
+  function repaint() {
+    root.traverse((o) => {
+      const m = o.material;
+      if (!m || !m.userData.base) return;
+      paint(m.userData.component, m.userData.base, m.color, {
+        tag: m.userData.evidenceTag,
+        stroke: m.userData.stroke,
+        strong: m.userData.strong,
+      });
+      if (m.isLineDashedMaterial) {
+        const tag = m.userData.evidenceTag ?? COMPONENTS[m.userData.component]?.tag;
+        // gapSize 0 renders solid, which is how an L outline looks in normal
+        // mode. The dashes are the evidence-mode state, not the resting one.
+        m.gapSize = view.evidence && EVIDENCE_INK[tag]?.dashed ? C.evidence.gapSize : 0;
+      }
+    });
+  }
+
+  /**
+   * Apply the active layer and evidence mode. Returns true if anything moved.
+   *
+   * Cheap to call every frame: it compares three flags and leaves immediately
+   * when none of them changed, which is the usual case.
+   */
+  function applyView(state) {
+    const ui = state.ui ?? {};
+    const layer = LAYERS[ui.layer] ? ui.layer : 'structure';
+    const evidence = !!ui.evidenceMode;
+    // Field-only is a filter INSIDE evidence mode (section 8), so it cannot be
+    // on without it — and the checkbox only exists inside the legend.
+    const fieldOnly = evidence && !!ui.fieldOnly;
+
+    if (layer === view.layer && evidence === view.evidence && fieldOnly === view.fieldOnly) {
+      return false;
+    }
+    view.layer = layer;
+    view.evidence = evidence;
+    view.fieldOnly = fieldOnly;
+
+    view.hidden = new Set(LAYERS[layer].hide);
+    for (const group of root.children) {
+      if (group.userData.component) group.visible = !view.hidden.has(group.userData.component);
+    }
+    repaint();
+    return true;
+  }
+
+  /** The components this drawing actually uses, for the legend to list. */
+  function components() {
+    const ids = new Set();
+    root.traverse((o) => { if (o.userData.component) ids.add(o.userData.component); });
+    return [...ids];
+  }
+
   // ---------------------------------------------------------------- masonry
   // A — the kiln's bulk. Walls are implied by there being separate chambers.
   const massGroup = componentGroup('dividingWalls');
@@ -260,6 +409,38 @@ export function createRing(canvas, options = {}) {
       // the update loop for why it cannot just read `chamber.fired`.
       baked: false,
     });
+  }
+
+  /**
+   * An outline round a chamber that has nothing in it. Drawn only in the
+   * Stall layer, where the gaps are the subject.
+   *
+   * Its own component, and tagged U — not part of `chambers`, which is F. The
+   * eight chambers were counted at Kundapur; what happens when the fire
+   * reaches an empty one was not seen, and that is the whole point of the
+   * layer this mark belongs to. Inside `chambers` it would have inherited the
+   * field tag and claimed Kundapur evidence for a gap the visitor made.
+   */
+  const gapGroup = componentGroup('unreadyChamber');
+  root.add(gapGroup);
+  const gapOutlines = [];
+  for (let i = 0; i < count; i++) {
+    // LineSegments, not LineLoop: bandOutline emits vertex PAIRS.
+    const outline = new THREE.LineSegments(
+      bandOutline(path, sStart(i), sEnd(i), -halfBand + inset, halfBand - inset, Y.outline, 8),
+      // Dashed in evidence mode, where U is a dashed ink. Solid otherwise, by
+      // way of a zero gap — see the chimney outline for why it is built this
+      // way rather than swapped over when the mode changes.
+      new THREE.LineDashedMaterial({
+        color: new THREE.Color(PALETTE.sand),
+        dashSize: C.evidence.dashSize,
+        gapSize: 0,
+      }),
+    );
+    outline.computeLineDistances();
+    outline.visible = false;
+    gapGroup.add(outline);
+    gapOutlines.push(outline);
   }
 
   // ------------------------------------------------------------------- tiles
@@ -300,6 +481,14 @@ export function createRing(canvas, options = {}) {
   });
   // World units: the repeat is a real stripe spacing, not a figure tuned by eye.
   hatchTexture.repeat.set(1 / P.tileHatch.period, 1 / P.tileHatch.period);
+
+  /**
+   * Left out of the evidence ink. This material is a stencil, not a colour
+   * claim: it punches dark stripes through the tile beneath it, and the tile
+   * is where the provenance is said. Inking it would fade the fired mark to
+   * nothing in evidence mode, hiding the one thing the kiln is for.
+   */
+  hatchMaterial.userData.skipInk = true;
 
   for (let i = 0; i < count; i++) {
     const perChamber = [];
@@ -548,7 +737,22 @@ export function createRing(canvas, options = {}) {
   }));
   chimney.position.y = Y.damper;
   chimneyGroup.add(chimney);
-  chimneyGroup.add(new THREE.LineLoop(
+  /**
+   * The one outline in the kiln that belongs to a component tagged L, so the
+   * one that can carry section 8's dash.
+   *
+   * Dashed ALWAYS, with the gap set to zero in normal mode — a dashed material
+   * with no gap renders solid, and this way the geometry's line distances are
+   * computed once here rather than at the moment the mode is switched, where
+   * forgetting them is a silent failure: the line keeps rendering, perfectly
+   * solid, with no error anywhere.
+   *
+   * The other L parts — wicket doors, dampers, the air ribbon — are fills, and
+   * a fill cannot be dashed without a texture that would collide with the
+   * fired-tile hatch. Their provenance is carried by brightness instead, so
+   * the absence of a dash is not a claim about them.
+   */
+  const chimneyEdge = new THREE.LineLoop(
     new THREE.BufferGeometry().setFromPoints(
       Array.from({ length: 28 }, (_, k) => {
         const a = (k / 28) * Math.PI * 2;
@@ -557,8 +761,14 @@ export function createRing(canvas, options = {}) {
         );
       }),
     ),
-    new THREE.LineBasicMaterial({ color: new THREE.Color(PALETTE['sand-dim']) }),
-  ));
+    new THREE.LineDashedMaterial({
+      color: new THREE.Color(PALETTE['sand-dim']),
+      dashSize: C.evidence.dashSize,
+      gapSize: 0,
+    }),
+  );
+  chimneyEdge.computeLineDistances();
+  chimneyGroup.add(chimneyEdge);
 
   // ----------------------------------------------------------------- dampers
   // L — one per chamber. The open one sits ahead of the fire and pulls the
@@ -608,6 +818,12 @@ export function createRing(canvas, options = {}) {
     }),
   );
   airGroup.add(airRibbon);
+  /**
+   * `color` here is the white that the per-vertex gas colours are multiplied
+   * by, not a colour of its own, so it is left out of the ink — the vertices
+   * are inked individually in updateAirRibbon instead, as S.
+   */
+  airRibbon.material.userData.skipInk = true;
 
   // An outline, because the ribbon is coloured from the same heat ramp as the
   // tiles beneath it and would otherwise melt into them.
@@ -627,6 +843,8 @@ export function createRing(canvas, options = {}) {
     }),
   );
   airGroup.add(airHead);
+  // Rewritten every frame from the gas at the tip, so it is inked there.
+  airHead.material.userData.skipInk = true;
 
   /**
    * These three are redrawn in place every frame — the arrow's width follows
@@ -812,6 +1030,15 @@ export function createRing(canvas, options = {}) {
       pos[k + 3] = bx; pos[k + 4] = Y.air; pos[k + 5] = bz;
 
       gasColour(h, p.spentShape * spentMax, gasCol);
+      /**
+       * The arrow's colour is the model's gas temperature, so it is S — it
+       * keeps its colour in evidence mode while the building around it drains
+       * to grey. Deliberately NOT quantised the way the chambers are: the
+       * chambers are eight discrete readings and look right in steps, but this
+       * is one continuous profile along a path, and banding it would read as
+       * an artefact of the drawing rather than a statement about the model.
+       */
+      paint('airPath', gasCol, gasCol, { tag: COLOUR_TAG.airPath });
       col[k] = gasCol.r; col[k + 1] = gasCol.g; col[k + 2] = gasCol.b;
       col[k + 3] = gasCol.r; col[k + 4] = gasCol.g; col[k + 5] = gasCol.b;
     }
@@ -857,10 +1084,10 @@ export function createRing(canvas, options = {}) {
     head[6] = tip.x - tz * headHalf; head[7] = Y.air; head[8] = tip.z + tx * headHalf;
     headAttr.needsUpdate = true;
 
-    // Literally the ribbon's final colour, so the join is invisible.
-    airHead.material.color.copy(
-      gasColour(relativeHeat(gasAt(curve, tip.pos)), tip.spentShape * spentMax, gasCol),
-    );
+    // Literally the ribbon's final colour, so the join is invisible — which
+    // means it takes the same ink as the ribbon's last vertex, not its own.
+    gasColour(relativeHeat(gasAt(curve, tip.pos)), tip.spentShape * spentMax, gasCol);
+    paint('airPath', gasCol, airHead.material.color, { tag: COLOUR_TAG.airPath });
   }
 
   /**
@@ -1107,7 +1334,16 @@ export function createRing(canvas, options = {}) {
      */
     const open = (((firePos + lead) % count) + count) % count;
     dampers.forEach((d, i) => {
-      d.material.color.set(i === open ? PALETTE.air : PALETTE['sand-dim']);
+      const isOpen = i === open;
+      /**
+       * Written to the material's BASE rather than straight to its colour.
+       * This runs only when the route changes, so a later switch into evidence
+       * mode re-inks from the base — and a base left at the construction
+       * colour would quietly shut the open damper again.
+       */
+      d.material.userData.base.set(isOpen ? PALETTE.air : PALETTE['sand-dim']);
+      d.material.userData.strong = isOpen;
+      paint('dampers', d.material.userData.base, d.material.color, { strong: isOpen });
     });
     return open;
   }
@@ -1149,6 +1385,9 @@ export function createRing(canvas, options = {}) {
    * because what physically moves every two hours is unknown (5.2).
    */
   function update(state, dtMs = 16) {
+    // Layer and evidence mode first: everything below draws through them.
+    applyView(state);
+
     const recovery = state.params.recovery !== false;
     const routeKey = `${state.firePos}:${recovery}`;
     if (routeKey !== lastRoute) {
@@ -1158,9 +1397,13 @@ export function createRing(canvas, options = {}) {
     // Every frame, unlike the route: the gas moves while the pipework does not.
     updateAirRibbon(state.gasProfile);
 
-    // No fire, no draught: nothing is moving through a kiln that has not been
-    // lit, so the airflow arrow stays off until it is.
-    airGroup.visible = state.phase !== 'charging';
+    /**
+     * No fire, no draught: nothing is moving through a kiln that has not been
+     * lit, so the airflow arrow stays off until it is — and the layer can hold
+     * it off as well. Both conditions are applied here because this line runs
+     * every frame and would otherwise overwrite whatever applyView decided.
+     */
+    airGroup.visible = state.phase !== 'charging' && !view.hidden.has('airPath');
 
     const tickMs = (state.params.tickSeconds / state.params.speed) * 1000;
     const tau = Math.max(1, (tickMs * SETTLE_FRACTION) / 4);
@@ -1171,11 +1414,20 @@ export function createRing(canvas, options = {}) {
       const seg = segments[i];
 
       // The tiles carry the temperature — relative, simulated, never degrees.
-      heatColour(ch.heat, tileColour);
+      // In evidence mode the ramp lands on one of its named stops instead of
+      // sliding between them: five steps read as a model, a gradient reads as
+      // a thermometer, and this value is simulated.
+      heatColour(ch.heat, tileColour, view.evidence);
       const d = Math.abs(tileColour.r - seg.current.r)
         + Math.abs(tileColour.g - seg.current.g)
         + Math.abs(tileColour.b - seg.current.b);
-      if (d < SNAP_DISTANCE) seg.current.copy(tileColour);
+      /**
+       * In evidence mode the colour steps rather than eases. Easing between
+       * two stops would spend most of its time on colours that are not stops
+       * at all, which is the gradient the quantising exists to get rid of —
+       * the smoothing would quietly undo the statement.
+       */
+      if (view.evidence || d < SNAP_DISTANCE) seg.current.copy(tileColour);
       else seg.current.lerp(tileColour, k);
 
       /**
@@ -1234,14 +1486,25 @@ export function createRing(canvas, options = {}) {
       for (let n = 0; n < stack.length; n++) {
         const shown = n < placed;
         stack[n].visible = shown;
-        stack[n].material.color.copy(seg.current);
+        // The stack is an assumption; the colour on it is the simulated
+        // temperature. Two different tags on one mesh, so the colour says so.
+        paint('tiles', seg.current, stack[n].material.color, { tag: COLOUR_TAG.tiles });
         // Tied to the tile's own visibility, so unloading takes the mark away
         // one tile at a time instead of leaving it hanging over an empty slot.
         hatch[n].visible = shown && baked;
       }
 
       // The void stays dark so an empty chamber still reads as a chamber.
-      seg.material.color.set(ch.loaded ? PALETTE.soot : PALETTE[STAGE_COLOUR.empty.key]);
+      paint('chambers', ch.loaded ? PALETTE.soot : PALETTE[STAGE_COLOUR.empty.key],
+        seg.material.color);
+
+      /**
+       * The Stall layer marks the gaps. An empty chamber is already drawn
+       * without tiles, but that reads as "nothing here" rather than as the
+       * thing the rest of the ring is waiting on, so in this layer alone the
+       * cell gets an outline round it.
+       */
+      gapOutlines[i].visible = view.layer === 'stall' && !ch.loaded;
 
       /**
        * Fuel only goes into the chamber that is burning, so its holes are the
@@ -1265,11 +1528,21 @@ export function createRing(canvas, options = {}) {
          * Not drawing it at all is both clearer and more honest.
          */
         disc.visible = lit;
-        ring.material.color.set(lit ? PALETTE.soot : PALETTE['sand-dim']);
+        /**
+         * `strong` carries the lit/unlit difference through evidence mode.
+         * Without it both states would resolve to the same F ink and the one
+         * field-documented thing the kiln animates — where the fuel is going
+         * in right now — would stop being visible in the mode that exists to
+         * show what was field-documented.
+         */
+        paint('stokeHoles', lit ? PALETTE.soot : PALETTE['sand-dim'],
+          ring.material.color, { strong: lit });
       });
 
-      // A bricked-up door is solid; an empty chamber stands open.
-      wickets[i].material.color.set(ch.loaded ? PALETTE['sand-dim'] : PALETTE.soot);
+      // A bricked-up door is solid; an empty chamber stands open. Same trick
+      // as the stoke holes: full-strength ink for shut, faded for open.
+      paint('wicketDoors', ch.loaded ? PALETTE['sand-dim'] : PALETTE.soot,
+        wickets[i].material.color, { strong: ch.loaded });
     }
 
     render();
@@ -1301,7 +1574,12 @@ export function createRing(canvas, options = {}) {
       { id: 'zonePreheat', pos: at(state.firePos + Math.ceil(pre / 2), edge) },
       { id: 'zoneCool', pos: at(state.firePos - cool, -edge) },
       { id: 'airIn', pos: at(state.firePos - cool - 1, edge) },
-    ];
+    ].concat(
+      // The gap the fire is heading for. Only exists when there is one, which
+      // is why it is appended rather than listed: a label pointing at nothing
+      // would have to be hidden every frame by whoever read it.
+      state.nextGap ? [{ id: 'nextGap', pos: at(state.nextGap.at, edge) }] : [],
+    );
   }
 
   /**
@@ -1384,12 +1662,20 @@ export function createRing(canvas, options = {}) {
     renderer.dispose();
   }
 
+  /**
+   * Before anything is drawn and while the scene is still in normal mode, so
+   * that every material's recorded base colour is the colour it was built in
+   * rather than whatever ink happened to be on it. Must also come before
+   * buildAirRibbon, which writes the open damper to its material's base.
+   */
+  captureInk();
+
   resize();
   buildAirRibbon(0);
   render();
 
   return {
-    update, resize, dispose, render, anchors, attachScrub,
+    update, resize, dispose, render, anchors, attachScrub, components,
     segments, path, ductPath, scene, camera, renderer, tileMeshes, tileHatches,
     groups: {
       massGroup, chambersGroup, tilesGroup, wallsGroup, wicketGroup,
