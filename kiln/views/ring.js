@@ -628,6 +628,15 @@ export function createRing(canvas, options = {}) {
   );
   airGroup.add(airHead);
 
+  /**
+   * These three are redrawn in place every frame — the arrow's width follows
+   * the heat in the gas — so their bounding spheres are stale the moment they
+   * are computed, and a stale sphere is how a mesh gets culled while it is
+   * plainly on screen. The whole kiln is always in frame, so there is nothing
+   * for culling to save here anyway.
+   */
+  for (const m of [airRibbon, airEdge, airHead]) m.frustumCulled = false;
+
   // The opening in the outer wall that the incoming air comes through.
   const airInlet = new THREE.Mesh(
     new THREE.BufferGeometry(),
@@ -656,7 +665,6 @@ export function createRing(canvas, options = {}) {
       out.push({
         x: a.x + (b.x - a.x) * t,
         z: a.z + (b.z - a.z) * t,
-        w: a.w + (b.w - a.w) * t,
         pos: a.pos + (b.pos - a.pos) * t,
         spentShape: a.spentShape + (b.spentShape - a.spentShape) * t,
       });
@@ -683,13 +691,13 @@ export function createRing(canvas, options = {}) {
       pts = pts.map((p, i) => {
         const r = Math.min(radius, i, pts.length - 1 - i);
         if (r === 0) return { ...p };
-        let sx = 0; let sz = 0; let sw = 0; let sh = 0; let sp = 0;
+        let sx = 0; let sz = 0; let sh = 0; let sp = 0;
         for (let k = -r; k <= r; k++) {
           sx += pts[i + k].x; sz += pts[i + k].z;
-          sw += pts[i + k].w; sh += pts[i + k].pos; sp += pts[i + k].spentShape;
+          sh += pts[i + k].pos; sp += pts[i + k].spentShape;
         }
         const n = r * 2 + 1;
-        return { x: sx / n, z: sz / n, w: sw / n, pos: sh / n, spentShape: sp / n };
+        return { x: sx / n, z: sz / n, pos: sh / n, spentShape: sp / n };
       });
     }
     return pts;
@@ -746,16 +754,38 @@ export function createRing(canvas, options = {}) {
   }
 
   /**
-   * Colour the airflow arrow from the gas the engine actually computed.
+   * Half the arrow's width where the gas carries `h` relative heat.
    *
-   * Runs every frame; the geometry underneath it does not. The view decides
+   * The heat a gas stream carries past a point is its mass times how far above
+   * ambient it is. The mass is one constant in this model, so relative carried
+   * energy IS `relativeHeat` — the number the colour already uses, and the one
+   * the tiles are drawn from. There is nothing further to compute, and a
+   * `gasEnergy()` returning the same value under another name would only look
+   * like rigour.
+   *
+   * PROPORTIONAL to that, with a floor rather than a blend from it. Blending
+   * `min + (max - min) * h` would compress the whole range and quietly draw
+   * cold air as though it carried a third of the fire's heat.
+   */
+  function gasHalfWidth(h) {
+    return Math.max(P.airWidthMin, P.airWidthMax * h) / 2;
+  }
+
+  /**
+   * Draw the airflow arrow from the gas the engine actually computed: its
+   * colour AND its thickness, which are the same number said twice.
+   *
+   * Runs every frame; the centreline underneath it does not. The view decides
    * nothing about temperature here — it reads degrees, converts them with the
    * engine's own `relativeHeat`, and hands them to the same ramp the tiles
    * use. The arrow and the chamber it crosses are now the same number.
+   *
+   * Everything is written in place. Rebuilding four buffers a frame would
+   * churn the heap for a line whose shape has not moved.
    */
-  function paintAirRibbon(profile) {
+  function updateAirRibbon(profile) {
     if (!airRoute || !profile || !profile.length) return;
-    const { route, colourAttr } = airRoute;
+    const { route, posAttr, colourAttr, edgeAttr, headAttr } = airRoute;
 
     /**
      * How spent the exhaust is: the share of its heat the gas gave up between
@@ -766,27 +796,81 @@ export function createRing(canvas, options = {}) {
     const exit = relativeHeat(profile[profile.length - 1].outC);
     const spentMax = peak > 0 ? Math.max(0, 1 - exit / peak) : 0;
 
-    const arr = colourAttr.array;
+    const pos = posAttr.array;
+    const col = colourAttr.array;
+    const edge = edgeAttr.array;
+    let tipHalf = 0;
+
     for (let i = 0; i < route.length; i++) {
       const p = route[i];
-      gasColour(relativeHeat(gasAt(profile, p.pos)), p.spentShape * spentMax, gasCol);
+      const h = relativeHeat(gasAt(profile, p.pos));
+      const w = gasHalfWidth(h);
+      if (i === route.length - 1) tipHalf = w;
+
+      const ax = p.x + p.nx * w; const az = p.z + p.nz * w;
+      const bx = p.x - p.nx * w; const bz = p.z - p.nz * w;
+
       const k = i * 6;
-      arr[k] = gasCol.r; arr[k + 1] = gasCol.g; arr[k + 2] = gasCol.b;
-      arr[k + 3] = gasCol.r; arr[k + 4] = gasCol.g; arr[k + 5] = gasCol.b;
+      pos[k] = ax; pos[k + 1] = Y.air; pos[k + 2] = az;
+      pos[k + 3] = bx; pos[k + 4] = Y.air; pos[k + 5] = bz;
+
+      gasColour(h, p.spentShape * spentMax, gasCol);
+      col[k] = gasCol.r; col[k + 1] = gasCol.g; col[k + 2] = gasCol.b;
+      col[k + 3] = gasCol.r; col[k + 4] = gasCol.g; col[k + 5] = gasCol.b;
     }
+
+    /**
+     * The outline traces the two edges the band just landed on, so it is read
+     * back out of the positions above rather than recomputed. Line segments
+     * come in pairs: side A's runs fill the first half of the buffer, side B's
+     * the second.
+     */
+    const segs = route.length - 1;
+    for (let i = 0; i < segs; i++) {
+      const here = i * 6;
+      const next = (i + 1) * 6;
+      for (const [side, base] of [[0, 0], [3, segs * 6]]) {
+        const e = base + i * 6;
+        edge[e] = pos[here + side]; edge[e + 1] = Y.outline; edge[e + 2] = pos[here + side + 2];
+        edge[e + 3] = pos[next + side]; edge[e + 4] = Y.outline; edge[e + 5] = pos[next + side + 2];
+      }
+    }
+
+    posAttr.needsUpdate = true;
     colourAttr.needsUpdate = true;
+    edgeAttr.needsUpdate = true;
+
+    // --- the arrowhead, which grows with the ribbon it finishes ------------
+    const tip = route[route.length - 1];
+    const prev = route[route.length - 2];
+    let tx = tip.x - prev.x;
+    let tz = tip.z - prev.z;
+    const tl = Math.hypot(tx, tz) || 1;
+    tx /= tl; tz /= tl;
+    /**
+     * Capped against the chimney. At full heat the ribbon is wide enough that
+     * a head scaled straight off it would reach 0.71 into a chimney of radius
+     * 0.46 and come out the far side.
+     */
+    const headLen = Math.min(tipHalf * 3.4, P.chimneyRadius);
+    const headHalf = headLen * (2.1 / 3.4);
+    const head = headAttr.array;
+    head[0] = tip.x + tx * headLen; head[1] = Y.air; head[2] = tip.z + tz * headLen;
+    head[3] = tip.x + tz * headHalf; head[4] = Y.air; head[5] = tip.z - tx * headHalf;
+    head[6] = tip.x - tz * headHalf; head[7] = Y.air; head[8] = tip.z + tx * headHalf;
+    headAttr.needsUpdate = true;
 
     // Literally the ribbon's final colour, so the join is invisible.
-    const tip = route[route.length - 1];
     airHead.material.color.copy(
       gasColour(relativeHeat(gasAt(profile, tip.pos)), tip.spentShape * spentMax, gasCol),
     );
   }
 
   /**
-   * The built route, kept so the colour pass can rewrite it without rebuilding
+   * The built route, kept so the update pass can redraw it without rebuilding
    * any geometry. The route's SHAPE depends only on where the fire is and
-   * which damper is open; only the gas inside it is live.
+   * which damper is open; the gas inside it, and so the arrow's width and
+   * colour, are live.
    */
   let airRoute = null;
 
@@ -824,11 +908,9 @@ export function createRing(canvas, options = {}) {
     const from = (firePos - cool - 0.5) / count;
     const to = (firePos + lead + 0.5) / count;
 
-    const maxW = P.airRibbonWidth / 2;
-
     /**
-     * Each entry is a point on the centre of the route, carrying its
-     * half-width and two things the colour pass needs:
+     * Each entry is a point on the CENTRE of the route, carrying only what
+     * cannot change while the fire stays put:
      *
      *   `pos`        where the gas is on its journey, in CHAMBERS travelled.
      *                The engine's gas profile is one entry per chamber on the
@@ -836,13 +918,15 @@ export function createRing(canvas, options = {}) {
      *                into it. Nothing here guesses a temperature.
      *   `spentShape` the 0-1 ramp from fresh air to used-up gas. A shape only:
      *                how far along it the exhaust actually gets is decided by
-     *                the model, in paintAirRibbon.
+     *                the model, in updateAirRibbon.
      *
-     * Geometry and colour are separated because the route only moves when the
-     * fire does, while the gas in it changes every sub-step.
+     * No width. The arrow is as thick as the heat the gas is carrying, and
+     * that changes every sub-step, so width is decided in the update pass with
+     * the colour. What is cached here is the line the gas follows; what is
+     * live is everything about the gas itself.
      */
     const route = [];
-    const push = (x, z, w, pos, spentShape = 0) => route.push({ x, z, w, pos, spentShape });
+    const push = (x, z, pos, spentShape = 0) => route.push({ x, z, pos, spentShape });
 
     // --- 1. in from outside, through the wall ------------------------------
     const ENTRY = 14;
@@ -854,7 +938,7 @@ export function createRing(canvas, options = {}) {
       const off = (1 - e) * (halfBand + P.airInletLead);
       // Already inside the first chamber by the time the curve straightens, so
       // the gas starts picking up heat here rather than at a hard line.
-      push(p.x + p.nx * off, p.z + p.nz * off, maxW * 0.34, e * P.airInletTurn);
+      push(p.x + p.nx * off, p.z + p.nz * off, e * P.airInletTurn);
     }
 
     // --- 2. along the chambers: cooling run, fire, preheat run -------------
@@ -869,8 +953,7 @@ export function createRing(canvas, options = {}) {
       const u = i / MAIN;
       const s = from + turnIn + (to - from - turnIn) * u;
       const p = path.at(s);
-      const w = maxW * (0.34 + 0.66 * Math.sin(Math.PI * Math.min(1, u * 1.08)));
-      push(p.x, p.z, w, (s - from) * count);
+      push(p.x, p.z, (s - from) * count);
     }
 
     // --- 3. out through the open damper, into the flue ---------------------
@@ -885,14 +968,13 @@ export function createRing(canvas, options = {}) {
      * the tail stays red the whole way. That contrast is the argument for
      * building a kiln in a loop, and it is now the model making it.
      */
-    const exitW = maxW * P.airExhaustScale;
     const OUT = 10;
     const flueOff = halfBand + (ductInset - halfBand) / 2;   // mid-flue
     for (let i = 1; i <= OUT; i++) {
       const t = i / OUT;
       const e = t * t * (3 - 2 * t);
       const p = path.at(to + e * (0.25 / count));
-      push(p.x - p.nx * e * flueOff, p.z - p.nz * e * flueOff, exitW, spanChambers, e * 0.35);
+      push(p.x - p.nx * e * flueOff, p.z - p.nz * e * flueOff, spanChambers, e * 0.35);
     }
 
     // --- 4. along the flue to the nearer mouth of the channel --------------
@@ -907,7 +989,7 @@ export function createRing(canvas, options = {}) {
     for (let i = 1; i <= FLUE; i++) {
       const t = i / FLUE;
       const q = ductPath.at(sDuct + span * t);
-      push(q.x, q.z, exitW, spanChambers, 0.35 + 0.45 * t);
+      push(q.x, q.z, spanChambers, 0.35 + 0.45 * t);
     }
 
     // --- 5. down the channel into the chimney ------------------------------
@@ -917,7 +999,7 @@ export function createRing(canvas, options = {}) {
     const DOWN = 24;
     for (let i = 1; i <= DOWN; i++) {
       const t = i / DOWN;
-      push(0, mouthPt.z + (stopZ - mouthPt.z) * t, exitW * (1 - 0.15 * t), spanChambers, 0.8 + 0.2 * t);
+      push(0, mouthPt.z + (stopZ - mouthPt.z) * t, spanChambers, 0.8 + 0.2 * t);
     }
 
     // --- even the spacing, then round off the joins ------------------------
@@ -928,75 +1010,66 @@ export function createRing(canvas, options = {}) {
     route.length = 0;
     route.push(...smooth);
 
-    // --- build the band ----------------------------------------------------
-    const positions = [];
-    const colours = [];
-    const indices = [];
-    const edgeA = [];
-    const edgeB = [];
-
+    /**
+     * The NORMAL at each point, computed once. It depends only on which way
+     * the centreline is heading, and the centreline does not move until the
+     * fire does — so the update pass can offset by any width it likes without
+     * recomputing any of this.
+     */
     for (let i = 0; i < route.length; i++) {
-      const p = route[i];
       const a = route[Math.max(0, i - 1)];
       const b = route[Math.min(route.length - 1, i + 1)];
       let dx = b.x - a.x;
       let dz = b.z - a.z;
       const len = Math.hypot(dx, dz) || 1;
-      dx /= len; dz /= len;
-      const nx = dz;          // perpendicular to the direction of travel
-      const nz = -dx;
+      route[i].nx = dz / len;          // perpendicular to the direction of travel
+      route[i].nz = -dx / len;
+    }
 
-      const ax = p.x + nx * p.w; const az = p.z + nz * p.w;
-      const bx = p.x - nx * p.w; const bz = p.z - nz * p.w;
-      positions.push(ax, Y.air, az, bx, Y.air, bz);
-      // Filled in by paintAirRibbon, which runs before anything is drawn.
-      colours.push(0, 0, 0, 0, 0, 0);
-      edgeA.push([ax, az]);
-      edgeB.push([bx, bz]);
-      if (i < route.length - 1) {
-        const k = i * 2;
-        indices.push(k, k + 1, k + 2, k + 1, k + 3, k + 2);
-      }
+    // --- allocate the band -------------------------------------------------
+    // Positions and colours are both written by updateAirRibbon before
+    // anything is drawn. Only the index buffer is final here.
+    const indices = [];
+    for (let i = 0; i < route.length - 1; i++) {
+      const k = i * 2;
+      indices.push(k, k + 1, k + 2, k + 1, k + 3, k + 2);
     }
 
     const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    g.setAttribute('color', new THREE.Float32BufferAttribute(colours, 3));
+    g.setAttribute('position',
+      new THREE.BufferAttribute(new Float32Array(route.length * 6), 3));
+    g.setAttribute('color',
+      new THREE.BufferAttribute(new Float32Array(route.length * 6), 3));
     g.setIndex(indices);
-    g.computeBoundingSphere();
     airRibbon.geometry.dispose();
     airRibbon.geometry = g;
 
-    const edgePos = [];
-    for (const side of [edgeA, edgeB]) {
-      for (let i = 0; i < side.length - 1; i++) {
-        edgePos.push(side[i][0], Y.outline, side[i][1],
-          side[i + 1][0], Y.outline, side[i + 1][1]);
-      }
-    }
+    // Two outlines, one per side, each a strip of segments between
+    // consecutive points: 2 sides x (n-1) segments x 2 ends x 3 floats.
+    const eg = new THREE.BufferGeometry();
+    eg.setAttribute('position',
+      new THREE.BufferAttribute(new Float32Array((route.length - 1) * 12), 3));
     airEdge.geometry.dispose();
-    airEdge.geometry = new THREE.BufferGeometry()
-      .setAttribute('position', new THREE.Float32BufferAttribute(edgePos, 3));
+    airEdge.geometry = eg;
 
-    // The arrowhead now sits at the CHIMNEY, which is where the gas is going.
-    const tip = route[route.length - 1];
-    const prev = route[route.length - 2];
-    let tx = tip.x - prev.x;
-    let tz = tip.z - prev.z;
-    const tl = Math.hypot(tx, tz) || 1;
-    tx /= tl; tz /= tl;
-    const headHalf = exitW * 2.1;
-    const headLen = exitW * 3.4;
+    // The arrowhead sits at the CHIMNEY, which is where the gas is going.
+    // Three points, rewritten each frame because its size follows the ribbon.
+    const hg = new THREE.BufferGeometry();
+    hg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(9), 3));
     airHead.geometry.dispose();
-    airHead.geometry = new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(tip.x + tx * headLen, Y.air, tip.z + tz * headLen),
-      new THREE.Vector3(tip.x + tz * headHalf, Y.air, tip.z - tx * headHalf),
-      new THREE.Vector3(tip.x - tz * headHalf, Y.air, tip.z + tx * headHalf),
-    ]);
+    airHead.geometry = hg;
 
-    // Keep the route: the colour pass rewrites it every frame without any of
-    // the geometry above being rebuilt.
-    airRoute = { route: route.slice(), colourAttr: g.attributes.color };
+    /**
+     * Keep the route. Everything above is written each frame by
+     * updateAirRibbon; none of it is rebuilt until the fire moves.
+     */
+    airRoute = {
+      route: route.slice(),
+      posAttr: g.attributes.position,
+      colourAttr: g.attributes.color,
+      edgeAttr: eg.attributes.position,
+      headAttr: hg.attributes.position,
+    };
 
     // --- the opening the air comes in through ------------------------------
     /**
@@ -1086,7 +1159,7 @@ export function createRing(canvas, options = {}) {
       lastRoute = routeKey;
     }
     // Every frame, unlike the route: the gas moves while the pipework does not.
-    paintAirRibbon(state.gasProfile);
+    updateAirRibbon(state.gasProfile);
 
     // No fire, no draught: nothing is moving through a kiln that has not been
     // lit, so the airflow arrow stays off until it is.

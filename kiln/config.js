@@ -298,8 +298,23 @@ const defs = {
     airSmoothSamples: [420, 'A', 'Points the route is resampled to before smoothing, so the rounding is even along its whole length.'],
     airSmoothRadius: [9, 'A', 'How many points either side are averaged. Bigger rounds the corners harder.'],
     airSmoothPasses: [2, 'A'],
-    airExhaustScale: [0.52, 'A', 'The exhaust run is drawn narrower than the hot run: by then the gas has given its heat to the green tiles and is on its way out.'],
-    airRibbonWidth: [0.34, 'A', 'Width of the airflow arrow at its widest. The stacks now sit across each end of the chamber, so the arrow crosses them — as the gas does, threading between loosely stacked tiles.'],
+    /**
+     * The arrow is as thick as the heat the gas is carrying.
+     *
+     * Width is `max(airWidthMin, airWidthMax * relativeHeat(gas))` — the same
+     * simulated temperature its colour comes from, so the two say one thing
+     * loudly rather than two things. Proportional, not a floor-to-ceiling
+     * blend: a blend would compress the ratio and quietly overstate the cold
+     * end.
+     *
+     * This replaced a fixed width and a fixed `airExhaustScale` of 0.52, which
+     * narrowed the exhaust on the grounds that "by then the gas has given its
+     * heat to the green tiles" — true with heat recovery, flatly wrong without
+     * it, and the one picture that should shout that the heat is being thrown
+     * away was tapering as though it were spent.
+     */
+    airWidthMax: [0.42, 'A', 'Width of the arrow at full heat. 49% of the 0.85-wide chamber void, so the tile stacks still read either side of it, and inside the 0.52-wide flue duct with a little to spare.'],
+    airWidthMin: [0.10, 'A', 'Floor, so air arriving at ambient is still a line. Gas at ambient carries no heat above the yard it came from, and a width straight off the model would draw nothing at all.'],
     zoneBandWidth: [0.26, 'A'],
     zoneBandOffset: [0.42, 'A', 'How far outside the kiln wall the zone band sits.'],
   },
@@ -499,7 +514,7 @@ export const COMPONENTS = {
   },
   airPath: {
     label: 'Air path', tag: 'L',
-    note: 'Counter-current flow: in behind the fire, through the cooling chambers, past the fire, through the preheating chambers, out. The core Hoffmann principle — and not observed here. The arrow\'s colour is the thermal model\'s own gas temperature at each point, so it is simulated (tag S) and it moves when the model does; it is not a drawn impression of what the gas is doing.',
+    note: 'Counter-current flow: in behind the fire, through the cooling chambers, past the fire, through the preheating chambers, out. The core Hoffmann principle — and not observed here. The arrow\'s colour AND its thickness are the thermal model\'s own gas temperature at each point, so both are simulated (tag S) and both move when the model does; neither is a drawn impression of what the gas is doing. Thickness is the heat the gas is carrying, not how much air there is — the air entering and the air leaving are the same stream, and the arrow is thin at the inlet because cold air carries nothing, not because less of it is going in.',
   },
   zones: {
     label: 'Zones', tag: 'A',
