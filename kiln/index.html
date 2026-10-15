@@ -49,6 +49,31 @@
     </label>
   </header>
 
+  <!--
+    The legend (day 11, brief section 8). Directly under the switch that
+    summons it, and gone the rest of the time — the codes do not exist in
+    normal mode, so neither does their key.
+
+    The field-only filter lives here rather than in the top bar because it has
+    no meaning outside evidence mode: a third permanent switch would compete
+    with the two that are always true. The rows are built in views/evidence.js
+    from the parts the ring and the labels actually draw, so the legend cannot
+    advertise something that is configured but never drawn.
+  -->
+  <div class="evidence-strip" id="evidence-strip" hidden>
+    <ul class="legend" id="legend"></ul>
+
+    <div class="evidence-controls">
+      <label class="pill">
+        <input type="checkbox" id="field-only">
+        <span>Kundapur only</span>
+      </label>
+      <button type="button" class="ctrl" id="btn-sources">View details</button>
+    </div>
+
+    <p class="qualifier" id="filter-note"></p>
+  </div>
+
   <main class="stage">
 
     <!-- Hero: the ring. Three.js renders into this canvas. -->
@@ -77,11 +102,18 @@
 
     <!-- Right column: space-time chart (Day 5), then context panel -->
     <aside class="side">
+      <!--
+        The chart is a record of the simulation running, so it is tagged S and
+        goes when the field-only filter is on. What replaces it is not an
+        apology: a pane that empties and says nothing is a bug, and a pane
+        that empties and says why is the finding section 8 is after.
+      -->
       <section class="chart-pane">
         <h2 class="pane-title">Space &amp; time</h2>
-        <div id="chart" class="chart-placeholder">
+        <div id="chart" class="chart-placeholder" data-ev="S">
           <p class="muted">Space&ndash;time chart comes later</p>
         </div>
+        <p class="removed-note">The chart is a record of this model running. Nothing in it was measured at Kundapur.</p>
       </section>
 
       <!--
@@ -151,6 +183,8 @@
           sits inside the row it describes.
         -->
         <p class="qualifier" id="recovery-note" data-ev="S"></p>
+
+        <p class="removed-note">Both figures are this model's own output, and the principle behind them comes from writing about other Hoffmann kilns. That reusing the heat saves fuel here was not measured at Kundapur.</p>
       </section>
 
       <section class="context-pane">
@@ -166,6 +200,24 @@
     </aside>
 
   </main>
+
+  <!--
+    The details sheet. A <dialog> rather than a second page: the kiln is
+    mid-firing while this is read, and closing it has to put the visitor back
+    in the run they left rather than at tick 0. showModal() also brings Esc
+    and a focus trap with it, which hand-rolled overlays usually do not.
+
+    Empty here. Every row is generated in views/evidence.js by walking the
+    config, so nothing in the sheet can describe a value the model no longer
+    has.
+  -->
+  <dialog class="sheet" id="sources">
+    <header class="sheet-head">
+      <h2>Where all this comes from</h2>
+      <button type="button" class="ctrl" id="btn-sources-close">Close</button>
+    </header>
+    <div class="sheet-body" id="sources-body"></div>
+  </dialog>
 
   <script type="module" src="./main.js"></script>
 </body>

@@ -532,6 +532,86 @@ export const REFERENCES = [
   },
 ];
 
+/**
+ * How each simulated figure on screen is arrived at (brief section 8, day 11).
+ *
+ * A tag says a number was simulated. It does not say what was done to it, and
+ * "simulated" covers everything from a defensible rule to a made-up curve. The
+ * details sheet shows these so the difference is visible.
+ *
+ * Each entry describes a rule that `engine.js` ACTUALLY RUNS. `inputs` are
+ * config paths, checked at startup — a method citing a value the model does
+ * not have is a description of some other program. `where` names the function
+ * so the prose can be read against the code rather than trusted.
+ *
+ * Section 4 holds throughout: relative units only. No entry here reports a
+ * temperature in degrees, and the 850-900 C peak appears only as a band.
+ */
+export const METHODS = [
+  {
+    title: 'Chamber heat',
+    tag: 'S',
+    what: 'The warmth each chamber is drawn with. A figure from 0 to 1, never a temperature.',
+    how: 'Every sub-step, each chamber on the gas\'s path trades heat with the gas touching it: the hotter of the two gives to the colder, in proportion to the difference between them. Chambers off the path drift back towards the yard\'s temperature. The model works internally in degrees, but what leaves the engine is scaled against one reference point and clamped to 0..1, so no view can report a reading.',
+    where: 'engine.js — stepWorld, relativeHeat',
+    inputs: ['thermalModel.exchangeRate', 'thermalModel.chamberMass', 'thermalModel.gasMass', 'thermalModel.ambientLossRate', 'thermalModel.heatRefC', 'temperature.ambientC'],
+  },
+  {
+    title: 'The fuel figures',
+    tag: 'S',
+    what: 'The two numbers in the heat-recovery pane. Relative units per chamber fired — not kilograms of cashew shell.',
+    how: 'Fuel is fed at whatever rate holds the firing chamber at its target: the further below it sits, the more goes in, up to a ceiling. Nothing in that rule knows about heat recovery. The difference between the two rows comes entirely from how the air is routed — a chamber that arrives cold costs more to bring to the same peak — so the saving is a consequence of the model rather than a figure put into it. How the crew at Kundapur actually decides a feed rate was not observed.',
+    where: 'engine.js — stepWorld',
+    inputs: ['thermalModel.targetC', 'thermalModel.fuelGain', 'thermalModel.maxFuelRate', 'thermalModel.heatPerFuel', 'fuel.indexUnit'],
+  },
+  {
+    title: 'The airflow arrow',
+    tag: 'S',
+    what: 'Where the arrow is thick and where it is bright: both are the heat the gas is carrying at that point.',
+    how: 'Nothing is computed for the drawing. The gas temperature is the thermal model\'s own working value, written down at each chamber boundary as the model walks the path, and the arrow is those values joined by a monotone curve. Monotone is the honest part: an ordinary spline would overshoot on the climb to the fire and draw gas hotter than anything in the kiln, which this cannot do. The picture and the fuel figures are therefore two readings of one model, not two claims about the same kiln.',
+    where: 'engine.js — gasCurve, gasAt',
+    inputs: ['thermalModel.subStepHours', 'parts.airWidthMax', 'parts.airWidthMin'],
+  },
+  {
+    title: 'Which chambers are involved at all',
+    tag: 'A',
+    what: 'The three chambers ahead of the fire that are warming, and the two behind it that are still giving heat back.',
+    how: 'Not simulated — set. The literature says roughly three chambers are thermally active at once, and these two numbers are my reading of that into a window. Everything above depends on them: they decide the path the gas walks, so they decide which chambers exchange heat and which are left to cool. They are the most consequential assumption in the model.',
+    where: 'engine.js — flowPath',
+    inputs: ['windows.preheat', 'windows.cool', 'thermal.activeChambers'],
+  },
+  {
+    title: 'Stepping the clock',
+    tag: 'A',
+    what: 'Why the kiln behaves the same at 0.25x and 4x, and on a slow machine.',
+    how: 'The temperature rule is a plain forward step, which gives a different answer for a different step size. Letting the frame rate choose that size made the kiln drift by several degrees between a fast machine and a slow one. So simulated time is accumulated and spent only in whole fixed sub-steps, with the remainder carried to the next frame. The speed slider changes how fast simulated time passes, never how it is integrated.',
+    where: 'engine.js — integrateThermal',
+    inputs: ['thermalModel.subStepHours', 'time.tickSeconds', 'time.tickHours'],
+  },
+  {
+    title: 'The space-time chart, and scrubbing back',
+    tag: 'S',
+    what: 'The record the chart draws, and what dragging the kiln backwards restores.',
+    how: 'One snapshot per tick, copied rather than referenced. Going back replays what happened instead of running the simulation in reverse, which this model cannot do. Both the kiln on screen and the counterfactual beside it are recorded, so scrubbing back restores the comparison as it stood. The gas profile is deliberately not stored — it is recomputed from the temperatures, because a second copy would be free to disagree with the first.',
+    where: 'history.js — snapshot',
+    inputs: ['chart.windowTicks', 'chart.minRowHeight'],
+  },
+];
+
+/**
+ * How each evidence code is inked (brief section 8).
+ *
+ * Only the field-only filter uses these. Evidence mode itself leaves the
+ * drawing alone: the codes appear on the labels, the legend decodes them, and
+ * the kiln keeps looking like a kiln. An earlier attempt re-inked the whole
+ * scene the moment the toggle went on and drained it to a grey diagram, which
+ * is a high price for a legend.
+ */
+export const GHOST_INK = {
+  fill:   { key: 'soot-raised', tag: 'A', note: 'A hair above the background. Present, but not something to read.' },
+  stroke: { key: 'sand-faint',  tag: 'A', note: 'The faintest readable line. The outline is all that is left of a part that was not observed.' },
+};
+
 // ---------------------------------------------------------------------------
 // Split `defs` into values / tags / notes.
 // ---------------------------------------------------------------------------

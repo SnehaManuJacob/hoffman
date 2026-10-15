@@ -136,8 +136,9 @@ These are unanswered. The model must make each one a setting in `config.js` so i
   - **Assumption** (A) — e.g. paler
   - **Simulation** (S) — e.g. bands/spreads
   - **Unknown** (U) — e.g. fogged or hatched
-- Inside evidence mode, a **field-only filter** hides everything not observed at Kundapur. The emptiness that remains is itself a finding.
+- Inside evidence mode, a **field-only filter** hides everything not observed at Kundapur. The emptiness that remains is itself a finding. It reaches the drawing as well as the labels: hiding the word "Chimney" while leaving a chimney standing is a caption change, not a filter.
 - Tags are stored in `config.js` in both modes; the two modes draw the same model.
+- **Added day 11:** a **details sheet** behind the legend. A tag says a figure was simulated; it does not say what was done to it, and "simulated" stretches from a defensible rule to a number picked because something had to be drawn. The sheet lists every tagged value with its source, and `config.js` `METHODS` describes how each computed figure is arrived at. It is generated from the config, so it cannot drift from the model.
 
 ---
 
@@ -160,7 +161,8 @@ These are unanswered. The model must make each one a setting in `config.js` so i
 ```
 inputs (mouse/touch, buttons; later Arduino via Web Serial)
    → actions (tick, setPaused, setSpeed, scrubTo, emptyChamber, loadChamber,
-              setRecovery, chooseForkPolicy, setLayer, setEvidenceMode)
+              setRecovery, setAutoLoad, chooseForkPolicy,
+              setEvidenceMode, setFieldOnly, setDetails)
    → engine.js (state + step(dt) + dispatch(action))  ← config.js
    → history.js (one snapshot per tick)
    → views: ring + particles (p5), space–time chart (D3), panel + fork card (HTML)
@@ -170,15 +172,17 @@ inputs (mouse/touch, buttons; later Arduino via Web Serial)
 
 ```
 kiln/
-  index.html        layout, tabs, controls
+  index.html        layout and controls
   style.css         palette, type, evidence styles
   config.js         all values + evidence tags + open-question settings
+                    + how each simulated figure is computed (METHODS)
   engine.js         state + step(dt) + dispatch(action) — no drawing code
   history.js        snapshots for scrubbing and the chart
   views/ring.js     p5: ring, glow, drag-to-scrub
   views/heat.js     p5: particles on the same canvas
   views/chart.js    D3: space–time chart
-  views/panel.js    context text, fork card, switches, evidence legend
+  views/panel.js    context text, fork card, switches
+  views/evidence.js the legend, and the details sheet behind it
   main.js           loop: input → engine.step → render views
 ```
 
@@ -192,7 +196,7 @@ state = {
   params: { tickSeconds: 3, recovery: true, policy: null, window: { pre: 3, cool: 2 } },
   fuelIndex: 0,                   // relative units
   paused: false, fork: null,      // fork set when the fire meets an empty chamber
-  ui: { layer: 'time', evidenceMode: false, fieldOnly: false }
+  ui: { evidenceMode: false, fieldOnly: false, details: false }
 }
 ```
 
@@ -246,7 +250,7 @@ The Arduino (later) will be one more input sending the same actions; the physica
 
 **Fallbacks if behind:** forward-only chart (no scrubbing back) · slider instead of ring drag · fewer particles, straight paths · recovery switch changes temperatures only · click to empty instead of drag · legend panel instead of restyled elements · fixed text per layer instead of live text.
 
-**Later (days 11–12 if time):** ~~layer tabs~~ (cut — see section 3) · field-only filter · glow and polish · guided opening.
+**Later (days 11–12 if time):** ~~layer tabs~~ (cut — see section 3) · ~~field-only filter~~ (built, day 11) · glow and polish · guided opening.
 
 **Out of scope for these two weeks** (do not build unless I ask): physical model connection · drag-and-drop drying yard · tile biographies · follow-a-parcel · other disruption cards (monsoon, interval change, stop/reverse fire) · algorithm lenses ("Model Seams") · sound · projection · 3D · comparison with batch/tunnel kilns.
 

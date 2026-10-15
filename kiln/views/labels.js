@@ -29,6 +29,17 @@ const LABEL_TEXT = {
   airIn:       { text: 'Air in',       component: 'airPath' },
 };
 
+/**
+ * Components named by a label and by nothing else.
+ *
+ * `zones` has no geometry — the drying, firing and cooling bands exist only
+ * as these labels — so the ring cannot report it. The legend counts what is
+ * on screen, and a word on the screen counts.
+ */
+export const LABELLED_COMPONENTS = [
+  ...new Set(Object.values(LABEL_TEXT).map((s) => s.component)),
+];
+
 export function createLabels(layerEl, ring) {
   const projected = new THREE.Vector3();
   const entries = new Map();

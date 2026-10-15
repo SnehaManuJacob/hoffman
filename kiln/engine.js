@@ -25,6 +25,8 @@ export const ACTIONS = [
   'setAutoLoad',
   'chooseForkPolicy',
   'setEvidenceMode',
+  'setFieldOnly',
+  'setDetails',
 ];
 
 /**
@@ -233,8 +235,8 @@ export function createEngine(options = {}) {
     fork: null,                      // set when the fire meets an empty chamber
     // No `layer`: the tabs are cut (day 11). Nothing here is kept as a hook for
     // a control that does not exist — state that nothing reads goes stale
-    // silently. `fieldOnly` stays because section 8 still asks for it.
-    ui: { evidenceMode: false, fieldOnly: false },
+    // silently. All three of these have a control attached.
+    ui: { evidenceMode: false, fieldOnly: false, details: false },
   };
 
   // Simulated hours banked but not yet integrated — see integrateThermal.
@@ -828,6 +830,24 @@ export function createEngine(options = {}) {
       case 'setEvidenceMode':
         state.ui.evidenceMode = !!action.value;
         if (action.fieldOnly !== undefined) state.ui.fieldOnly = !!action.fieldOnly;
+        /**
+         * Leaving evidence mode takes the filter with it. Field-only is a
+         * state of evidence mode, not a setting beside it — its control lives
+         * in the legend and goes when the legend goes, so a filter left on
+         * behind a closed door would keep hiding things with nothing on
+         * screen to say why.
+         */
+        if (!state.ui.evidenceMode) state.ui.fieldOnly = false;
+        break;
+
+      case 'setFieldOnly':
+        state.ui.fieldOnly = !!action.value;
+        break;
+
+      // The details sheet. UI state, kept here with the rest of `ui` so the
+      // console can see what the page is showing.
+      case 'setDetails':
+        state.ui.details = !!action.value;
         break;
 
       default:

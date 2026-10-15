@@ -10,8 +10,9 @@
  */
 
 import { createEngine, gasCurve, gasAt } from './engine.js';
-import { C, PALETTE, STAGE_COLOUR, COMPONENTS } from './config.js';
+import { C, PALETTE, STAGE_COLOUR, COMPONENTS, METHODS, EVIDENCE } from './config.js';
 import { createLoopPath } from './views/kilnPath.js';
+import { SIMULATED_COLOUR } from './views/ring.js';
 
 /** The same loop the ring draws, built from the same settings. */
 function buildPath() {
@@ -918,6 +919,59 @@ export function kilnChecks() {
 
     return `${knots.length} boundaries hit exactly, no overshoot between them `
       + `(worst ${worst.toExponential(1)} C)`;
+  }));
+
+  // 15. Every method describes THIS model (day 11, brief section 8).
+  //     The details sheet claims to say how each simulated figure is arrived
+  //     at. A method citing a value the model does not have is a description
+  //     of some other program, and it would read as authoritative anyway.
+  results.push(check('every method cites values this model actually has', () => {
+    assert(METHODS.length > 0, 'METHODS is empty');
+
+    const missing = [];
+    for (const m of METHODS) {
+      assert(m.title && m.what && m.how, `incomplete method: ${m.title ?? '(untitled)'}`);
+      assert(m.tag in EVIDENCE, `method "${m.title}" has no evidence code`);
+      assert(m.where, `method "${m.title}" does not say where the rule lives`);
+      assert(m.inputs?.length > 0, `method "${m.title}" cites no config values`);
+
+      for (const path of m.inputs) {
+        const value = path.split('.').reduce((node, key) => node?.[key], C);
+        if (value === undefined) missing.push(`${m.title} -> ${path}`);
+      }
+    }
+    assert(missing.length === 0, `methods cite values that do not exist: ${missing.join(', ')}`);
+
+    return `${METHODS.length} methods, ${METHODS.reduce((n, m) => n + m.inputs.length, 0)} config values cited`;
+  }));
+
+  // 16. The legend cannot name a part that has no provenance.
+  //     It is built by looking up drawn component ids in COMPONENTS, so an id
+  //     that is drawn but not recorded would appear in the legend as
+  //     `undefined` rather than failing anywhere. The same goes for a part
+  //     whose COLOUR is simulated: that mapping lives in views/ring.js and
+  //     has to point at components that exist.
+  results.push(check('the legend can account for every part it is given', () => {
+    const unknown = Object.keys(SIMULATED_COLOUR).filter((id) => !COMPONENTS[id]);
+    assert(unknown.length === 0,
+      `simulated colour claimed for parts with no entry in COMPONENTS: ${unknown.join(', ')}`);
+
+    const badCode = Object.entries(SIMULATED_COLOUR)
+      .filter(([, code]) => !(code in EVIDENCE))
+      .map(([id]) => id);
+    assert(badCode.length === 0, `bad evidence code on: ${badCode.join(', ')}`);
+
+    /**
+     * The chambers are the trap this check exists for. The heat LOOKS like it
+     * is in them, but it is painted on the tiles inside; listing the chambers
+     * as simulated-coloured made the field-only filter ghost the one part of
+     * the drawing that was counted at Kundapur.
+     */
+    const observed = Object.keys(SIMULATED_COLOUR).filter((id) => COMPONENTS[id].tag === 'F');
+    assert(observed.length === 0,
+      `field-observed parts claimed to carry a simulated colour: ${observed.join(', ')}`);
+
+    return `${Object.keys(SIMULATED_COLOUR).join(', ')} carry a computed colour`;
   }));
 
   const passed = results.filter((r) => r.pass).length;

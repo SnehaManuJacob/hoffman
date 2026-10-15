@@ -6,12 +6,15 @@
  * Controls do one thing only: dispatch a named action.
  */
 
-import { C, PALETTE, STAGE_COLOUR, TAGS, OPEN_QUESTIONS } from './config.js';
+import {
+  C, PALETTE, STAGE_COLOUR, TAGS, OPEN_QUESTIONS, COMPONENTS, EVIDENCE,
+} from './config.js';
 import { createEngine } from './engine.js';
-import { createRing } from './views/ring.js';
+import { createRing, SIMULATED_COLOUR } from './views/ring.js';
 import { createPanel } from './views/panel.js';
-import { createLabels } from './views/labels.js';
+import { createLabels, LABELLED_COMPONENTS } from './views/labels.js';
 import { createChart } from './views/chart.js';
+import { createEvidence } from './views/evidence.js';
 import './checks.js';                 // exposes window.kilnChecks()
 
 const engine = createEngine();
@@ -40,6 +43,24 @@ const panel = createPanel({
     whyOff: document.getElementById('why-off'),
     note: document.getElementById('recovery-note'),
   },
+}, engine.dispatch);
+
+/**
+ * The legend and the details sheet.
+ *
+ * The drawn set is asked of the ring and the labels rather than read off the
+ * config: the legend's claim is "this is what is on screen", and the only two
+ * things that know what is on screen are the two that put it there.
+ */
+const evidence = createEvidence({
+  stripEl: document.getElementById('evidence-strip'),
+  legendEl: document.getElementById('legend'),
+  noteEl: document.getElementById('filter-note'),
+  fieldOnlyEl: document.getElementById('field-only'),
+  sheetEl: document.getElementById('sources'),
+  sheetBodyEl: document.getElementById('sources-body'),
+  drawn: [...new Set([...ring.components(), ...LABELLED_COMPONENTS])],
+  colourTags: SIMULATED_COLOUR,
 }, engine.dispatch);
 
 // --- controls ---------------------------------------------------------------
@@ -75,10 +96,43 @@ recovery.addEventListener('change', (ev) => {
   engine.dispatch({ type: 'setRecovery', value: ev.target.checked });
 });
 
-// Evidence mode. Day 11 builds the legend and the field-only filter.
+/**
+ * Evidence mode, its filter, and the sheet behind them.
+ *
+ * `syncEvidence` runs after each of the three because showing or hiding the
+ * legend strip CHANGES THE CANVAS'S HEIGHT, and the ring only resizes on a
+ * window resize event. Without this the kiln renders stretched from the
+ * moment the toggle is pressed until the window is next touched — which on
+ * the exhibition machine is never.
+ */
+function syncEvidence() {
+  const { evidenceMode, fieldOnly } = engine.state.ui;
+  document.body.classList.toggle('evidence-mode', evidenceMode);
+  document.body.classList.toggle('field-only', fieldOnly);
+  // Show or hide the strip BEFORE measuring. Left to the next frame, the ring
+  // resizes against the layout the strip is about to change and the canvas
+  // ends up one strip-height taller than the box it is drawn into.
+  evidence.update(engine.state);
+  ring.resize();
+  chart.update(engine.state, true);
+}
+
 document.getElementById('evidence-mode').addEventListener('change', (ev) => {
   engine.dispatch({ type: 'setEvidenceMode', value: ev.target.checked });
-  document.body.classList.toggle('evidence-mode', engine.state.ui.evidenceMode);
+  syncEvidence();
+});
+
+document.getElementById('field-only').addEventListener('change', (ev) => {
+  engine.dispatch({ type: 'setFieldOnly', value: ev.target.checked });
+  syncEvidence();
+});
+
+document.getElementById('btn-sources').addEventListener('click', () => {
+  engine.dispatch({ type: 'setDetails', value: true });
+});
+
+document.getElementById('btn-sources-close').addEventListener('click', () => {
+  engine.dispatch({ type: 'setDetails', value: false });
 });
 
 window.addEventListener('resize', () => {
@@ -136,6 +190,7 @@ function frame(now) {
     labels.update(engine.state);     // must follow ring: it reads the camera
     panel.update(engine.state);
     chart.update(engine.state);      // redraws only when the record changes
+    evidence.update(engine.state);   // the legend, the filter note, the sheet
 
     btnPlay.textContent = engine.state.paused ? 'Play' : 'Pause';
   } catch (err) {
@@ -152,8 +207,15 @@ requestAnimationFrame(frame);
 // Brief rule 14.10: debugging starts in the console.
 window.kiln = engine;
 window.__ring = ring;        // segments[], path — inspect the drawing
-window.__cfg = { C, PALETTE, STAGE_COLOUR, TAGS, OPEN_QUESTIONS };
+window.__cfg = { C, PALETTE, STAGE_COLOUR, TAGS, OPEN_QUESTIONS, COMPONENTS, EVIDENCE };
 window.__chart = chart;
+// What the legend was built from: the scene's own parts, the ones only the
+// labels name, and which of them carry a colour the model computed.
+window.__drawn = {
+  ring: ring.components(),
+  labelled: LABELLED_COMPONENTS,
+  colours: SIMULATED_COLOUR,
+};
 console.log(
   '%c kiln %c engine ready — run kilnChecks() · inspect window.kiln.state',
   'background:#8a5a3c;color:#fff', '',
