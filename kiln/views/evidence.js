@@ -120,7 +120,7 @@ function codeChip(code) {
   return chip;
 }
 
-export function createEvidence({ stripEl, legendEl, noteEl, fieldOnlyEl, sheetEl, sheetBodyEl, drawn = [], colourTags = {} }, dispatch) {
+export function createEvidence({ stripEl, legendEl, sheetEl, sheetBodyEl, drawn = [], colourTags = {} }, dispatch) {
   const all = leaves();
   const byCode = {};
   for (const code of Object.keys(EVIDENCE)) byCode[code] = all.filter((l) => l.tag === code);
@@ -276,18 +276,9 @@ export function createEvidence({ stripEl, legendEl, noteEl, fieldOnlyEl, sheetEl
   // --- state ----------------------------------------------------------------
 
   function update(state) {
-    const { evidenceMode, fieldOnly, details } = state.ui;
+    const { evidenceMode, details } = state.ui;
 
     stripEl.hidden = !evidenceMode;
-    if (fieldOnlyEl) fieldOnlyEl.checked = !!fieldOnly;
-
-    /**
-     * What the filter did, in words, and only while it is on. With everything
-     * showing there is nothing to account for.
-     */
-    noteEl.textContent = fieldOnly
-      ? 'Everything not documented at Kundapur has gone. What is left as a faint outline is the shape of what was removed — borrowed or assumed, and drawn at all only so the rest can be found.'
-      : '';
 
     if (details && !sheetEl.open) {
       if (!built) { buildSheet(); built = true; }

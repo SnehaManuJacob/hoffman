@@ -462,10 +462,10 @@ export const STAGE_COLOUR = {
 /**
  * Every part the kiln is drawn from, and where the knowledge of it comes from.
  *
- * This is the backbone of evidence mode (section 8). Each component's `tag`
- * decides how it is restyled, and the field-only filter keeps just the `F`
- * rows. What is left when everything else is hidden is eight chambers and the
- * holes the fuel goes through — and that emptiness is itself the finding.
+ * This is the backbone of evidence mode (section 8): each component's `tag`
+ * is the code shown beside its name and counted in the legend. Only two of
+ * them are `F` — eight chambers and the holes the fuel goes through. That
+ * ratio is the finding, and the details sheet is where it is stated.
  *
  * A warning that belongs here rather than in a commit message: a Hoffmann kiln
  * is a gas circuit, and most of what makes it legible as one — flues, chimney,
@@ -598,19 +598,13 @@ export const METHODS = [
   },
 ];
 
-/**
- * How each evidence code is inked (brief section 8).
- *
- * Only the field-only filter uses these. Evidence mode itself leaves the
- * drawing alone: the codes appear on the labels, the legend decodes them, and
- * the kiln keeps looking like a kiln. An earlier attempt re-inked the whole
- * scene the moment the toggle went on and drained it to a grey diagram, which
- * is a high price for a legend.
+/*
+ * No ink table for evidence mode, and that is a decision rather than an
+ * omission (day 11). Evidence mode leaves the drawing alone: the codes appear
+ * on the labels, the legend decodes them, and the kiln keeps looking like a
+ * kiln. An earlier attempt re-inked the whole scene the moment the toggle went
+ * on and drained it to a grey diagram, which is a high price for a legend.
  */
-export const GHOST_INK = {
-  fill:   { key: 'soot-raised', tag: 'A', note: 'A hair above the background. Present, but not something to read.' },
-  stroke: { key: 'sand-faint',  tag: 'A', note: 'The faintest readable line. The outline is all that is left of a part that was not observed.' },
-};
 
 // ---------------------------------------------------------------------------
 // Split `defs` into values / tags / notes.

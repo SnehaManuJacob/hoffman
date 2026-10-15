@@ -227,12 +227,14 @@ export function kilnChecks() {
     return Object.entries(byTag).map(([t, n]) => `${n}x${t}`).join(' ');
   }));
 
-  // 9. The field-only filter must leave something, and must leave only Kundapur.
+  // 9. Only what was seen at Kundapur may be tagged F.
   //    If this ever reports more than chambers and stoke holes, something has
-  //    been quietly promoted from borrowed to observed.
-  results.push(check('field-only leaves just what was seen at Kundapur', () => {
+  //    been quietly promoted from borrowed to observed — and the legend would
+  //    then count it, and the details sheet would file it under the one
+  //    heading on the page that claims first-hand knowledge.
+  results.push(check('only what was seen at Kundapur is tagged as field work', () => {
     const field = Object.keys(COMPONENTS).filter((id) => COMPONENTS[id].tag === 'F');
-    assert(field.length > 0, 'nothing survives the field-only filter');
+    assert(field.length > 0, 'nothing on screen claims to have been observed at all');
     const expected = ['chambers', 'stokeHoles'];
     const extra = field.filter((id) => !expected.includes(id));
     assert(extra.length === 0,
@@ -963,9 +965,10 @@ export function kilnChecks() {
 
     /**
      * The chambers are the trap this check exists for. The heat LOOKS like it
-     * is in them, but it is painted on the tiles inside; listing the chambers
-     * as simulated-coloured made the field-only filter ghost the one part of
-     * the drawing that was counted at Kundapur.
+     * is in them, but it is painted on the tile stacks inside; listing the
+     * chambers as simulated-coloured had the legend reporting that the one
+     * part of the drawing actually counted at Kundapur was showing a computed
+     * colour.
      */
     const observed = Object.keys(SIMULATED_COLOUR).filter((id) => COMPONENTS[id].tag === 'F');
     assert(observed.length === 0,

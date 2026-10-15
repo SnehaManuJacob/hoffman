@@ -54,24 +54,19 @@
     summons it, and gone the rest of the time — the codes do not exist in
     normal mode, so neither does their key.
 
-    The field-only filter lives here rather than in the top bar because it has
-    no meaning outside evidence mode: a third permanent switch would compete
-    with the two that are always true. The rows are built in views/evidence.js
-    from the parts the ring and the labels actually draw, so the legend cannot
-    advertise something that is configured but never drawn.
+    The rows are built in views/evidence.js from the parts the ring and the
+    labels actually draw, so the legend cannot advertise something that is
+    configured but never drawn.
+
+    One control beside it, not two. Section 8's field-only filter was built
+    here and then cut: a key and a switch competing in the same band made the
+    legend read as a control panel, and the thing the filter was there to show
+    — how little of this was observed — is stated plainly in the details sheet
+    instead, with the counts.
   -->
   <div class="evidence-strip" id="evidence-strip" hidden>
     <ul class="legend" id="legend"></ul>
-
-    <div class="evidence-controls">
-      <label class="pill">
-        <input type="checkbox" id="field-only">
-        <span>Kundapur only</span>
-      </label>
-      <button type="button" class="ctrl" id="btn-sources">View details</button>
-    </div>
-
-    <p class="qualifier" id="filter-note"></p>
+    <button type="button" class="ctrl" id="btn-sources">View details</button>
   </div>
 
   <main class="stage">
@@ -102,18 +97,12 @@
 
     <!-- Right column: space-time chart (Day 5), then context panel -->
     <aside class="side">
-      <!--
-        The chart is a record of the simulation running, so it is tagged S and
-        goes when the field-only filter is on. What replaces it is not an
-        apology: a pane that empties and says nothing is a bug, and a pane
-        that empties and says why is the finding section 8 is after.
-      -->
+      <!-- The chart is a record of the simulation running, so it is tagged S. -->
       <section class="chart-pane">
         <h2 class="pane-title">Space &amp; time</h2>
         <div id="chart" class="chart-placeholder" data-ev="S">
           <p class="muted">Space&ndash;time chart comes later</p>
         </div>
-        <p class="removed-note">The chart is a record of this model running. Nothing in it was measured at Kundapur.</p>
       </section>
 
       <!--
@@ -183,8 +172,6 @@
           sits inside the row it describes.
         -->
         <p class="qualifier" id="recovery-note" data-ev="S"></p>
-
-        <p class="removed-note">Both figures are this model's own output, and the principle behind them comes from writing about other Hoffmann kilns. That reusing the heat saves fuel here was not measured at Kundapur.</p>
       </section>
 
       <section class="context-pane">

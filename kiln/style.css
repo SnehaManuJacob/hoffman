@@ -657,48 +657,6 @@ input:focus-visible {
 .evidence-mode .evidence-strip [data-ev]::after,
 .evidence-mode .sheet [data-ev]::after { content: none; }
 
-/**
- * The field-only filter: what is left is itself the finding.
- *
- * Named places rather than a blanket `[data-ev]`, because the details sheet
- * is tagged too and must survive the filter. A visitor who turns on "Kundapur
- * only" and opens the details to find out what that means cannot be shown an
- * empty sheet — the sheet is the explanation of the filter, not a subject of
- * it. The canvas is filtered in views/ring.js, where the colours live.
- */
-.evidence-mode.field-only .label-layer [data-ev]:not([data-ev="F"]),
-.evidence-mode.field-only .side [data-ev]:not([data-ev="F"]),
-.evidence-mode.field-only .transport [data-ev]:not([data-ev="F"]) { display: none; }
-
-/**
- * Both fuel rows go whole, not value by value.
- *
- * The tags sit on the figures rather than on the list, for the reason given
- * in index.html — but that leaves the filter removing two numbers and keeping
- * the two conditions that introduce them, so the pane reads as broken rather
- * than as emptied. Nothing in the comparison survives the filter, so the
- * comparison goes.
- */
-.evidence-mode.field-only .fuel-compare,
-.evidence-mode.field-only .fuel-unit { display: none; }
-
-/**
- * A pane that empties and says nothing is a bug; a pane that empties and says
- * why is the point. One line per pane, written in the markup, untagged —
- * these describe the filter rather than claiming anything about the kiln.
- */
-.removed-note { display: none; }
-
-.field-only .removed-note {
-  display: block;
-  margin: 0;
-  font-family: var(--font-mono);
-  font-size: var(--fs-micro);
-  line-height: 1.6;
-  color: var(--sand-faint);
-  letter-spacing: 0.02em;
-}
-
 /* --------------------------------------------------------------------------
    the legend strip (brief section 8)
 
@@ -706,6 +664,9 @@ input:focus-visible {
    and the control that needs it are the same gesture apart. It exists only in
    evidence mode: in normal mode there are no codes on screen, so a permanent
    key would be decoding nothing.
+
+   One button at its right end and nothing else. A second control in the same
+   band made the key read as a control panel.
    -------------------------------------------------------------------------- */
 
 .evidence-strip {
@@ -770,27 +731,7 @@ input:focus-visible {
 .legend-label { color: var(--sand); }
 .legend-count { color: var(--sand-faint); }
 
-.evidence-controls {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3);
-  justify-self: end;
-}
-
-/* Inside the strip the pill is one of two controls in a row, not a grid cell. */
-.evidence-controls .pill { grid-column: auto; justify-self: auto; }
-
-.evidence-strip .qualifier {
-  grid-column: 1 / -1;
-  margin: 0;
-  max-width: 68ch;
-  font-size: var(--fs-micro);
-  line-height: 1.6;
-  color: var(--sand-faint);
-  letter-spacing: 0.02em;
-}
-
-.evidence-strip .qualifier:empty { display: none; }
+.evidence-strip .ctrl { justify-self: end; }
 
 /* --------------------------------------------------------------------------
    the details sheet
@@ -981,7 +922,7 @@ input:focus-visible {
   .wordmark { grid-column: 1; justify-self: start; }
   .pill { grid-column: 2; }
   .evidence-strip { grid-template-columns: 1fr; }
-  .evidence-controls { justify-self: start; }
+  .evidence-strip .ctrl { justify-self: start; }
 }
 
 @media (prefers-reduced-motion: reduce) {

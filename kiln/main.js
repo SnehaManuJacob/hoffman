@@ -55,8 +55,6 @@ const panel = createPanel({
 const evidence = createEvidence({
   stripEl: document.getElementById('evidence-strip'),
   legendEl: document.getElementById('legend'),
-  noteEl: document.getElementById('filter-note'),
-  fieldOnlyEl: document.getElementById('field-only'),
   sheetEl: document.getElementById('sources'),
   sheetBodyEl: document.getElementById('sources-body'),
   drawn: [...new Set([...ring.components(), ...LABELLED_COMPONENTS])],
@@ -97,34 +95,22 @@ recovery.addEventListener('change', (ev) => {
 });
 
 /**
- * Evidence mode, its filter, and the sheet behind them.
+ * Evidence mode, and the sheet behind it.
  *
- * `syncEvidence` runs after each of the three because showing or hiding the
- * legend strip CHANGES THE CANVAS'S HEIGHT, and the ring only resizes on a
- * window resize event. Without this the kiln renders stretched from the
- * moment the toggle is pressed until the window is next touched — which on
- * the exhibition machine is never.
+ * Showing or hiding the legend strip CHANGES THE CANVAS'S HEIGHT, and the
+ * ring only resizes on a window resize event. Without this the kiln renders
+ * stretched from the moment the toggle is pressed until the window is next
+ * touched — which on the exhibition machine is never.
  */
-function syncEvidence() {
-  const { evidenceMode, fieldOnly } = engine.state.ui;
-  document.body.classList.toggle('evidence-mode', evidenceMode);
-  document.body.classList.toggle('field-only', fieldOnly);
+document.getElementById('evidence-mode').addEventListener('change', (ev) => {
+  engine.dispatch({ type: 'setEvidenceMode', value: ev.target.checked });
+  document.body.classList.toggle('evidence-mode', engine.state.ui.evidenceMode);
   // Show or hide the strip BEFORE measuring. Left to the next frame, the ring
   // resizes against the layout the strip is about to change and the canvas
   // ends up one strip-height taller than the box it is drawn into.
   evidence.update(engine.state);
   ring.resize();
   chart.update(engine.state, true);
-}
-
-document.getElementById('evidence-mode').addEventListener('change', (ev) => {
-  engine.dispatch({ type: 'setEvidenceMode', value: ev.target.checked });
-  syncEvidence();
-});
-
-document.getElementById('field-only').addEventListener('change', (ev) => {
-  engine.dispatch({ type: 'setFieldOnly', value: ev.target.checked });
-  syncEvidence();
 });
 
 document.getElementById('btn-sources').addEventListener('click', () => {

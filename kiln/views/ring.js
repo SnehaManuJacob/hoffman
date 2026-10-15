@@ -30,7 +30,7 @@
  */
 
 import * as THREE from 'three';
-import { C, PALETTE, STAGE_COLOUR, COMPONENTS, GHOST_INK } from '../config.js';
+import { C, PALETTE, STAGE_COLOUR, COMPONENTS } from '../config.js';
 import { relativeHeat, gasCurve, gasAt } from '../engine.js';
 import { createLoopPath } from './kilnPath.js';
 import { heatHex } from './heatRamp.js';
@@ -174,11 +174,12 @@ function componentGroup(id) {
  * the legend has to say both or it reports that nothing on screen is
  * simulated, on a page whose most eye-catching feature is a simulated colour.
  *
- * `chambers` is deliberately NOT here. The heat appears to be in the chambers
- * but it is painted on the tiles inside them; the chamber group's own colours
- * are the dark void and the empty-chamber fill, which are structural. Listing
- * it would have the field-only filter ghost the one part of the drawing that
- * was actually counted.
+ * `chambers` is deliberately NOT here, and it is the easy mistake. The heat
+ * looks like it is in the chambers, but it is painted on the tiles inside
+ * them; the chamber group's own colours are the dark void and the
+ * empty-chamber fill, which are structural. Listing it would have the legend
+ * report that the one part of the drawing actually counted at Kundapur is
+ * showing a simulated colour.
  */
 export const SIMULATED_COLOUR = {
   tiles: 'S',
@@ -1292,95 +1293,7 @@ export function createRing(canvas, options = {}) {
       wickets[i].material.color.set(ch.loaded ? PALETTE['sand-dim'] : PALETTE.soot);
     }
 
-    applyFieldOnly(state.ui?.fieldOnly === true);
-
     render();
-  }
-
-  /**
-   * The field-only filter, on the drawing (brief section 8).
-   *
-   * Hiding the WORD "Chimney" while leaving a chimney standing is not a
-   * filter, it is a caption change. So the filter has to reach the canvas:
-   * what was observed at Kundapur stays lit, everything borrowed or assumed
-   * drops to one ghost ink, and the emptiness that remains is the finding.
-   *
-   * A POST-PASS, running last in `update`, rather than a condition threaded
-   * through the thirty-odd places that set a colour. The loop above rewrites
-   * chamber, tile, wicket and stoke-hole colours sixty times a second, so ink
-   * applied anywhere but here survives about 16 ms.
-   *
-   * ONE ink for every ghost, not each part's own colour faded. Fading
-   * preserves how bright a thing was, which left a red-hot tile five times
-   * louder than ghosted masonry — the filter then looked like it had spared
-   * the chambers' contents and taken away the building, the opposite of what
-   * it does.
-   *
-   * The exception is the whole point: `chambers` is tagged F, and its shape
-   * stays, but the heat painted on it is simulated and goes with the rest.
-   * What survives is eight chamber outlines and the holes the fuel goes
-   * through — exactly what check 9 in checks.js says survives.
-   */
-  const ghostFill = new THREE.Color(PALETTE[GHOST_INK.fill.key]);
-  const ghostStroke = new THREE.Color(PALETTE[GHOST_INK.stroke.key]);
-  let ghosting = false;
-
-  function eachPart(fn) {
-    for (const group of root.children) {
-      const tag = group.userData.tag;
-      if (!tag) continue;
-      group.traverse((o) => {
-        if (!o.material) return;
-        fn(o, group.userData.component, tag);
-      });
-    }
-  }
-
-  function applyFieldOnly(on) {
-    if (!on && !ghosting) return;      // the common case costs one comparison
-
-    if (on) {
-      eachPart((o, id, tag) => {
-        // Remember what the part looked like before the first ghosting, so
-        // turning the filter off restores the drawing rather than a guess at
-        // it. Static colours are never rewritten by the loop above.
-        if (!o.material.userData.baseColor) {
-          o.material.userData.baseColor = o.material.color.clone();
-          o.material.userData.baseVertexColors = o.material.vertexColors;
-        }
-        const keepShape = tag === 'F';
-        const computedColour = SIMULATED_COLOUR[id] !== undefined;
-        if (keepShape && !computedColour) return;
-        /**
-         * The gas ribbon is painted per-vertex, and three.js MULTIPLIES
-         * `material.color` into those, so setting a colour on it would tint
-         * the simulated gradient rather than replace it — the filter would
-         * dim the one thing it is meant to remove and leave its shape
-         * legible as a temperature. Turn the vertex colours off instead.
-         */
-        if (o.material.vertexColors) {
-          o.material.vertexColors = false;
-          o.material.needsUpdate = true;
-        }
-
-        // A line is the shape; a face is the body. Keeping the line readable
-        // is what lets a removed part still show where it was.
-        o.material.color.copy(o.isLine ? ghostStroke : ghostFill);
-      });
-      ghosting = true;
-      return;
-    }
-
-    eachPart((o) => {
-      const base = o.material.userData.baseColor;
-      if (!base) return;
-      o.material.color.copy(base);
-      if (o.material.vertexColors !== o.material.userData.baseVertexColors) {
-        o.material.vertexColors = o.material.userData.baseVertexColors;
-        o.material.needsUpdate = true;
-      }
-    });
-    ghosting = false;
   }
 
   /** Which components are actually drawn — the legend lists these, not the config. */
