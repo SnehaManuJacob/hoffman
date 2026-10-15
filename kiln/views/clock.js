@@ -26,6 +26,18 @@ import { C } from '../config.js';
 
 /** Where the hand is, in degrees clockwise from twelve. */
 function angleFor(state) {
+  /**
+   * NO SIMULATED TIME PASSES WHILE THE KILN IS BEING FILLED, so the clock has
+   * not started and reads zero.
+   *
+   * `subTime` is the engine's progress towards its next step, and during
+   * charging a step is A CHAMBER BEING LOADED, not two hours going by.
+   * Reading it as time here had the hand sweep sixty degrees and snap back
+   * once per chamber while the crew stacked the cold kiln — the dial showing
+   * time passing beside a figure correctly reading 0 h.
+   */
+  if (state.phase === 'charging') return 0;
+
   const hours = (state.tick + state.subTime) * C.time.tickHours;
   return (hours / C.clock.dialHours) * 360;
 }
@@ -71,6 +83,7 @@ export function createClock({ dialEl, handEl, marksEl }) {
 
   let current = 0;          // where the hand is drawn, degrees
   let lastTick = null;      // to notice a firing step
+  let lastPhase = null;     // to notice the kiln being lit
   let flashLeft = 0;        // real milliseconds of red remaining
 
   /**
@@ -108,13 +121,27 @@ export function createClock({ dialEl, handEl, marksEl }) {
     handEl.setAttribute('transform', `rotate(${current.toFixed(2)})`);
 
     /**
+     * A clock that has not started yet, said plainly. Otherwise a full face
+     * with a hand resting at twelve for the whole of the charging phase reads
+     * as a stopped clock rather than as one waiting to start.
+     */
+    dialEl.classList.toggle('is-waiting', state.phase === 'charging');
+
+    /**
      * The flash marks TIME PASSING, so it fires when the tick goes up and
      * stays quiet when it comes down. Scrubbing the kiln backwards is time
      * being moved, not time going by, and a dial flashing through a backwards
      * drag would be reporting firings that are being un-done.
+     *
+     * Lighting the kiln is the exception, and it is the same event by another
+     * name: the first firing begins, and the clock begins with it. The tick
+     * does not move at that moment — charging and the first chamber are both
+     * tick 0 — so there is nothing else for the flash to key on.
      */
-    if (lastTick !== null && state.tick > lastTick) flashLeft = flashDuration(state);
+    const lit = lastPhase === 'charging' && state.phase !== 'charging';
+    if (lit || (lastTick !== null && state.tick > lastTick)) flashLeft = flashDuration(state);
     lastTick = state.tick;
+    lastPhase = state.phase;
 
     // Real milliseconds, not simulated: this is a beat for whoever is
     // watching, not an event inside the kiln.

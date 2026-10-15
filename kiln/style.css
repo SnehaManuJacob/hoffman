@@ -379,6 +379,14 @@ input:focus-visible {
 }
 
 /**
+ * Before the kiln is lit. The crew is still filling it and no simulated time
+ * has passed, so the clock has not started — drawn faint, because a dial at
+ * full strength resting at twelve for the whole charging phase reads as a
+ * clock that has stopped rather than one that has not begun.
+ */
+.dial.is-waiting { opacity: 0.45; }
+
+/**
  * The firing step, in the fire's own red.
  *
  * Section 9 reserves the heat ramp for temperature, and this is the one
