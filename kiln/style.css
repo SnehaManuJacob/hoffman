@@ -125,7 +125,7 @@ h1, h2 { margin: 0; font-weight: 500; }
   text-transform: uppercase;
 }
 
-td, output, .clock-value, .debug-summary, .qualifier, .fuel-basis { font-family: var(--font-mono); }
+td, output, .clock-value, .debug-summary, .qualifier, .fuel-why { font-family: var(--font-mono); }
 
 .muted { color: var(--sand-dim); }
 
@@ -491,8 +491,13 @@ input:focus-visible {
 
 .fuel-row.is-active .fuel-mark { background: var(--sand-bright); }
 
-/* The note explains the mechanism; it needs air after the last figure. */
+/*
+   The note now says one thing only — that there is nothing to compare yet —
+   and empties for the rest of the run. Hidden when empty so it does not leave
+   its own space behind under the figures.
+*/
 .recovery-pane .qualifier { margin-top: var(--space-4); }
+.recovery-pane .qualifier:empty { display: none; }
 
 .fuel-row dt {
   font-family: var(--font-mono);
@@ -504,23 +509,29 @@ input:focus-visible {
   line-height: 1.45;
 }
 
+.fuel-row dd { margin: 0; }
+
 /*
-   How the figures were arrived at. Sits between the figures and the note
-   about the kiln itself, and has to read as belonging to the figures above
-   rather than to the paragraph below — so it is tighter to the numbers, and
-   the note keeps its own space-4 above it.
+   What the air does on this route. Spans from the label's column to the end
+   of the row, so it starts on the label's left edge and runs under the figure
+   — it belongs to the whole row, not to the number.
+
+   Only the active row has any text, so the spacing above is what separates it
+   from its own label while the hairline separates the rows.
 */
-.fuel-basis {
-  margin: var(--space-2) 0 0;
+.fuel-why {
+  grid-column: 2 / -1;
+  margin-top: var(--space-2);
   font-size: var(--fs-micro);
   line-height: 1.6;
   color: var(--sand-faint);
   letter-spacing: 0.02em;
+  /* Deliberately not brightened on the active row: the label and figure carry
+     which setting is on, and prose at full contrast would shout. */
+  text-transform: none;
 }
 
-.fuel-basis:empty { display: none; }
-
-.fuel-row dd { margin: 0; }
+.fuel-why:empty { display: none; }
 
 .fuel-value {
   font-family: var(--font-mono);

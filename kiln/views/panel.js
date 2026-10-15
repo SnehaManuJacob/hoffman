@@ -86,6 +86,28 @@ function fuelRate(fuel, firings) {
   return String(Math.round(fuel / firings));
 }
 
+/**
+ * What the air actually does on each route. One of these is on screen at a
+ * time — whichever route the switch has chosen — so the switch changes what
+ * the kiln is doing and not merely which figure is brighter.
+ *
+ * Both are read straight off the one rule in `flowPath`: the gas path runs
+ * from `cool` chambers behind the fire to `last` ahead, and `last` is the
+ * preheat window with recovery on, zero without. So turning recovery off does
+ * NOT stop air being drawn in behind the fire — the intake leg survives, and
+ * the fired tiles still give their heat back to it. Only the forward leg is
+ * lost. Three jobs for one stream of air, or two: that is the whole of it,
+ * and it is the model's own arithmetic rather than a claim laid over it.
+ *
+ * Said as mechanism. Neither line calls a setting good, cheap or clean, and
+ * neither mentions the figures beside them — section 7 rules out a verdict,
+ * and the comparison is already there in the two numbers.
+ */
+const WHY = {
+  on: 'One stream of air does three jobs before it leaves: it draws the heat back out of the tiles just fired, feeds the flame with it, then warms the green tiles ahead. Only what is left over goes up the chimney.',
+  off: 'The air still cools the fired tiles and still feeds the flame, but then it leaves at the heat of the fire. Nothing ahead is warmed, so every chamber comes to the fire cold.',
+};
+
 export function createPanel({ contextEl, debugEl, clockEl, recoveryEl }, dispatch) {
   // Build the debug table once, then only update cell text each frame.
   debugEl.innerHTML = `
@@ -158,31 +180,27 @@ export function createPanel({ contextEl, debugEl, clockEl, recoveryEl }, dispatc
     other.removeAttribute('aria-current');
 
     /**
-     * How the figures are arrived at, which is not obvious and changes what
-     * they mean: both are averaged over every firing since the kiln was lit,
-     * so the cold start is still in them and the gap goes on widening for a
-     * loop or so. Measured: 1.27x at tick 5, 1.73x at tick 25, 1.88x at 65.
+     * The explanation goes with the route that is running, and the other row
+     * is left as a bare figure to compare against. Blanked rather than dimmed:
+     * two mechanisms on screen at once would have to be held side by side in
+     * the head, and only one of them is what the kiln is currently doing.
      *
-     * Said rather than smoothed away. A trailing window would hold still and
-     * read the same to every visitor, but it would also hide the fact that a
-     * cold kiln is expensive, which is a real thing the model knows.
-     *
-     * Nothing before the first firing: describing how two dashes were averaged
-     * would be explaining figures that do not exist yet.
+     * Nothing at all while the kiln is still being charged. The same condition
+     * empties the gas path in the engine, so describing what the air does
+     * there would be describing air that is not moving.
      */
-    if (recoveryEl.basis) {
-      recoveryEl.basis.textContent = firings
-        ? 'Averaged over every firing since the kiln was lit, so a cold start is still being paid off — the gap goes on widening as the run settles.'
-        : '';
-    }
+    const lit = state.phase !== 'charging';
+    recoveryEl.whyOn.textContent = lit && reusing ? WHY.on : '';
+    recoveryEl.whyOff.textContent = lit && !reusing ? WHY.off : '';
 
     /**
-     * The note says what reuse IS, not what it saves. The saving is the number
-     * above it; repeating it as a sentence would turn the pair into a verdict,
-     * which section 7 rules out.
+     * One message, and only while there is nothing to compare — it is there to
+     * explain the two dashes. Once a chamber has finished firing the figures
+     * speak for themselves and the mechanism is up in the rows, so this empties
+     * rather than finding something else to say.
      */
     recoveryEl.note.textContent = firings
-      ? 'Air drawn in behind the fire arrives hot, and leaves the fire still hot enough to warm the tiles ahead. Shutting that off costs fuel, not temperature.'
+      ? ''
       : 'Nothing has finished firing yet, so there is nothing to compare.';
   }
 

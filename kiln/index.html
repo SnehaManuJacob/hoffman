@@ -119,29 +119,38 @@
           is what keeps those two apart, because a circumstance cannot be
           somewhere for a quantity to arrive.
 
-          Simulated, relative, and labelled as such. Section 4.
+          Each row carries a SECOND <dd>: what the air actually does on that
+          route. Only the row the switch is on fills it, so throwing the switch
+          changes what the kiln is doing rather than only which number is
+          brighter. A second description under one term is what a definition
+          list is for, and unlike a <p> it is legal inside dl > div.
+
+          The tags sit on the parts that carry a claim, not on the list: the
+          figures are simulated (S), each explanation names its own source, and
+          the labels are conditions that assert nothing. Nesting them inside one
+          tagged <dl> would also multiply their opacities in evidence mode.
         -->
-        <dl class="fuel-compare" id="fuel-compare" data-ev="S">
+        <dl class="fuel-compare" id="fuel-compare">
           <div class="fuel-row" data-mode="on">
             <span class="fuel-mark" aria-hidden="true"></span>
             <dt>When the exhaust crosses the tiles ahead</dt>
-            <dd><span class="fuel-value" id="fuel-on">&ndash;</span></dd>
+            <dd><span class="fuel-value" id="fuel-on" data-ev="S">&ndash;</span></dd>
+            <dd class="fuel-why" id="why-on" data-ev="L"></dd>
           </div>
           <div class="fuel-row" data-mode="off">
             <span class="fuel-mark" aria-hidden="true"></span>
             <dt>When it goes straight to the chimney</dt>
-            <dd><span class="fuel-value" id="fuel-off">&ndash;</span></dd>
+            <dd><span class="fuel-value" id="fuel-off" data-ev="S">&ndash;</span></dd>
+            <dd class="fuel-why" id="why-off" data-ev="A"></dd>
           </div>
         </dl>
 
         <!--
-          How the figures are arrived at — S, because it describes the model's
-          own bookkeeping. Deliberately NOT folded into the note below, which
-          states the Hoffmann principle and is L. One element, one tag.
+          One message only, and only before anything has fired: it explains the
+          two dashes. Empty once the figures exist — what heat recovery IS now
+          sits inside the row it describes.
         -->
-        <p class="fuel-basis" id="fuel-basis" data-ev="S"></p>
-
-        <p class="qualifier" id="recovery-note" data-ev="L"></p>
+        <p class="qualifier" id="recovery-note" data-ev="S"></p>
       </section>
 
       <section class="context-pane">
