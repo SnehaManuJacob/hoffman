@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>A Kiln on Schedule</title>
+  <link rel="preload" href="./vendor/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="style.css">
 
   <!--
@@ -45,7 +46,8 @@
 
     <label class="pill">
       <input type="checkbox" id="evidence-mode">
-      <span>Show evidence</span>
+      <span class="when-off">Show evidence</span>
+      <span class="when-on">Evidence on</span>
     </label>
   </header>
 
@@ -66,7 +68,7 @@
   -->
   <div class="evidence-strip" id="evidence-strip" hidden>
     <ul class="legend" id="legend"></ul>
-    <button type="button" class="ctrl" id="btn-sources">View details</button>
+    <button type="button" class="ctrl" id="btn-sources">Where this comes from</button>
   </div>
 
   <main class="stage">
@@ -92,8 +94,7 @@
 
           The dial and the number make the SAME claim, so they sit inside one
           tagged element rather than carrying a tag each: nesting `data-ev`
-          multiplies opacities in evidence mode, and the number would come out
-          dimmer than the dial for no reason anyone could read.
+          would give one claim two chips in evidence mode.
 
           A number that changes cannot show a rhythm. The dial is here because
           the two-hour interval is the kiln's heartbeat and nothing on screen
@@ -126,12 +127,14 @@
 
     <!-- Right column: space-time chart (Day 5), then context panel -->
     <aside class="side">
-      <!-- The chart is a record of the simulation running, so it is tagged S. -->
-      <section class="chart-pane">
-        <h2 class="pane-title">Space &amp; time</h2>
-        <div id="chart" class="chart-placeholder" data-ev="S">
-          <p class="muted">Space&ndash;time chart comes later</p>
-        </div>
+      <!--
+        Column order (day 12): what is happening first, because it is what
+        explains the picture; then the comparison the switch makes; then the
+        record; then the hand-loading table, folded away.
+      -->
+      <section class="context-pane">
+        <h2 class="pane-title">What is happening</h2>
+        <div id="context" class="context"></div>
       </section>
 
       <!--
@@ -153,7 +156,7 @@
           What the figures are, BEFORE the figures. Two bare numbers followed by
           their unit means reading them twice.
         -->
-        <p class="fuel-unit muted">Fuel per chamber fired &middot; relative units</p>
+        <p class="fuel-unit muted">Fuel per chamber fired, in relative units</p>
 
         <!--
           The rows are named after the two routes the exhaust can take, not after
@@ -178,19 +181,23 @@
           The tags sit on the parts that carry a claim, not on the list: the
           figures are simulated (S), each explanation names its own source, and
           the labels are conditions that assert nothing. Nesting them inside one
-          tagged <dl> would also multiply their opacities in evidence mode.
+          tagged <dl> would also stack a second chip on every row.
+
+          Each figure carries its unit, `rel.`, INSIDE the tagged span, so the
+          evidence chip lands after the whole quantity rather than between the
+          number and its unit.
         -->
         <dl class="fuel-compare" id="fuel-compare">
           <div class="fuel-row" data-mode="on">
             <span class="fuel-mark" aria-hidden="true"></span>
             <dt>When the exhaust crosses the tiles ahead</dt>
-            <dd><span class="fuel-value" id="fuel-on" data-ev="S">&ndash;</span></dd>
+            <dd><span class="fuel-value" data-ev="S"><span id="fuel-on">&ndash;</span><span class="fuel-suffix">rel.</span></span></dd>
             <dd class="fuel-why" id="why-on" data-ev="L"></dd>
           </div>
           <div class="fuel-row" data-mode="off">
             <span class="fuel-mark" aria-hidden="true"></span>
             <dt>When it goes straight to the chimney</dt>
-            <dd><span class="fuel-value" id="fuel-off" data-ev="S">&ndash;</span></dd>
+            <dd><span class="fuel-value" data-ev="S"><span id="fuel-off">&ndash;</span><span class="fuel-suffix">rel.</span></span></dd>
             <dd class="fuel-why" id="why-off" data-ev="A"></dd>
           </div>
         </dl>
@@ -203,16 +210,21 @@
         <p class="qualifier" id="recovery-note" data-ev="S"></p>
       </section>
 
-      <section class="context-pane">
-        <h2 class="pane-title">What is happening</h2>
-        <div id="context" class="context"></div>
+      <!-- The chart is a record of the simulation running, so it is tagged S. -->
+      <section class="chart-pane">
+        <h2 class="pane-title">Space and time</h2>
+        <div id="chart" class="chart-placeholder" data-ev="S"></div>
       </section>
 
-      <!-- Day 3 debug table. Plain and unstyled on purpose. -->
-      <section class="debug-pane">
-        <h2 class="pane-title">Debug</h2>
+      <!--
+        Day 3 debug table. Plain and unstyled on purpose — but it is on the
+        exhibition screen and its buttons load and empty chambers, so it is
+        titled for what it shows rather than for what it was built for.
+      -->
+      <details class="debug-pane">
+        <summary><h2 class="pane-title">Chambers table</h2></summary>
         <div id="debug"></div>
-      </section>
+      </details>
     </aside>
 
   </main>

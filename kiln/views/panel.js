@@ -20,7 +20,7 @@ function contextFor(state) {
     const at = state.fork.at + 1;
     return {
       line: `The fire has reached chamber ${at}, which is empty. It cannot simply carry on.`,
-      qualifier: 'What the factory does here is not known. Three outcomes are modelled; none of them is the right answer.',
+      qualifier: 'What the factory does here is not known. The model can wait, skip the chamber or fire it empty, and none of these is known to be right.',
     };
   }
 
@@ -30,20 +30,20 @@ function contextFor(state) {
     const filled = state.chambers.filter((c) => c.loaded).length;
     if (filled === 0) {
       return {
-        line: `An empty kiln. Before anything can burn, the chambers have to be stacked with tiles.`,
-        qualifier: `Press step or play to start loading. The clock does not run until the fire is lit.`,
+        line: `The kiln is empty. Before anything can burn, every chamber has to be stacked with tiles.`,
+        qualifier: `Press Play or Step to start loading. The clock starts when the fire is lit.`,
       };
     }
     return {
-      line: `Loading. ${filled} of ${state.chambers.length} chambers stacked so far, working ahead of where the fire will start.`,
+      line: `Loading: ${filled} of ${state.chambers.length} chambers stacked, working ahead of where the fire will start.`,
       qualifier: `Nothing is burning yet. How the crew actually works at Kundapur is not known.`,
     };
   }
 
   if (state.paused && state.tick === 0) {
     return {
-      line: `The kiln is lit. Chamber ${fire} is burning, and the tiles ahead of it are already waiting.`,
-      qualifier: `The fire moves to the next chamber every ${C.time.tickHours} hours. The tiles never move again.`,
+      line: `The kiln is lit. Chamber ${fire} is burning, and the tiles ahead of it are waiting their turn.`,
+      qualifier: `Every ${C.time.tickHours} hours the fire moves on to the next chamber. The tiles stay where they were stacked.`,
     };
   }
 
@@ -52,7 +52,7 @@ function contextFor(state) {
   const empty = state.chambers.filter((c) => !c.loaded).length;
   if (empty > 1) {
     return {
-      line: `Chamber ${fire} is firing while the kiln is still being filled. Tiles are loaded ahead of the fire, never behind it.`,
+      line: `Chamber ${fire} is firing while the kiln is still being filled. Tiles go in ahead of the fire, never behind it.`,
       qualifier: `${empty} chambers are still empty. How the crew actually works at Kundapur is not known.`,
     };
   }
@@ -62,13 +62,13 @@ function contextFor(state) {
   // only the tiles ahead of the fire give it away.
   if (state.params.recovery === false) {
     return {
-      line: `Chamber ${fire} is firing, but its exhaust is going straight up the chimney. The chambers ahead stay cold until the fire reaches them.`,
-      qualifier: `${hours} hours in. Peak firing still sits in the ${band[0]}–${band[1]} °C band — the crew simply burns more to hold it.`,
+      line: `Chamber ${fire} is firing, but its exhaust goes straight up the chimney, so the chambers ahead stay cold until the fire reaches them.`,
+      qualifier: `${hours} hours in. Peak firing still holds the ${band[0]}–${band[1]} °C band. The crew just burns more fuel to get there.`,
     };
   }
 
   return {
-    line: `Chamber ${fire} is firing. The chambers ahead of it are warming on its exhaust; the ones behind are cooling.`,
+    line: `Chamber ${fire} is firing. Its exhaust warms the chambers ahead; the chambers behind are cooling.`,
     qualifier: `${hours} hours in. Peak firing sits in the ${band[0]}–${band[1]} °C band.`,
   };
 }
@@ -114,7 +114,7 @@ export function createPanel({ contextEl, debugEl, clockEl, recoveryEl }, dispatc
     <table>
       <thead>
         <tr>
-          <th>Ch</th><th>Stage</th><th>Heat</th><th>Tiles</th><th></th>
+          <th>Chamber</th><th>Stage</th><th>Heat (0–1)</th><th>Tiles</th><th aria-label="Load or empty"></th>
         </tr>
       </thead>
       <tbody></tbody>
@@ -164,6 +164,11 @@ export function createPanel({ contextEl, debugEl, clockEl, recoveryEl }, dispatc
 
     recoveryEl.on.textContent = fuelRate(on, firings);
     recoveryEl.off.textContent = fuelRate(off, firings);
+
+    // A dash is not a quantity, so it gets no unit.
+    for (const fig of [recoveryEl.on, recoveryEl.off]) {
+      fig.parentElement.classList.toggle('is-blank', !firings);
+    }
 
     /**
      * Which row is on screen. Carried by a marker and by `aria-current` as well
@@ -229,11 +234,11 @@ export function createPanel({ contextEl, debugEl, clockEl, recoveryEl }, dispatc
     }
 
     summary.textContent =
-      `tick ${state.tick} · fire at ${state.firePos} · ` +
+      `Step ${state.tick} · fire in chamber ${state.firePos + 1} · ` +
       // Fuel accrues continuously now, so it needs rounding. Relative units —
       // never a mass, per section 4.
-      `fuel index ${Math.round(state.fuelIndex)} · ` +
-      `${state.fork ? 'FORK' : state.paused ? 'paused' : 'running'}`;
+      `fuel used ${Math.round(state.fuelIndex)} rel. · ` +
+      `${state.fork ? 'stopped: next chamber empty' : state.paused ? 'paused' : 'running'}`;
 
     // Simulated hours, not ticks: the 2-hour interval is the field-documented fact.
     clockEl.textContent = String(state.tick * C.time.tickHours);

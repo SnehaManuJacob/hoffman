@@ -23,7 +23,9 @@
 import { C } from '../config.js';
 import { heatHex } from './heatRamp.js';
 
-const MARGIN = { top: 18, right: 8, bottom: 4, left: 34 };
+// Left is wide enough for a three-digit hour WITH its unit ("104 h"). At 34
+// the axis clipped once a run passed 100 hours.
+const MARGIN = { top: 18, right: 8, bottom: 4, left: 42 };
 
 export function createChart(container, history, dispatch) {
   const d3 = window.d3;
@@ -158,7 +160,7 @@ export function createChart(container, history, dispatch) {
       .attr('x', MARGIN.left - 6)
       .attr('y', (row) => plotTop + rows.indexOf(row) * rowHeight + rowHeight - 1)
       .attr('text-anchor', 'end')
-      .text((row) => `${row.tick * C.time.tickHours}h`);
+      .text((row) => `${row.tick * C.time.tickHours} h`);
 
     // --- playhead ------------------------------------------------------
     const here = rows.findIndex((row) => row.tick === state.tick);

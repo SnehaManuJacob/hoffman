@@ -162,6 +162,8 @@ function reportFailure(where, err) {
     box.className = 'failure';
     el.prepend(box);
   }
+  // The table is folded away by default; a failure must not be.
+  el.closest('details')?.setAttribute('open', '');
   box.textContent = `Stopped: ${where} — ${message.split('\n')[0]}. `
     + 'Reload the page; if it persists, the console has the full trace.';
 }

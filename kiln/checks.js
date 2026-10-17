@@ -10,7 +10,9 @@
  */
 
 import { createEngine, gasCurve, gasAt } from './engine.js';
-import { C, PALETTE, STAGE_COLOUR, COMPONENTS, METHODS, EVIDENCE } from './config.js';
+import {
+  C, TAGS, UNITS, UNITLESS, PALETTE, STAGE_COLOUR, COMPONENTS, METHODS, EVIDENCE,
+} from './config.js';
 import { createLoopPath } from './views/kilnPath.js';
 import { SIMULATED_COLOUR } from './views/ring.js';
 
@@ -975,6 +977,33 @@ export function kilnChecks() {
       `field-observed parts claimed to carry a simulated colour: ${observed.join(', ')}`);
 
     return `${Object.keys(SIMULATED_COLOUR).join(', ')} carry a computed colour`;
+  }));
+
+  // 17. Every number the details sheet prints has a unit.
+  //     The sheet walks the config and prints what it finds, so a value added
+  //     to `defs` without an entry in UNITS reaches the screen as a bare "0.44"
+  //     and nothing complains. The reverse matters too: a key renamed in
+  //     `defs` would leave its unit behind in UNITS, quietly unused.
+  results.push(check('every numeric value in the config has a unit', () => {
+    const numeric = [];
+    (function walk(tags, values, prefix) {
+      for (const key of Object.keys(tags)) {
+        const path = prefix ? `${prefix}.${key}` : key;
+        const v = values?.[key];
+        if (typeof tags[key] !== 'string') { walk(tags[key], v, path); continue; }
+        const isNum = typeof v === 'number'
+          || (Array.isArray(v) && v.length > 0 && v.every((n) => typeof n === 'number'));
+        if (isNum) numeric.push(path);
+      }
+    })(TAGS, C, '');
+
+    const bare = numeric.filter((path) => !UNITS[path] && !UNITLESS.includes(path));
+    assert(bare.length === 0, `numbers with no unit: ${bare.join(', ')}`);
+
+    const stale = Object.keys(UNITS).filter((path) => !numeric.includes(path));
+    assert(stale.length === 0, `units for values that do not exist: ${stale.join(', ')}`);
+
+    return `${numeric.length - UNITLESS.length} values carry a unit, ${UNITLESS.length} are dates`;
   }));
 
   const passed = results.filter((r) => r.pass).length;

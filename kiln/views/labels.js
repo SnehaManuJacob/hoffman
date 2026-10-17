@@ -15,18 +15,26 @@
 import * as THREE from 'three';
 import { COMPONENTS } from '../config.js';
 
-/** What each anchor is called on screen, and which component backs it. */
+/**
+ * What each anchor is called on screen, and which component backs it.
+ *
+ * Every one is the name of a part or a stage — nouns only. "Tiles stay still"
+ * was a sentence among them; the context line says it once the kiln is lit. The
+ * zone ahead of the fire is "Preheating", not "Drying & preheating": drying
+ * happens in the yard over weeks before a tile reaches the kiln, and the
+ * chambers table already calls this stage Preheating.
+ */
 const LABEL_TEXT = {
   chimney:     { text: 'Chimney',      component: 'chimney' },
   flueDuct:    { text: 'Flue duct',    component: 'flueDuct' },
   dampers:     { text: 'Open damper',  component: 'dampers' },
   stokeHoles:  { text: 'Stoke holes',  component: 'stokeHoles' },
-  tiles:       { text: 'Tiles stay still', component: 'tiles' },
+  tiles:       { text: 'Tiles',        component: 'tiles' },
   wicketDoors: { text: 'Wicket door',  component: 'wicketDoors' },
   zoneFire:    { text: 'Firing',       component: 'zones' },
-  zonePreheat: { text: 'Drying & preheating', component: 'zones' },
+  zonePreheat: { text: 'Preheating',   component: 'zones' },
   zoneCool:    { text: 'Cooling',      component: 'zones' },
-  airIn:       { text: 'Air in',       component: 'airPath' },
+  airIn:       { text: 'Air intake',   component: 'airPath' },
 };
 
 /**
@@ -56,8 +64,6 @@ export function createLabels(layerEl, ring) {
     el.setAttribute('data-ev', component.tag);
     el.title = component.note;
 
-    const dot = document.createElement('span');
-    dot.className = 'kiln-label-dot';
 
     const text = document.createElement('span');
     text.className = 'kiln-label-text';
@@ -67,7 +73,9 @@ export function createLabels(layerEl, ring) {
     tag.className = 'kiln-label-tag';
     tag.textContent = component.tag;
 
-    el.append(dot, text, tag);
+    // No leading dot. It once carried provenance by its tint; once that went,
+    // it was a square in front of every name that said nothing.
+    el.append(text, tag);
     layerEl.appendChild(el);
     entries.set(id, el);
     return el;

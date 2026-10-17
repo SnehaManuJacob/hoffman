@@ -12,8 +12,14 @@
  *      and time down — a raster field the simulation generates.
  *   2. Warm mineral two-tone. Sand against soot, with no mid-greys except the
  *      ones raster density makes.
- *   3. Type at two extremes only: a heavy tight-tracked wordmark, and wide
- *      letterspaced small caps. Nothing in between.
+ *   3. One typeface, two widths (day 12). Archivo, bundled. The only strong
+ *      contrast is its width axis, taken from the kiln yard itself: a wide,
+ *      heavy painted sign (the wordmark) and narrow stencilled markings on
+ *      the kiln's doors and flues (part labels, evidence chips, chart axes).
+ *      Everything a visitor READS is plain sentence case. This replaced
+ *      "wide letterspaced small caps everywhere", which put every pane title,
+ *      button and two-line sentence at 11px in the same tracked caps — no
+ *      hierarchy, and long caps lines that were hard to read.
  *   4. Wordmark and a pill control at the two ends of the bar. The source
  *      centres its wordmark over navigation at the left; with the layer tabs
  *      cut there is nothing to centre over, so the title takes the left end
@@ -27,9 +33,23 @@
  * thing that brings colour into it. That sharpens section 9's rule rather than
  * bending it.
  *
- * Polish is Day 11-12. Nothing here glows, blurs or eases yet, on purpose.
- * No webfonts: the exhibition laptop must work with no internet.
+ * TWO GROUNDS. Brief section 9 asks for charcoal and clay. Charcoal (`--soot`)
+ * is the kiln's ground and the space-time chart's, where heat has to glow;
+ * clay (`--clay`) is the reading column and the bar. A dark, desaturated
+ * fired-clay brown — never orange, which is heat's.
+ *
+ * The font is a local file, not a webfont service: the exhibition laptop must
+ * work with no internet. vendor/fonts/ holds it and its licence (OFL).
  */
+
+@font-face {
+  font-family: "Archivo";
+  src: url("./vendor/fonts/archivo.woff2") format("woff2");
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+  font-style: normal;
+  font-display: swap;
+}
 
 :root {
   /* --- ground: soot. Warm near-black, never neutral grey. --- */
@@ -37,6 +57,10 @@
   --soot-raised: #1e1913;
   --hairline:    #2b241b;
   --hairline-firm: #443a2c;
+
+  /* --- the second ground: clay. The reading column and the bar. --- */
+  --clay:      #221a14;
+  --clay-line: #3a2e24;
 
   /* --- the mineral key: sand. Structure, raster marks, type. --- */
   --sand:        #c8bb99;
@@ -77,17 +101,21 @@
   --air-spent: #a5a39b;
   --air-dim: #53666a;
 
-  /* --- type: two extremes, nothing between --- */
-  --font-display: system-ui, -apple-system, "Helvetica Neue", sans-serif;
+  /* --- type: one family, two widths --- */
+  --font-display: "Archivo", system-ui, -apple-system, "Helvetica Neue", sans-serif;
+  /* Only for text that IS code: the config paths in the details sheet. */
   --font-mono: ui-monospace, "SF Mono", Menlo, "Roboto Mono", monospace;
 
-  --fs-micro: 0.6875rem;
-  --fs-small: 0.8125rem;
-  --fs-body:  0.9375rem;
-  --fs-lead:  1.0625rem;
+  --fs-micro:  0.75rem;    /* markings on the kiln */
+  --fs-small:  0.875rem;   /* supporting text */
+  --fs-body:   0.9375rem;
+  --fs-lead:   1.25rem;    /* what is happening */
+  --fs-figure: 1.75rem;    /* the fuel figures and the clock */
 
-  --track-wide: 0.18em;    /* small caps */
-  --track-tight: -0.035em; /* wordmark */
+  --track-wide: 0.18em;
+  --track-tight: -0.02em;
+
+  --measure: 60ch;
 
   --space-1: 0.25rem;
   --space-2: 0.5rem;
@@ -113,21 +141,37 @@ body {
 
 h1, h2 { margin: 0; font-weight: 500; }
 
-/* Every machine label and number is mono small caps. One of the two extremes. */
-.pane-title,
-.ctrl,
-.speed,
-.pill,
-.clock-unit,
-.debug-pane th {
-  font-family: var(--font-mono);
+/*
+ * Markings: what is painted ON the kiln, or on the charts that stand for it.
+ * Narrow, heavy, caps — a stencil, not a label. The one place caps appear
+ * besides the wordmark.
+ */
+.kiln-label,
+.ev-code,
+.evidence-mode .side [data-ev]::after,
+.evidence-mode .transport [data-ev]::after {
+  font-family: var(--font-display);
   font-size: var(--fs-micro);
-  font-weight: 400;
-  letter-spacing: var(--track-wide);
+  font-stretch: 72%;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
-td, output, .clock-value, .debug-summary, .qualifier, .fuel-why { font-family: var(--font-mono); }
+/* Controls: sentence case, set a step heavier than the text around them. */
+.ctrl,
+.pill,
+.speed,
+.debug-pane button {
+  font-family: var(--font-display);
+  font-size: var(--fs-small);
+  font-weight: 500;
+}
+
+/* Every figure lines up: digits the same width, so a changing number holds still. */
+td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
+  font-variant-numeric: tabular-nums;
+}
 
 .muted { color: var(--sand-dim); }
 
@@ -146,16 +190,21 @@ td, output, .clock-value, .debug-summary, .qualifier, .fuel-why { font-family: v
   align-items: center;
   gap: var(--space-4);
   padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--hairline);
+  background: var(--clay);
+  border-bottom: 1px solid var(--clay-line);
   flex: 0 0 auto;
 }
 
-/* The heavy extreme. Tight tracking, set against the wide small caps around it. */
+/*
+ * The sign. The widest, heaviest setting the face has — painted on the side
+ * of the building. Nothing else on the page is set this wide, so it cannot be
+ * mistaken for a heading.
+ */
 .wordmark {
-  grid-column: 1;
-  justify-self: start;
-  font-size: 1.05rem;
+  font-size: 1.75rem;
+  font-stretch: 125%;
   font-weight: 800;
+  line-height: 1;
   letter-spacing: var(--track-tight);
   text-transform: uppercase;
   color: var(--sand-bright);
@@ -170,7 +219,7 @@ td, output, .clock-value, .debug-summary, .qualifier, .fuel-why { font-family: v
   gap: var(--space-2);
   color: var(--sand);
   background: transparent;
-  border: 1px solid var(--hairline-firm);
+  border: 1px solid var(--clay-line);
   border-radius: 999px;
   padding: var(--space-2) var(--space-4);
   cursor: pointer;
@@ -178,7 +227,48 @@ td, output, .clock-value, .debug-summary, .qualifier, .fuel-why { font-family: v
 }
 
 .pill:hover { border-color: var(--sand-dim); }
-.pill input { accent-color: var(--sand); margin: 0; }
+
+/*
+ * A switch, not a checkbox. A tick in a box asks the visitor to read it; a
+ * knob that has moved and a rim that has lit can be seen from across the
+ * room. The real <input> stays — it is only redrawn — so the keyboard, the
+ * screen reader and the `change` listeners in main.js are untouched.
+ */
+.pill input {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 12px;
+  margin: 0;
+  border: 1px solid var(--sand-dim);
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.pill input::before {
+  content: "";
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--sand-dim);
+  transition: transform 120ms ease, background-color 120ms ease;
+}
+
+.pill input:checked { border-color: var(--sand-bright); }
+.pill input:checked::before { transform: translateX(10px); background: var(--sand-bright); }
+
+.pill:has(input:checked) { border-color: var(--sand-bright); color: var(--sand-bright); }
+
+/* The evidence pill says which state it is in, not only what it would do. */
+.pill .when-on { display: none; }
+.pill:has(input:checked) .when-on { display: inline; }
+.pill:has(input:checked) .when-off { display: none; }
 
 .ctrl:focus-visible,
 .pill:focus-within,
@@ -234,10 +324,7 @@ input:focus-visible {
   align-items: center;
   gap: var(--space-2);
   padding: 2px var(--space-2);
-  font-family: var(--font-mono);
-  font-size: var(--fs-micro);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  line-height: 1.3;
   white-space: nowrap;
   color: var(--sand);
   background: color-mix(in srgb, var(--soot) 82%, transparent);
@@ -246,50 +333,60 @@ input:focus-visible {
 
 .kiln-label.is-hidden { display: none; }
 
-.kiln-label-dot {
-  width: 4px;
-  height: 4px;
-  background: var(--sand-dim);
-  flex: 0 0 auto;
-}
-
 /*
    The evidence tag does not exist in normal mode. Section 8 opens with
    "normal mode shows no evidence labels", and a quiet grey letter beside
    every name is still a label — it left the toggle with nothing to do but
    turn up the contrast on something already on screen.
-
-   The dot is the same leak one step quieter: it was tinted by provenance
-   whether or not anyone had asked to see provenance. It stays one neutral
-   mark until the mode is on.
 */
 .kiln-label-tag { display: none; }
 
+/*
+ * In evidence mode the code is a cell of the label, flush against its right
+ * edge — the same chip as the legend's, so the letter on the kiln and the
+ * letter in the key are visibly the same mark. A pipe and a loose letter
+ * read as punctuation.
+ */
+.evidence-mode .kiln-label { padding-right: 0; }
+
 .evidence-mode .kiln-label-tag {
-  display: inline;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  min-width: 1.6em;
+  margin: -2px 0 -2px var(--space-1);
+  padding: 0 var(--space-1);
+  letter-spacing: 0;
   color: var(--sand-bright);
-  font-size: 0.625rem;
-  border-left: 1px solid var(--hairline-firm);
-  padding-left: var(--space-2);
+  background: var(--hairline-firm);
 }
 
-.evidence-mode .kiln-label[data-ev="L"] .kiln-label-dot { background: var(--sand-faint); }
-.evidence-mode .kiln-label[data-ev="F"] .kiln-label-dot { background: var(--sand); }
+.evidence-mode .kiln-label[data-ev="S"] .kiln-label-tag { color: var(--heat-2); background: color-mix(in srgb, var(--heat-4) 22%, var(--soot)); }
+.evidence-mode .kiln-label[data-ev="U"] .kiln-label-tag { color: var(--sand-dim); background: transparent; border-left: 1px dashed var(--sand-faint); }
 
 .side {
   display: flex;
   flex-direction: column;
-  border-left: 1px solid var(--hairline);
+  background: var(--clay);
+  border-left: 1px solid var(--clay-line);
   overflow-y: auto;
   min-height: 0;
 }
 
-.side > section {
+.side > section,
+.side > details {
   padding: var(--space-4);
-  border-bottom: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--clay-line);
 }
 
-.pane-title { color: var(--sand-faint); padding-bottom: var(--space-3); }
+/* A heading, not an eyebrow: sentence case, a step heavier than the text. */
+.pane-title {
+  padding-bottom: var(--space-3);
+  font-size: var(--fs-body);
+  font-weight: 600;
+  color: var(--sand-bright);
+}
 
 /* --------------------------------------------------------------------------
    transport
@@ -315,6 +412,19 @@ input:focus-visible {
 
 .ctrl:hover { border-color: var(--sand-dim); }
 
+/*
+ * Play is the one filled control on the page: the thing a visitor walking up
+ * cold should press. Every other control is an outline.
+ */
+#btn-play {
+  color: var(--soot);
+  background: var(--sand-bright);
+  border-color: var(--sand-bright);
+  font-weight: 600;
+}
+
+#btn-play:hover { background: var(--sand); border-color: var(--sand); }
+
 .speed {
   display: flex;
   align-items: center;
@@ -323,7 +433,7 @@ input:focus-visible {
 }
 
 .speed input { width: 7rem; accent-color: var(--sand-dim); }
-.speed output { color: var(--sand); font-size: var(--fs-small); min-width: 2.5rem; letter-spacing: 0; }
+.speed output { color: var(--sand); min-width: 2.5rem; }
 
 /* The clock: the one large figure. Simulated hours, 2 h per tick. */
 .clock {
@@ -414,14 +524,15 @@ input:focus-visible {
 .dial.is-firing .dial-pin { fill: var(--heat-4); }
 
 .clock-value {
-  font-size: 1.75rem;
-  font-weight: 700;
+  font-size: var(--fs-figure);
+  font-stretch: 87%;
+  font-weight: 600;
+  line-height: 1;
   color: var(--sand-bright);
   letter-spacing: var(--track-tight);
-  font-variant-numeric: tabular-nums;
 }
 
-.clock-unit { color: var(--sand-faint); }
+.clock-unit { font-size: var(--fs-small); color: var(--sand-dim); }
 
 /* --------------------------------------------------------------------------
    panes — the chart pane is the window punched into the raster field
@@ -445,9 +556,11 @@ input:focus-visible {
    space-time chart — chambers across, time down
    -------------------------------------------------------------------------- */
 
+/* A charcoal window in the clay column: the heat in it has to glow, and it
+   is the kiln's ground, not the page's. */
 .chart {
-  background: var(--soot-raised);
-  border: 1px solid var(--hairline);
+  background: var(--soot);
+  border: 1px solid var(--clay-line);
   padding: var(--space-2) 0 var(--space-2) 0;
   cursor: ns-resize;          /* it is a timeline: you drag it up and down */
   user-select: none;
@@ -456,14 +569,15 @@ input:focus-visible {
 
 .chart-svg { display: block; width: 100%; }
 
-/* Chamber numbers and elapsed hours: the same mono small caps as everything
-   else that labels a machine. */
+/* Chamber numbers and elapsed hours: markings, like the labels on the kiln. */
 .chart-chambers text,
 .chart-hours text {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.08em;
-  fill: var(--sand-faint);
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-stretch: 72%;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  fill: var(--sand-dim);
 }
 
 .chart-cells rect { shape-rendering: crispEdges; }
@@ -483,15 +597,21 @@ input:focus-visible {
 .ring-pane canvas { cursor: grab; }
 .ring-pane canvas.is-scrubbing { cursor: grabbing; }
 
-.context { font-size: var(--fs-lead); line-height: 1.4; color: var(--sand-bright); }
+.context {
+  font-size: var(--fs-lead);
+  line-height: 1.4;
+  letter-spacing: -0.005em;
+  color: var(--sand-bright);
+}
 .context p { margin: 0 0 var(--space-3); }
 
 .context .qualifier,
 .recovery-pane .qualifier {
-  font-size: var(--fs-micro);
-  line-height: 1.6;
-  color: var(--sand-faint);
-  letter-spacing: 0.02em;
+  max-width: var(--measure);
+  font-size: var(--fs-small);
+  line-height: 1.5;
+  letter-spacing: 0;
+  color: var(--sand-dim);
   margin-bottom: 0;
 }
 
@@ -525,9 +645,9 @@ input:focus-visible {
   grid-template-columns: 5px 1fr auto;
   align-items: baseline;
   gap: var(--space-2);
-  padding: var(--space-2) 0;
-  border-top: 1px solid var(--hairline);
-  color: var(--sand-faint);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--clay-line);
+  color: var(--sand-dim);
 }
 
 /*
@@ -564,13 +684,10 @@ input:focus-visible {
 .recovery-pane .qualifier:empty { display: none; }
 
 .fuel-row dt {
-  font-family: var(--font-mono);
-  font-size: var(--fs-micro);
-  letter-spacing: var(--track-wide);
-  text-transform: uppercase;
+  font-size: var(--fs-body);
   /* Two-line conditions need their lines held together, or the row reads as
      two labels rather than one wrapping over. */
-  line-height: 1.45;
+  line-height: 1.35;
 }
 
 .fuel-row dd { margin: 0; }
@@ -586,10 +703,10 @@ input:focus-visible {
 .fuel-why {
   grid-column: 2 / -1;
   margin-top: var(--space-2);
-  font-size: var(--fs-micro);
-  line-height: 1.6;
-  color: var(--sand-faint);
-  letter-spacing: 0.02em;
+  max-width: var(--measure);
+  font-size: var(--fs-small);
+  line-height: 1.5;
+  color: var(--sand-dim);
   /* Deliberately not brightened on the active row: the label and figure carry
      which setting is on, and prose at full contrast would shout. */
   text-transform: none;
@@ -598,37 +715,78 @@ input:focus-visible {
 .fuel-why:empty { display: none; }
 
 .fuel-value {
-  font-family: var(--font-mono);
-  font-size: 1.25rem;
-  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-figure);
+  font-stretch: 87%;
+  font-weight: 500;
+  line-height: 1;
   letter-spacing: var(--track-tight);
+  white-space: nowrap;
 }
+
+/* The unit beside each figure: small, so the number still reads first. */
+.fuel-suffix {
+  margin-left: 0.25em;
+  font-size: var(--fs-small);
+  font-stretch: 100%;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--sand-dim);
+}
+
+.fuel-value.is-blank .fuel-suffix { display: none; }
 
 /* The setting currently on screen. Brighter, never "better". */
 .fuel-row.is-active { color: var(--sand-bright); }
 
 /* Now sits ABOVE the figures: what they are, before they are read. */
 .fuel-unit {
-  margin: var(--space-4) 0 var(--space-2);
-  font-family: var(--font-mono);
-  font-size: var(--fs-micro);
-  letter-spacing: var(--track-wide);
-  text-transform: uppercase;
+  margin: var(--space-3) 0 var(--space-2);
+  font-size: var(--fs-small);
 }
 
-/* Day 3 debug table. Scaffolding, not design — but it obeys the palette. */
-.debug-pane table { width: 100%; border-collapse: collapse; font-size: var(--fs-micro); }
+/*
+ * The chambers table. A tool for loading by hand, so it is folded away under
+ * its own heading until someone opens it, rather than ending the column as a
+ * block of numbers nobody asked for.
+ */
+.debug-pane > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  list-style: none;
+}
+
+.debug-pane > summary::-webkit-details-marker { display: none; }
+
+/* A drawn caret, so the font's missing triangle glyph never shows as a box. */
+.debug-pane > summary::before {
+  content: "";
+  width: 0.4em;
+  height: 0.4em;
+  border-right: 1.5px solid var(--sand-dim);
+  border-bottom: 1.5px solid var(--sand-dim);
+  transform: rotate(-45deg);
+  transition: transform 120ms ease;
+}
+
+.debug-pane[open] > summary::before { transform: rotate(45deg); }
+.debug-pane > summary .pane-title { padding-bottom: 0; }
+.debug-pane[open] > summary { padding-bottom: var(--space-3); }
+
+.debug-pane table { width: 100%; border-collapse: collapse; font-size: var(--fs-small); }
 
 .debug-pane th {
   text-align: left;
-  color: var(--sand-faint);
-  border-bottom: 1px solid var(--hairline-firm);
+  font-weight: 500;
+  color: var(--sand-dim);
+  border-bottom: 1px solid var(--clay-line);
   padding: var(--space-1) var(--space-2) var(--space-2) 0;
 }
 
 .debug-pane td {
   color: var(--sand-dim);
-  border-bottom: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--clay-line);
   padding: var(--space-1) var(--space-2);
   padding-left: 0;
 }
@@ -638,10 +796,7 @@ input:focus-visible {
 .debug-pane tr.is-empty td { color: var(--sand-faint); }
 
 .debug-pane button {
-  font-family: var(--font-mono);
   font-size: var(--fs-micro);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: var(--sand-dim);
   background: transparent;
   border: 1px solid var(--hairline-firm);
@@ -654,8 +809,7 @@ input:focus-visible {
 
 /* Shown only when a view has thrown and the draw loop has stopped. */
 .failure {
-  font-family: var(--font-mono);
-  font-size: var(--fs-micro);
+  font-size: var(--fs-small);
   line-height: 1.5;
   color: var(--soot);
   background: var(--heat-3);
@@ -665,39 +819,64 @@ input:focus-visible {
 }
 
 .debug-summary {
-  font-size: var(--fs-micro);
-  color: var(--sand-faint);
+  font-size: var(--fs-small);
+  color: var(--sand-dim);
   padding-top: var(--space-3);
-  letter-spacing: 0.02em;
 }
 
 /* --------------------------------------------------------------------------
    evidence styles (brief section 8)
    Inert until the toggle adds .evidence-mode to <body>.
-   The raster language gives these a natural home: provenance becomes stroke.
+
+   The letter is the signal, and the only one. An earlier version also faded
+   each element by its source — assumption to 0.62, unknown to 0.45 and
+   hatched — and it read as low contrast rather than as provenance: the
+   assumed labels on the kiln looked broken, not chosen, and the gap between
+   literature at 0.9 and field at 1.0 was not something anyone could see.
+   Nothing is dimmed now. Every tagged thing keeps its ink and gains a chip.
    -------------------------------------------------------------------------- */
 
-.evidence-mode [data-ev="F"] { opacity: 1; }
-.evidence-mode [data-ev="L"] { opacity: 0.9; }
-.evidence-mode [data-ev="A"] { opacity: 0.62; }
-.evidence-mode [data-ev="S"] { opacity: 0.8; }
+/**
+ * The chip: one mark, used in the legend, the labels, the panel and the
+ * sheet. A filled cell rather than an outlined box, so it sits on a line of
+ * text as a token instead of as a second, smaller button.
+ *
+ * Only one code gets a colour, and it is the simulated one. Colour on this
+ * page means heat, and heat is the thing the model invents — so S is marked
+ * in the ramp's own tone and every other code is left in sand. The legend
+ * then says, without a sentence, that the colour you are looking at is the
+ * part that was computed. U is the only code drawn as an outline: a gap.
+ */
+.ev-code,
+.evidence-mode .side [data-ev]::after,
+.evidence-mode .transport [data-ev]::after {
+  flex: 0 0 auto;
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 1px var(--space-1);
+  line-height: 1.3;
+  letter-spacing: 0;
+  text-align: center;
+  color: var(--sand-bright);
+  background: var(--hairline-firm);
+  border: 1px solid transparent;
+}
 
-/* Unknown: hatched, so a gap looks like a gap rather than a surface. */
-.evidence-mode [data-ev="U"] {
-  opacity: 0.45;
-  background-image: repeating-linear-gradient(
-    90deg, transparent 0 3px, var(--hairline-firm) 3px 4px
-  );
+.ev-code[data-code="S"],
+.evidence-mode .side [data-ev="S"]::after {
+  color: var(--heat-2);
+  background: color-mix(in srgb, var(--heat-4) 22%, var(--soot));
+}
+
+.ev-code[data-code="U"],
+.evidence-mode .side [data-ev="U"]::after {
+  color: var(--sand-dim);
+  background: transparent;
+  border: 1px dashed var(--sand-faint);
 }
 
 /**
- * The code itself, beside what it describes.
- *
- * Fading is a weak signal on text: the gap between literature at 0.9 and
- * field at 1.0 is not something anyone can see, let alone decode, so on its
- * own the mode was changing almost nothing in this column. The letter is the
- * signal — the same letter the labels on the kiln carry, and the one the
- * legend above decodes.
+ * Beside the text it describes, on the same line.
  *
  * Built from the attribute rather than written into the markup, so a tagged
  * element cannot be given a tag in one place and a different one on screen.
@@ -705,35 +884,25 @@ input:focus-visible {
 .evidence-mode .side [data-ev]::after,
 .evidence-mode .transport [data-ev]::after {
   content: attr(data-ev);
-  display: inline-block;
   margin-left: var(--space-2);
-  padding: 0 var(--space-1);
-  font-family: var(--font-mono);
-  font-size: var(--fs-micro);
-  line-height: 1.4;
-  vertical-align: 2px;
-  color: var(--sand-bright);
-  border: 1px solid var(--hairline-firm);
+  vertical-align: middle;
 }
-
-.evidence-mode .side [data-ev="S"]::after { color: var(--heat-2); border-color: var(--heat-4); }
-.evidence-mode .side [data-ev="U"]::after { color: var(--sand-faint); border-style: dashed; }
 
 /**
- * The legend and the sheet opt out of all of it.
- *
- * Everywhere else, restyling by provenance is how the page says where a thing
- * came from without words. These two are the words. Drawing the key in the
- * ink it defines made the unknown row — the most important line in the legend,
- * because it is the one that reads "nothing on screen" — the faintest and
- * most hatched thing on the page.
+ * A block gets its chip in the corner. Appended after a whole chart, the
+ * letter dropped below it as a stray box that belonged to nothing. Top LEFT,
+ * over the hours axis: the top right is where chamber 8 is numbered.
  */
-.evidence-mode .evidence-strip [data-ev],
-.evidence-mode .sheet [data-ev] {
-  opacity: 1;
-  background-image: none;
+.evidence-mode #chart[data-ev] { position: relative; }
+
+.evidence-mode #chart[data-ev]::after {
+  position: absolute;
+  top: var(--space-1);
+  left: var(--space-1);
+  margin: 0;
 }
 
+/* The legend and the sheet carry their own chips; they do not get a second. */
 .evidence-mode .evidence-strip [data-ev]::after,
 .evidence-mode .sheet [data-ev]::after { content: none; }
 
@@ -745,9 +914,16 @@ input:focus-visible {
    evidence mode: in normal mode there are no codes on screen, so a permanent
    key would be decoding nothing.
 
-   One button at its right end and nothing else. A second control in the same
-   band made the key read as a control panel.
+   It reads as one raised band with the top bar while the mode is on — the
+   bar's rule firms up and the strip takes a lit top edge — so the page looks
+   like it is in a different state without spending colour, which is heat's.
+
+   One control at its right end and nothing else, drawn as a link rather than
+   a button. A second boxed control in the same band made the key read as a
+   control panel, and a boxed one beside it still pulled the eye off the key.
    -------------------------------------------------------------------------- */
+
+.evidence-mode .topbar { border-bottom-color: var(--sand-faint); }
 
 .evidence-strip {
   display: grid;
@@ -755,8 +931,8 @@ input:focus-visible {
   align-items: center;
   gap: var(--space-3) var(--space-4);
   padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--hairline);
-  background: var(--soot-raised);
+  border-bottom: 1px solid var(--clay-line);
+  background: var(--clay);
   flex: 0 0 auto;
 }
 
@@ -766,7 +942,7 @@ input:focus-visible {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2) var(--space-4);
+  gap: var(--space-2) var(--space-5);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -774,50 +950,34 @@ input:focus-visible {
 
 .legend-item {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-2);
+  cursor: help;
 }
 
-/* The code itself: one mark, used in the legend, the labels and the sheet. */
-.ev-code {
-  flex: 0 0 auto;
-  min-width: 1.35em;
-  padding: 1px var(--space-1);
-  font-family: var(--font-mono);
-  font-size: var(--fs-micro);
-  text-align: center;
+.legend-label {
+  font-size: var(--fs-small);
+  color: var(--sand);
+}
+
+.evidence-strip .ctrl {
+  justify-self: end;
+  min-width: 0;
+  padding: var(--space-1) 0;
+  border: 0;
+  /* A resting underline: in sentence case it is otherwise just a phrase. */
+  border-bottom: 1px solid var(--sand-faint);
   color: var(--sand-bright);
-  border: 1px solid var(--hairline-firm);
 }
 
-/**
- * Only one code gets a colour, and it is the simulated one. Colour on this
- * page means heat, and heat is the thing the model invents — so S is marked
- * in the ramp's own tone and every other code is left in sand. The legend
- * then says, without a sentence, that the colour you are looking at is the
- * part that was computed.
- */
-.ev-code[data-code="S"] { color: var(--heat-2); border-color: var(--heat-4); }
-.ev-code[data-code="U"] { color: var(--sand-faint); border-style: dashed; }
-
-.legend-label,
-.legend-count {
-  font-family: var(--font-mono);
-  font-size: var(--fs-micro);
-  letter-spacing: var(--track-wide);
-  text-transform: uppercase;
-}
-
-.legend-label { color: var(--sand); }
-.legend-count { color: var(--sand-faint); }
-
-.evidence-strip .ctrl { justify-self: end; }
+.evidence-strip .ctrl:hover { border-bottom-color: var(--sand-bright); }
 
 /* --------------------------------------------------------------------------
    the details sheet
 
-   A long document, so it is the one place on the page with a reading measure
-   and ordinary sentence case. Everything else here is machine labels.
+   A long document, so it gets a reading measure and a little more leading
+   than the column. Config paths stay in mono: they are code, and are meant to
+   be read against the code.
    -------------------------------------------------------------------------- */
 
 .sheet {
@@ -846,10 +1006,9 @@ input:focus-visible {
 }
 
 .sheet-head h2 {
-  font-size: 1.05rem;
-  font-weight: 800;
+  font-size: var(--fs-lead);
+  font-weight: 700;
   letter-spacing: var(--track-tight);
-  text-transform: uppercase;
   color: var(--sand-bright);
 }
 
@@ -872,14 +1031,14 @@ input:focus-visible {
 .src-head h3 {
   margin: 0;
   font-size: var(--fs-lead);
-  font-weight: 500;
+  font-weight: 600;
   color: var(--sand-bright);
 }
 
 /* The counts are the argument: eight observed against seventy-two chosen. */
 .src-count {
-  font-family: var(--font-mono);
-  font-size: var(--fs-micro);
+  font-size: var(--fs-small);
+  font-variant-numeric: tabular-nums;
   color: var(--sand-dim);
 }
 
@@ -908,7 +1067,6 @@ input:focus-visible {
 }
 
 .src-value {
-  font-family: var(--font-mono);
   font-size: var(--fs-small);
   color: var(--sand-bright);
   text-align: right;
@@ -931,10 +1089,8 @@ input:focus-visible {
   justify-content: space-between;
   gap: var(--space-3);
   padding: var(--space-2) 0;
-  font-family: var(--font-mono);
-  font-size: var(--fs-micro);
-  letter-spacing: var(--track-wide);
-  text-transform: uppercase;
+  font-size: var(--fs-body);
+  font-weight: 500;
   color: var(--sand);
   cursor: pointer;
 }
@@ -967,7 +1123,7 @@ input:focus-visible {
 .method-head h4 {
   margin: 0;
   font-size: var(--fs-body);
-  font-weight: 500;
+  font-weight: 600;
   color: var(--sand-bright);
 }
 
@@ -996,10 +1152,10 @@ input:focus-visible {
 
 @media (max-width: 900px) {
   .stage { grid-template-columns: 1fr; }
-  .side { border-left: 0; border-top: 1px solid var(--hairline); }
+  .side { border-left: 0; border-top: 1px solid var(--clay-line); }
+  .wordmark { font-size: 1.4rem; white-space: normal; }
   .ring-pane { min-height: 58vh; }
   .topbar { grid-template-columns: 1fr auto; row-gap: var(--space-3); }
-  .wordmark { grid-column: 1; justify-self: start; }
   .pill { grid-column: 2; }
   .evidence-strip { grid-template-columns: 1fr; }
   .evidence-strip .ctrl { justify-self: start; }

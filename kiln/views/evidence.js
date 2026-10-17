@@ -27,7 +27,7 @@
  */
 
 import {
-  C, TAGS, NOTES, EVIDENCE, COMPONENTS, METHODS, REFERENCES, OPEN_QUESTIONS,
+  C, TAGS, NOTES, UNITS, EVIDENCE, COMPONENTS, METHODS, REFERENCES, OPEN_QUESTIONS,
 } from '../config.js';
 
 /**
@@ -58,14 +58,14 @@ const GROUP_LABEL = {
   history: 'Dates',
 };
 
-/** Every tagged value in the config, flattened: path, value, tag, note. */
+/** Every tagged value in the config, flattened: path, value, tag, note, unit. */
 function leaves(tags = TAGS, values = C, notes = NOTES, prefix = '') {
   const out = [];
   for (const key of Object.keys(tags)) {
     const tag = tags[key];
     const path = prefix ? `${prefix}.${key}` : key;
     if (typeof tag === 'string') {
-      out.push({ path, tag, value: values?.[key], note: notes?.[key] });
+      out.push({ path, tag, value: values?.[key], note: notes?.[key], unit: UNITS[path] });
     } else {
       out.push(...leaves(tag, values?.[key], notes?.[key], path));
     }
@@ -73,12 +73,37 @@ function leaves(tags = TAGS, values = C, notes = NOTES, prefix = '') {
   return out;
 }
 
+/**
+ * One number with its unit. A `%` unit marks a fraction and is printed as a
+ * percent; `×` is a multiplier and sits against the figure. Rounded to tame
+ * float noise (0.035 * 100 is 3.5000000000000004), not to hide precision.
+ */
+const SINGULAR = {
+  chambers: 'chamber', steps: 'step', tiles: 'tile', points: 'point', passes: 'pass', days: 'day',
+};
+
+function withUnit(n, unit) {
+  if (!unit) return String(n);
+  // "1 chambers per tick" is a typo on screen, however true the number is.
+  if (n === 1) unit = unit.replace(/^\w+/, (w) => SINGULAR[w] ?? w);
+  if (unit.startsWith('%')) return `${+(n * 100).toFixed(2)} ${unit}`;
+  if (unit === '×' || unit === '°') return `${n}${unit}`;
+  return `${n} ${unit}`;
+}
+
 /** A value as a visitor should read it. Arrays are lists, not JSON. */
-function show(value) {
-  if (Array.isArray(value)) return value.join(' · ');
+function show(value, unit) {
+  if (Array.isArray(value)) {
+    // A numeric pair is a range, and the unit belongs to the range once.
+    if (unit && value.every((v) => typeof v === 'number')) {
+      return withUnit(value.join(' – '), unit);
+    }
+    return value.join(' · ');
+  }
   if (value === null) return 'not known';
   if (value === true) return 'yes';
   if (value === false) return 'no';
+  if (typeof value === 'number') return withUnit(value, unit);
   return String(value);
 }
 
@@ -137,26 +162,28 @@ export function createEvidence({ stripEl, legendEl, sheetEl, sheetBodyEl, drawn 
     item.append(codeChip(code), el('span', 'legend-label', EVIDENCE[code].label));
 
     /**
-     * An empty row stays, and says so. Nothing on screen is drawn as unknown
-     * — an unknown is a hole, not a part — and a legend that quietly dropped
-     * the U row would hide the one thing it is best placed to show.
+     * The count lives in the tooltip, with the parts it counts. Printed on
+     * the strip, "N on screen" five times over turned the key into a table
+     * and buried the five letters it exists to decode.
+     *
+     * An empty row stays, and its tooltip says so. Nothing on screen is drawn
+     * as unknown — an unknown is a hole, not a part — and a legend that
+     * quietly dropped the U row would hide the one thing it is best placed to
+     * show.
      */
-    item.append(el('span', 'legend-count', parts.length
-      ? `${parts.length} on screen`
-      : 'nothing on screen'));
     item.title = parts.length
-      ? `${EVIDENCE[code].blurb}\n\n${parts.join('\n')}`
-      : EVIDENCE[code].blurb;
+      ? `${EVIDENCE[code].blurb}\n\n${parts.length} on screen:\n${parts.join('\n')}`
+      : `${EVIDENCE[code].blurb}\n\nNothing on screen.`;
 
     legendEl.append(item);
   }
 
   // --- the sheet, built on first open --------------------------------------
 
-  function rowFor({ path, value, tag, note }) {
+  function rowFor({ path, value, tag, note, unit }) {
     const row = el('div', 'src-row');
     row.dataset.ev = tag;
-    row.append(codeChip(tag), el('code', 'src-path', path), el('span', 'src-value', show(value)));
+    row.append(codeChip(tag), el('code', 'src-path', path), el('span', 'src-value', show(value, unit)));
     if (note) row.append(el('p', 'src-note', note));
     return row;
   }
@@ -259,10 +286,12 @@ export function createEvidence({ stripEl, legendEl, sheetEl, sheetBodyEl, drawn 
       const q = OPEN_QUESTIONS[key];
       const row = el('div', 'src-row');
       row.dataset.ev = q.tag;
-      row.append(codeChip(q.tag), el('span', 'src-path', `${q.ref}  ${q.question}`));
+      // The brief's question number (q.ref) stays in the config for the
+      // author; a visitor has no brief to look 5.1 up in.
+      row.append(codeChip(q.tag), el('span', 'src-path', q.question));
       row.append(el('span', 'src-value', q.value === null
         ? 'open'
-        : `modelled as ${show(q.value)}`));
+        : `modelled as ${show(q.value, q.unit)}`));
       if (q.note) row.append(el('p', 'src-note', q.note));
       open.append(row);
     }
