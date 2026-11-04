@@ -5,7 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>A Kiln on Schedule</title>
   <link rel="preload" href="./vendor/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="style.css">
+  <!--
+    ASSET VERSION — bump "v=" here AND in the import map below whenever any
+    local file changes (same stamp everywhere). Browsers cache ES modules and
+    CSS aggressively under a plain static server; without a changed URL a
+    visitor can run a new views/intro.js against an old config.js (the intro
+    backdrop silently went white that way). views/intro.js reuses its own
+    stamp for assets/factory.glb, so the model is covered too.
+  -->
+  <link rel="stylesheet" href="style.css?v=20261104h">
 
   <!--
     three.js is vendored locally (kiln/vendor/) rather than loaded from a CDN so
@@ -15,7 +23,22 @@
   <script type="importmap">
   {
     "imports": {
-      "three": "./vendor/three.module.js"
+      "three": "./vendor/three.module.js",
+      "./main.js": "./main.js?v=20261104h",
+      "./config.js": "./config.js?v=20261104h",
+      "./engine.js": "./engine.js?v=20261104h",
+      "./history.js": "./history.js?v=20261104h",
+      "./checks.js": "./checks.js?v=20261104h",
+      "./views/intro.js": "./views/intro.js?v=20261104h",
+      "./views/ring.js": "./views/ring.js?v=20261104h",
+      "./views/panel.js": "./views/panel.js?v=20261104h",
+      "./views/labels.js": "./views/labels.js?v=20261104h",
+      "./views/chart.js": "./views/chart.js?v=20261104h",
+      "./views/evidence.js": "./views/evidence.js?v=20261104h",
+      "./views/clock.js": "./views/clock.js?v=20261104h",
+      "./views/heatRamp.js": "./views/heatRamp.js?v=20261104h",
+      "./views/kilnPath.js": "./views/kilnPath.js?v=20261104h",
+      "./views/building.js": "./views/building.js?v=20261104h"
     }
   }
   </script>
@@ -27,7 +50,22 @@
   -->
   <script src="./vendor/d3.min.js"></script>
 </head>
-<body>
+<body class="pre-reveal">
+
+  <!--
+    Intro: a pinned 350vh scroll sequence. views/intro.js owns its own three.js
+    scene on #intro-canvas and reads scroll progress against this section's own
+    bounds to choreograph a camera move around a rough model of the real
+    factory, down into the same top-down pose the kiln's own camera already
+    sits in (views/ring.js), before fading the building out onto the bare kiln
+    underneath. It draws no engine state and sends no actions — see the note
+    in style.css.
+  -->
+  <section class="intro" id="intro">
+    <div class="intro-pin">
+      <canvas id="intro-canvas" aria-hidden="true"></canvas>
+    </div>
+  </section>
 
   <!--
     Top bar: wordmark left, evidence pill right.
@@ -247,6 +285,6 @@
     <div class="sheet-body" id="sources-body"></div>
   </dialog>
 
-  <script type="module" src="./main.js"></script>
+  <script type="module">import './main.js';</script>
 </body>
 </html>

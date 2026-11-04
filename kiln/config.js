@@ -447,6 +447,11 @@ export const PALETTE = {
   sand: '#c8bb99',
   'sand-dim': '#8a7f66',
   'sand-faint': '#574e3e',
+  // The intro's backdrop: the median sunlit yard colour sampled from the
+  // baked ground texture in assets/factory.glb, so the compound sits on a
+  // field of its own earth rather than floating in the dashboard's soot.
+  // Re-sample if the bake's lighting changes.
+  yard: '#c8b9a9',
   // Coolest (0) to hottest (4). Mirrors style.css — see the note there on why
   // this runs yellow -> red rather than the blackbody red -> yellow-white.
   'heat-0': '#ffe9a3',

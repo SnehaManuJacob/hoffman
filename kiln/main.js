@@ -10,6 +10,7 @@ import {
   C, PALETTE, STAGE_COLOUR, TAGS, OPEN_QUESTIONS, COMPONENTS, EVIDENCE,
 } from './config.js';
 import { createEngine } from './engine.js';
+import { createIntro } from './views/intro.js';
 import { createRing, SIMULATED_COLOUR } from './views/ring.js';
 import { createPanel } from './views/panel.js';
 import { createLabels, LABELLED_COMPONENTS } from './views/labels.js';
@@ -23,6 +24,30 @@ const engine = createEngine();
 const ring = createRing(document.getElementById('ring-canvas'), {
   count: C.chambers.count,
 });
+
+/**
+ * The intro (views/intro.js). Skipped for prefers-reduced-motion and for
+ * viewports too small to read an orbiting establishing shot comfortably —
+ * both land straight on the same end state the animated version settles
+ * into (the bare kiln, dashboard chrome still hidden by body.pre-reveal),
+ * just without the camera move. Collapsing #intro to nothing rather than
+ * merely not animating it: a visitor who has asked for reduced motion
+ * should not also have to scroll through 350vh of a frozen opening shot to
+ * get to the kiln.
+ */
+const introSection = document.getElementById('intro');
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  || window.innerWidth < 560;
+
+let intro = null;
+if (reduceMotion) {
+  introSection.style.display = 'none';
+} else {
+  intro = createIntro({
+    sectionEl: introSection,
+    canvas: document.getElementById('intro-canvas'),
+  });
+}
 
 const labels = createLabels(document.getElementById('label-layer'), ring);
 
@@ -132,8 +157,31 @@ document.getElementById('btn-sources-close').addEventListener('click', () => {
 
 window.addEventListener('resize', () => {
   ring.resize();
+  intro?.resize();
   chart.update(engine.state, true);   // width changed: force a rebuild
 });
+
+// --- dashboard reveal --------------------------------------------------------
+
+/**
+ * The page now opens on the intro sequence (style.css: `body.pre-reveal`
+ * hides the topbar, side column and transport bar, leaving only the bare
+ * kiln). This is the hand-off: it drops `pre-reveal` and re-measures the ring
+ * exactly as the evidence-mode toggle already does above, for the same
+ * reason — the ring-pane's box changes size the moment the side column and
+ * transport bar come back, and the canvas only resizes on a window resize
+ * event otherwise.
+ *
+ * Not called anywhere yet. The intro sequence (views/intro.js) will call this
+ * once it has a defined moment to hand off at.
+ */
+function revealDashboard() {
+  document.body.classList.remove('pre-reveal');
+  ring.resize();
+  chart.update(engine.state, true);
+}
+
+window.__revealDashboard = revealDashboard;
 
 // --- failure reporting ------------------------------------------------------
 
@@ -184,6 +232,7 @@ function frame(now) {
 
     // The ring needs dt to settle chamber colours at a rate tied to the cycle.
     ring.update(engine.state, dt);
+    intro?.update();   // reads scroll position only; no engine state involved
     labels.update(engine.state);     // must follow ring: it reads the camera
     panel.update(engine.state);
     chart.update(engine.state);      // redraws only when the record changes
@@ -206,6 +255,7 @@ requestAnimationFrame(frame);
 // Brief rule 14.10: debugging starts in the console.
 window.kiln = engine;
 window.__ring = ring;        // segments[], path — inspect the drawing
+window.__intro = intro;      // camera, renderer, scene, getBuilding() — inspect the camera path
 window.__cfg = { C, PALETTE, STAGE_COLOUR, TAGS, OPEN_QUESTIONS, COMPONENTS, EVIDENCE };
 window.__chart = chart;
 // What the legend was built from: the scene's own parts, the ones only the

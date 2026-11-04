@@ -126,7 +126,17 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
-html, body { height: 100%; margin: 0; }
+/*
+ * min-height, not height: the original one-screen design relied on `height:
+ * 100%` to pin body to exactly one viewport with no scroll. The intro (below)
+ * is 350vh tall on purpose, and a fixed `height: 100%` on a flex column
+ * forces the OTHER children to shrink to fit inside that one viewport instead
+ * of letting the page grow — .stage was measuring 0px tall under it, hidden
+ * entirely rather than sitting below the fold. `min-height` keeps the old
+ * one-screen behaviour (still at least a full viewport when content is
+ * short) without capping it when content is taller.
+ */
+html, body { min-height: 100%; margin: 0; }
 
 body {
   background: var(--soot);
@@ -174,6 +184,51 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
 }
 
 .muted { color: var(--sand-dim); }
+
+/* --------------------------------------------------------------------------
+   intro — pinned scroll sequence ahead of the dashboard
+
+   350vh of scroll track; the sticky inner stays pinned to the viewport while
+   views/intro.js reads scroll progress against #intro's own bounding box and
+   drives a three.js camera on #intro-canvas. `flex: none` matters: body below
+   is a flex column with more total content than 100vh, and every child with
+   the default flex-shrink:1 would get compressed to fit — this one must not.
+
+   Everything here is presentation, not kiln state: the intro draws no engine
+   data and sends no actions, so it stays out of main.js's wiring entirely
+   (brief section 10 — kiln logic lives in engine.js, views read state; the
+   intro has no state to read).
+   -------------------------------------------------------------------------- */
+
+.intro {
+  position: relative;
+  flex: none;
+  height: 350vh;
+}
+
+.intro-pin {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: hidden;
+  z-index: 2;   /* above .stage (below), so the crossfade has something under it */
+}
+
+/*
+ * Deliberately no background colour here: an opaque one would sit behind
+ * #intro-canvas and block the crossfade exactly the way the renderer's own
+ * opaque clear colour did (see views/intro.js) — body's own `background:
+ * var(--soot)` underneath is enough to cover the few milliseconds before the
+ * first animation frame paints.
+ */
+
+#intro-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
 
 /* --------------------------------------------------------------------------
    top bar — wordmark left, pill right
@@ -288,6 +343,58 @@ input:focus-visible {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(300px, 24rem);
   min-height: 0;
+}
+
+/*
+ * Now that body can be taller than one viewport (.intro above), body's
+ * flex-grow has nothing left to distribute to .stage — content-sized flex
+ * containers have no free space by definition, so .stage would otherwise
+ * settle at whatever small height its own content happens to hug to. The
+ * dashboard is still meant to read as its own full screen once scrolled
+ * into, same as the original one-screen design, so it gets an explicit
+ * floor here instead of relying on flex-grow to hand it one.
+ */
+.stage { min-height: 100vh; }
+
+/*
+ * Storytelling phase (new): the page now opens on the intro sequence, not the
+ * dashboard. `body.pre-reveal` is the default state — topbar, the evidence
+ * strip, the side column and the transport bar are all out of the page, so
+ * what the intro hands off into is the bare kiln and nothing else. The grid's
+ * second track is collapsed too, not just hidden: an empty `minmax(300px,...)`
+ * track still reserves its minimum width, which would leave a blank strip
+ * beside a canvas meant to be full-bleed.
+ *
+ * `.stage` is also taken out of normal flow and fixed to the viewport,
+ * stacked directly under `.intro-pin` (z-index 1 against its 2). This is
+ * what makes the hand-off a real crossfade rather than a hard cut: without
+ * it, #ring-canvas only enters the viewport once the visitor scrolls past
+ * all 350vh of `.intro`, so there is nothing underneath for the intro canvas
+ * to fade onto while it is still pinned. Fixing `.stage` also means it
+ * contributes no height to the page while pre-reveal is active, so the
+ * scrollable page is exactly `.intro`'s 350vh — the scroll simply ends on
+ * the bare kiln, which is the "nothing else" the brief asks for here.
+ *
+ * ring.js keeps rendering #ring-canvas every frame regardless of any of this
+ * (main.js's loop does not know or care where the canvas sits on screen), so
+ * nothing in ring.js needs to change for the crossfade to have something live
+ * to fade onto.
+ *
+ * main.js removes this class once revealDashboard() is called — a hand-off
+ * point this file wires but does not yet trigger (see main.js) — which
+ * returns `.stage` to its normal static, grid-laid-out flow.
+ */
+body.pre-reveal .stage {
+  grid-template-columns: 1fr;
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+}
+body.pre-reveal .topbar,
+body.pre-reveal .evidence-strip,
+body.pre-reveal .side,
+body.pre-reveal .transport {
+  display: none;
 }
 
 .ring-pane {

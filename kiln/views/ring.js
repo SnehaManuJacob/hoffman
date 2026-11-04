@@ -215,7 +215,7 @@ export function createRing(canvas, options = {}) {
   camera.position.set(0, 20, 0);
   camera.up.set(0, 0, -1);
   camera.lookAt(0, 0, 0);
-  const FIT_MARGIN = 1.08;
+  const FIT_MARGIN = 1.3;
 
   const path = createLoopPath({
     topology: C.form.topology,
