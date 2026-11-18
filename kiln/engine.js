@@ -140,34 +140,117 @@ export function gasAt(curve, pos) {
 }
 
 /**
+ * How many rows of fuel holes a chamber has, and so how many steps the fire
+ * takes to cross it. The thermal model works in these rows, not in whole
+ * chambers: see FIRE_ZONE below.
+ */
+export const ROWS = C.parts.stokeHolesPerChamber;
+
+/**
  * The order gas travels through the kiln, as chamber indices.
  *
- * In behind the chambers that have just fired, forward through them, through
- * the fire, and on through the ones being preheated. This is the same route
- * the airflow arrow draws, and the reason the kiln is shaped like a loop at
- * all: one pass of air does two useful jobs.
+ *   in through the open doorway of the chamber being UNLOADED
+ *     -> through the chambers that have fired, cooling them and warming itself
+ *     -> through the fire
+ *     -> through the chambers ahead, giving that heat to unfired tiles
+ *     -> out by the one open damper
  *
- * With `recovery` off the second job is cut: the gas leaves through a damper at
+ * This is the same route the airflow arrow draws, and the reason the kiln is
+ * built as a loop: one pass of air does two useful jobs.
+ *
+ * WHERE THE AIR COMES IN. It used to start at the first cooling chamber,
+ * through an opening invented for the purpose, with the chamber being
+ * unloaded left outside the draught to cool by itself. Accounts of working
+ * Hoffmann kilns say otherwise: the kiln is sealed except where it is being
+ * worked on, and the air is drawn in through the doorway that has been broken
+ * open to unload. So the path now begins one chamber further back — the one
+ * past the cooling run, which is the one the crew is emptying — and that
+ * chamber is the first thing the cold air meets.
+ *
+ * With `recovery` off the last job is cut: the gas leaves through a damper at
  * the fire and goes straight up the chimney, still hot. The chambers ahead get
  * nothing and arrive at the fire cold. That one changed index is the whole of
  * section 6.5.
  *
- * The intake leg stays either way. That is simply how air reaches the fire, and
- * removing it would mean inventing a separate cold-air inlet the brief does not
- * describe.
- *
  * Literature, not observation (config `thermal.counterCurrent`, tag L). The
  * flow path at Kundapur was not seen.
  */
+/**
+ * THE HEAT LEDGER.
+ *
+ * Everything in fuel units (heat divided by `heatPerFuel`), so each line can
+ * be read against the fuel that paid for it.
+ *
+ *   IN    fuel      what was burned
+ *   OUT   exhaust   carried up the chimney by the gas
+ *         unload    carried out of the door in the fired tiles
+ *         ambient   lost through the walls of chambers standing out of the draught
+ *
+ * The balance, which checks.js holds the model to:
+ *
+ *   fuel  =  exhaust + unload + ambient + (change in heat stored in the kiln)
+ *
+ * Two more lines move heat about INSIDE the kiln and so are not part of the
+ * balance. They are what the kiln is for:
+ *
+ *   cooling   heat the incoming air took from fired tiles behind the fire
+ *   preheat   heat the gas left in unfired tiles ahead of the fire
+ */
+export function newLedger() {
+  return { fuel: 0, exhaust: 0, unload: 0, ambient: 0, cooling: 0, preheat: 0 };
+}
+
 export function flowPath(state, recovery = true) {
   const count = state.chambers.length;
   const { pre, cool } = state.params.window;
   const path = [];
   const last = recovery ? pre : 0;
-  for (let k = -cool; k <= last; k++) {
+  // Never so far back that the path would lap round onto its own far end.
+  const back = Math.min(cool + 1, count - 1 - last);
+  for (let k = -back; k <= last; k++) {
     path.push(((state.firePos + k) % count + count) % count);
   }
   return path;
+}
+
+/**
+ * THE FIRING ZONE, and how the fire moves.
+ *
+ * The fire is not a thing that sits in one chamber and then jumps to the
+ * next. Fuel dropped onto tiles that are already red-hot lights by itself, so
+ * the fire "moves" because the crew starts feeding the next row of holes
+ * ahead and stops feeding the last row behind. It creeps.
+ *
+ * So the model feeds a ZONE: `ROWS` rows long — one chamber's length — ending
+ * at the leading row. The leading row steps forward one row at a time, ROWS
+ * times in each interval. `firePos` is the chamber the leading row is in.
+ *
+ *   start of an interval   the leading row is the FIRST row of the chamber
+ *                          the fire has just entered; the rest of the zone is
+ *                          still in the chamber behind
+ *   end of an interval     the zone fills this chamber exactly, and the next
+ *                          step takes its leading row into the chamber ahead
+ *
+ * "Every two hours the fire moves on one chamber" is therefore still true —
+ * it is the leading edge crossing a dividing line — but nothing changes state
+ * all at once. A chamber takes the fire row by row and gives it up row by row.
+ *
+ * Literature for the mechanism (tag L). The number of rows is the number of
+ * stoke holes drawn per chamber, which is an assumption (tag A), and what is
+ * actually done at Kundapur every two hours is an open question (5.2).
+ *
+ * Returns whether cell `c` (chamber * ROWS + row) is being fed.
+ */
+export function inFireZone(state, c) {
+  const total = state.chambers.length * ROWS;
+  const lead = state.firePos * ROWS + (state.fireRow ?? ROWS - 1);
+  const behind = ((lead - c) % total + total) % total;
+  if (behind >= ROWS) return false;
+  const ch = Math.floor(c / ROWS);
+  // Only where there is a fire to keep going: the chamber the fire is in, or
+  // one it has already been through. Not the chamber behind a fire that has
+  // only just been lit.
+  return ch === state.firePos || !!state.chambers[ch].fired;
 }
 
 function makeChambers(count) {
@@ -177,6 +260,10 @@ function makeChambers(count) {
     loaded: !C.loading.startEmpty,
     temp: C.temperature.ambientC,   // degrees, simulated. Owned by the thermal model.
     heat: 0,                        // relative 0-1, simulated. Never degrees.
+    // The same, for each row of fuel holes along the chamber, in the order
+    // the fire meets them. A chamber is not one temperature: `heat` is the
+    // mean of these.
+    rowHeat: new Array(ROWS).fill(0),
     stage: 'wait',
     fired: false,                   // has been through the fire since loading
     heldEmpty: false,               // emptied by hand: the crew must leave it
@@ -203,6 +290,9 @@ export function createEngine(options = {}) {
     tick: 0,
     subTime: 0,                      // progress through the current tick, 0..1
     firePos: 0,
+    // Which row of the firing chamber the fire's leading edge has reached,
+    // 0 to ROWS - 1. See FIRE_ZONE. Set by the thermal clock, not by a view.
+    fireRow: 0,
     chambers: makeChambers(count),
     params: {
       ...DEFAULT_PARAMS,
@@ -241,6 +331,13 @@ export function createEngine(options = {}) {
 
   // Simulated hours banked but not yet integrated — see integrateThermal.
   let thermalCarry = 0;
+  // Simulated hours integrated since the fire last entered a chamber: what
+  // decides which row its leading edge has reached.
+  let intervalHours = 0;
+  const cells = count * ROWS;
+  const rowAt = (hours) => Math.min(
+    ROWS - 1, Math.max(0, Math.floor(hours / (C.time.tickHours / ROWS) + 1e-9)),
+  );
 
   /**
    * TWO thermal worlds: the same kiln, the same schedule, one difference.
@@ -256,12 +353,68 @@ export function createEngine(options = {}) {
    * the two worlds differ in exactly one thing and no more.
    */
   const worlds = {
-    on: { temps: new Array(count).fill(C.temperature.ambientC), fuel: 0 },
-    off: { temps: new Array(count).fill(C.temperature.ambientC), fuel: 0 },
+    on: { temps: new Array(count).fill(C.temperature.ambientC), cells: new Array(cells).fill(C.temperature.ambientC), fuel: 0, ledger: newLedger() },
+    off: { temps: new Array(count).fill(C.temperature.ambientC), cells: new Array(cells).fill(C.temperature.ambientC), fuel: 0, ledger: newLedger() },
+  };
+  /**
+   * How much heat a world is holding above the yard's temperature, in fuel
+   * units: the "stored" term of the balance. Derived, never kept.
+   */
+  const storedHeat = (world) => {
+    const ambient = C.temperature.ambientC;
+    const cellMass = C.thermalModel.chamberMass / ROWS;
+    let sum = 0;
+    for (let c = 0; c < cells; c++) sum += cellMass * (world.cells[c] - ambient);
+    return sum / C.thermalModel.heatPerFuel;
+  };
+  /**
+   * `cells` is what the model integrates: one temperature per row of fuel
+   * holes, ROWS to a chamber. `temps` is each chamber's mean of those, kept
+   * beside it because the chart, the history and the checks all speak in
+   * chambers. It is always derived from `cells`, never the other way round.
+   */
+  const meanTemps = (world) => {
+    for (let i = 0; i < count; i++) {
+      let sum = 0;
+      for (let r = 0; r < ROWS; r++) sum += world.cells[i * ROWS + r];
+      world.temps[i] = sum / ROWS;
+    }
   };
   // Engine-owned, exposed so history can record both and the console can read
   // them. No view touches this: views read `chamber.heat` and nothing else.
   state.thermal = worlds;
+
+  /**
+   * Fresh tiles go in cold.
+   *
+   * A chamber's heat is mostly in its load. When that load is carried out and
+   * unfired tiles are stacked in its place, the heat goes out with it: what
+   * stays warm is the masonry. Without this the model handed the old load's
+   * temperature to the new one, and "restacked" chambers stood at several
+   * hundred degrees with tiles in them that had never been near a fire.
+   *
+   * `masonryShare` is how much of a chamber's heat is in its walls and so is
+   * kept (config thermalModel, tag A). Applied to both worlds, at the moment
+   * a chamber is loaded.
+   */
+  function stackCold(i) {
+    const ambient = C.temperature.ambientC;
+    const keep = C.thermalModel.masonryShare;
+    const toFuel = 1 / C.thermalModel.heatPerFuel;
+    for (const world of [worlds.on, worlds.off]) {
+      for (let r = 0; r < ROWS; r++) {
+        const c = i * ROWS + r;
+        const kept = ambient + (world.cells[c] - ambient) * keep;
+        // What the fired tiles carry out through the door with them.
+        world.ledger.unload += toFuel * (C.thermalModel.chamberMass / ROWS) * (world.cells[c] - kept);
+        world.cells[c] = kept;
+      }
+      meanTemps(world);
+    }
+    // So the chamber reads cool from the moment it is stacked, not from the
+    // next time the model happens to be stepped.
+    publishThermal();
+  }
 
   /** The world the views are currently looking at. */
   const activeWorld = () => (state.params.recovery ? worlds.on : worlds.off);
@@ -276,11 +429,21 @@ export function createEngine(options = {}) {
     for (let i = 0; i < count; i++) {
       state.chambers[i].temp = w.temps[i];
       state.chambers[i].heat = relativeHeat(w.temps[i]);
+      // A fresh array each time, so a recorded moment keeps its own rows.
+      state.chambers[i].rowHeat = Array.from(
+        { length: ROWS }, (_, r) => relativeHeat(w.cells[i * ROWS + r]),
+      );
     }
     state.fuelIndex = w.fuel;
     // Relative units and a count, never a mass. Per chamber fired rather than a
     // running total: a total only says how long you have been watching.
     state.fuelCompare = { on: worlds.on.fuel, off: worlds.off.fuel, firings: state.firings };
+    // The books for both worlds, and what each is holding: copies, so a
+    // recorded moment keeps its own.
+    state.heatLedger = {
+      on: { ...worlds.on.ledger, stored: storedHeat(worlds.on) },
+      off: { ...worlds.off.ledger, stored: storedHeat(worlds.off) },
+    };
     // The gas on its way round, for the airflow arrow. Degrees, like `temp`.
     // Both worlds, so the console can compare them; the arrow draws the active
     // one, which is the one the fuel figure in bold belongs to.
@@ -332,9 +495,14 @@ export function createEngine(options = {}) {
     const path = state.phase === 'charging' ? [] : flowPath(state, recovery);
     const onPath = new Set(path);
 
+    // A chamber's mass and its contact with the gas, shared out among its
+    // rows, so the constants in config still describe a whole chamber.
+    const cellMass = M.chamberMass / ROWS;
+    const cellExchange = M.exchangeRate / ROWS;
+
     /**
-     * The gas temperature at every point on its journey, written down as it
-     * goes and returned to the caller.
+     * The gas temperature at every chamber boundary on its journey, written
+     * down as it goes and returned to the caller.
      *
      * Nothing here is computed FOR this: `gas` is the model's own working
      * value, recorded at each chamber boundary instead of being thrown away.
@@ -344,47 +512,120 @@ export function createEngine(options = {}) {
      */
     const profile = [];
 
+    /**
+     * `maxFuelRate` is the most the crew can feed AT ONCE, so it is one
+     * budget for the whole zone, not an allowance per row. In practice nearly
+     * all of it goes to the leading row: the rows behind it are already at
+     * heat and need only a trickle to stay there. They are met first on the
+     * gas's way through, so they are served first and the leading row takes
+     * what is left.
+     */
+    let feedLeft = M.maxFuelRate;
+
+    // Every flow of heat is booked as it happens, in fuel units, so the
+    // balance can be checked rather than believed. See `newLedger`.
+    const L = world.ledger ?? newLedger();   // a dry run keeps no books
+    const toFuel = 1 / M.heatPerFuel;
+    const firePlace = path.indexOf(state.firePos);
+
     let gas = ambient;
-    for (const i of path) {
+    for (let place = 0; place < path.length; place++) {
+      const i = path[place];
       const inC = gas;
+      let given = 0;      // heat the gas left in this chamber's tiles
+      let taken = 0;      // heat the gas picked up from them
+      let burned = 0;     // fuel fed in this chamber
 
-      // Gas and chamber trade heat. Positive q means the chamber is the hotter
-      // of the two and is giving heat up to the gas.
-      const q = M.exchangeRate * (world.temps[i] - gas) * dt;
-      world.temps[i] -= q / M.chamberMass;
-      gas += q / M.gasMass;
+      // Row by row, in the order the gas meets them.
+      for (let r = 0; r < ROWS; r++) {
+        const c = i * ROWS + r;
 
-      if (i === state.firePos) {
-        /**
-         * Fuel is fed at whatever rate holds the band. That is an assumption:
-         * how the crew actually decides a feed rate is unknown (section 4
-         * lists what workers watch and adjust as unknown).
-         *
-         * It is also the whole of Day 8. The feed answers demand, so a chamber
-         * that arrived cold costs more to bring to the same peak — and with
-         * recovery off every chamber arrives cold. Nothing here knows about
-         * recovery; the difference arrives through `flowPath` alone.
-         */
-        const rate = Math.max(0, Math.min(
-          M.maxFuelRate, (M.targetC - world.temps[i]) * M.fuelGain,
-        ));
-        world.temps[i] += (rate * dt * M.heatPerFuel) / M.chamberMass;
-        gas = Math.max(gas, world.temps[i]);   // the fire sets the gas leaving it
-        world.fuel += rate * dt;               // relative units, never a mass
+        // Gas and tiles trade heat. Positive q means the row is the hotter of
+        // the two and is giving heat up to the gas.
+        const q = cellExchange * (world.cells[c] - gas) * dt;
+        world.cells[c] -= q / cellMass;
+        gas += q / M.gasMass;
+        if (q > 0) taken += q * toFuel; else given -= q * toFuel;
+
+        if (inFireZone(state, c)) {
+          /**
+           * Fuel is fed at whatever rate holds the band. That is an
+           * assumption: how the crew actually decides a feed rate is unknown
+           * (section 4 lists what workers watch and adjust as unknown).
+           *
+           * It is also the whole of Day 8. The feed answers demand, so a row
+           * that arrives cold costs more to bring to the same peak — and with
+           * recovery off every row arrives cold. Nothing here knows about
+           * recovery; the difference arrives through `flowPath` alone.
+           */
+          /**
+           * THE FIRE, AND WHERE ITS HEAT GOES.
+           *
+           * In the fire the gas and the row it is passing through come to one
+           * temperature, and the fuel heats the two of them together. So the
+           * gas leaves the fire as hot as the tiles in it — and every degree
+           * of that is paid for, by the tiles or by the fuel.
+           *
+           * It used to be set to the tiles' temperature for nothing: the gas
+           * got hotter and nothing got cooler. That was heat from nowhere,
+           * about 215 fuel units a chamber against 356 of real fuel, and it
+           * made the fuel figures cheaper than the model's own rules allow.
+           */
+          const both = cellMass + M.gasMass;
+          const before = world.cells[c];
+          let mixed = (cellMass * world.cells[c] + M.gasMass * gas) / both;
+          const rate = Math.max(0, Math.min(
+            feedLeft, (M.targetC - mixed) * M.fuelGain / ROWS,
+          ));
+          feedLeft -= rate;
+          mixed += (rate * dt * M.heatPerFuel) / both;
+          // The row's share of the mixing, booked like any other exchange.
+          const moved = cellMass * (before - (cellMass * before + M.gasMass * gas) / both) * toFuel;
+          if (moved > 0) taken += moved; else given -= moved;
+          world.cells[c] = mixed;
+          gas = mixed;
+          world.fuel += rate * dt;               // relative units, never a mass
+          burned += rate * dt;
+        }
       }
 
-      profile.push({ chamber: i, inC, outC: gas, fire: i === state.firePos });
+      L.fuel += burned;
+      // Heat changing hands between gas and tiles, by which side of the fire
+      // it happened on. Internal to the kiln: these move heat, they neither
+      // add nor remove it, and are kept apart from the balance for that reason.
+      if (place < firePlace) L.cooling += taken - given;
+      else if (place > firePlace) L.preheat += given - taken;
+      profile.push({
+        chamber: i, inC, outC: gas, fire: i === state.firePos,
+        // Per simulated hour, fuel units: what the tiles here gained from the
+        // gas (negative where they are giving heat up to it instead). NOT the
+        // same thing as the gas's fall in temperature — that is `inC - outC`.
+        toTiles: (given - taken) / dt,
+        fuelRate: burned / dt,
+      });
     }
+    // Whatever the gas still carries above the yard's air when it reaches a
+    // damper goes up the chimney.
+    if (path.length) L.exhaust += M.gasMass * (gas - ambient) * toFuel;
 
     // Everything off the flow path just loses heat to the outside.
     for (let i = 0; i < count; i++) {
       if (onPath.has(i)) continue;
-      world.temps[i] += (ambient - world.temps[i]) * Math.min(1, M.ambientLossRate * dt);
+      for (let r = 0; r < ROWS; r++) {
+        const c = i * ROWS + r;
+        const lost = (world.cells[c] - ambient) * Math.min(1, M.ambientLossRate * dt);
+        world.cells[c] -= lost;
+        L.ambient += cellMass * lost * toFuel;
+      }
     }
 
-    for (let i = 0; i < count; i++) {
-      if (world.temps[i] < ambient) world.temps[i] = ambient;  // nothing goes below the yard
+    for (let c = 0; c < cells; c++) {
+      if (world.cells[c] < ambient) {            // nothing goes below the yard
+        L.ambient -= cellMass * (ambient - world.cells[c]) * toFuel;
+        world.cells[c] = ambient;
+      }
     }
+    meanTemps(world);
 
     // Degrees, like `temps`. Views take it through `relativeHeat`, the same
     // way they take a chamber's — so arrow and tiles share one scale.
@@ -405,7 +646,7 @@ export function createEngine(options = {}) {
   function gasProfiles() {
     const dt = C.thermalModel.subStepHours;
     const dry = (world, recovery) =>
-      stepWorld({ temps: world.temps.slice(), fuel: 0 }, recovery, dt);
+      stepWorld({ temps: world.temps.slice(), cells: world.cells.slice(), fuel: 0, ledger: null }, recovery, dt);
     return { on: dry(worlds.on, true), off: dry(worlds.off, false) };
   }
 
@@ -425,6 +666,10 @@ export function createEngine(options = {}) {
 
     while (thermalCarry >= M.subStepHours) {
       thermalCarry -= M.subStepHours;
+      // Where the fire's leading edge is for this sub-step: it has had
+      // `intervalHours` in this chamber, and takes one row at a time.
+      state.fireRow = rowAt(intervalHours);
+      intervalHours += M.subStepHours;
       // Both worlds advance together, on the same schedule and the same clock.
       stepWorld(worlds.on, true, M.subStepHours);
       stepWorld(worlds.off, false, M.subStepHours);
@@ -492,6 +737,7 @@ export function createEngine(options = {}) {
     for (let i = 0; i < count && loads > 0; i++) {
       if (offsetOf(i) >= lastIdle && offsetOf(i) <= firstIdle && canLoad(i)) {
         state.chambers[i].loaded = true;
+        stackCold(i);
         state.chambers[i].fired = false;
         loads--;
       }
@@ -543,6 +789,7 @@ export function createEngine(options = {}) {
       const ch = state.chambers[i];
       if (!ch.loaded && !ch.heldEmpty) {
         ch.loaded = true;
+        stackCold(state.chambers.indexOf(ch));
         ch.fired = false;
         return true;
       }
@@ -608,6 +855,9 @@ export function createEngine(options = {}) {
 
     state.firePos = next;
     state.tick += 1;
+    // The leading edge has crossed into the next chamber: its first row.
+    state.fireRow = 0;
+    intervalHours = 0;
 
     // The chamber now in the fire has had its firing. That is what later marks
     // it ready to be unloaded once it goes idle.
@@ -665,6 +915,9 @@ export function createEngine(options = {}) {
     } else {
       return;                        // unknown policy: leave the fork standing
     }
+    // A new interval, wherever the fire now is.
+    state.fireRow = 0;
+    intervalHours = 0;
 
     // Whichever way the fork is answered, two hours pass and the kiln keeps
     // burning — including "fire empty", where the fuel buys nothing.
@@ -762,6 +1015,10 @@ export function createEngine(options = {}) {
           state.subTime = 0;
           state.paused = true;
           thermalCarry = 0;        // sub-tick bookkeeping does not survive a jump
+          // A snapshot is taken as the fire arrives in a chamber (or, for the
+          // one stepped by hand, once it has filled it): `fireRow` says which.
+          state.fireRow = snap.fireRow ?? 0;
+          intervalHours = state.fireRow >= ROWS - 1 ? C.time.tickHours : 0;
 
           /**
            * BOTH worlds are restored, not just the one on screen. Restoring
@@ -771,9 +1028,13 @@ export function createEngine(options = {}) {
            */
           state.firings = snap.firings;
           worlds.on.temps = snap.thermal.on.slice();
+          worlds.on.cells = snap.thermal.onCells.slice();
           worlds.on.fuel = snap.thermal.onFuel;
+          worlds.on.ledger = { ...newLedger(), ...snap.thermal.onLedger };
           worlds.off.temps = snap.thermal.off.slice();
+          worlds.off.cells = snap.thermal.offCells.slice();
           worlds.off.fuel = snap.thermal.offFuel;
+          worlds.off.ledger = { ...newLedger(), ...snap.thermal.offLedger };
           publishThermal();
 
           syncStages(state);
@@ -799,6 +1060,7 @@ export function createEngine(options = {}) {
         const i = action.index;
         if (!state.chambers[i]) break;
         state.chambers[i].loaded = true;
+        stackCold(i);
         state.chambers[i].fired = false;
         state.chambers[i].heldEmpty = false;   // hand it back to the crew
         // Reloading the chamber the fork is waiting on clears the fork.

@@ -580,10 +580,14 @@ export function kilnChecks() {
     assert(fireWarm > 0, 'the fire never reached the band at all');
 
     // The kiln's mass is the slow part. Measured: the fire is in the band by
-    // tick 2, the kiln takes a full loop of 8 to come within 5% of settling.
+    // tick 2, the kiln takes 5 to come within 5% of settling. (It was a full
+    // loop of 8, and the ratio asked for was 3, before the model let heat
+    // leave with an unloaded batch: fresh tiles now go in cool, so the kiln
+    // as a whole stores less and settles sooner. Still more than half a loop,
+    // and still far slower than the fire.)
     assert(kilnWarm >= count / 2,
       `the whole kiln was warm by tick ${kilnWarm}, less than half a loop`);
-    assert(kilnWarm >= fireWarm * 3,
+    assert(kilnWarm >= fireWarm * 2,
       `the kiln warmed in ${kilnWarm} ticks against the fire's ${fireWarm} — barely slower`);
 
     return `fire in the band at tick ${fireWarm}; kiln mean ${Math.round(ambient)} -> `
@@ -736,6 +740,63 @@ export function kilnChecks() {
       + `(${(rateOff / rateOn).toFixed(2)}x) over ${firings} firings`;
   }));
 
+  /**
+   * The heat balance. Without this the fuel comparison is two numbers that
+   * may or may not obey the model's own rules — and for a while they did not:
+   * the gas left the fire as hot as the tiles in it and nothing paid for it.
+   *
+   *   fuel in  =  up the chimney + out with the fired tiles + through the walls
+   *               + change in what the kiln is holding
+   *
+   * Held to both worlds, over the same boundaries, from a cold kiln onwards —
+   * so through lighting, start-up and steady running, not only where it is easy.
+   */
+  results.push(check('heat in equals heat out plus heat stored, both ways', () => {
+    const e = light(createEngine());
+    let worst = 0;
+    for (let i = 0; i < count * 4; i++) {
+      e.dispatch({ type: 'tick' });
+      for (const key of ['on', 'off']) {
+        const L = e.state.heatLedger[key];
+        // Stored heat started at nothing: the kiln was at the yard's temperature.
+        const gap = Math.abs(L.fuel - L.exhaust - L.unload - L.ambient - L.stored);
+        worst = Math.max(worst, gap / Math.max(1, L.fuel));
+      }
+    }
+    assert(worst < 1e-6, `the books are out by ${(worst * 100).toFixed(4)}% of the fuel burned`);
+    return `books balance to ${(worst * 100).toExponential(1)}% of fuel over ${count * 4} intervals`;
+  }));
+
+  /**
+   * In steady running the kiln holds the same heat at the end of a loop as at
+   * the start, so every unit of fuel has to be found again in one of three
+   * places. And the two worlds must differ where the rule says they do: the
+   * tiles carried out are the same either way (same schedule, same band); what
+   * changes is how much goes up the chimney.
+   */
+  results.push(check('over one loop the fuel is all accounted for', () => {
+    const e = settled();
+    const a = e.state.heatLedger;
+    for (let i = 0; i < count; i++) e.dispatch({ type: 'tick' });
+    const b = e.state.heatLedger;
+    const d = {};
+    for (const key of ['on', 'off']) {
+      d[key] = {};
+      for (const f of Object.keys(b[key])) d[key][f] = (b[key][f] - a[key][f]) / count;
+      const out = d[key].exhaust + d[key].unload + d[key].ambient;
+      assert(Math.abs(d[key].stored) < 0.01 * d[key].fuel,
+        `recovery ${key}: not steady, the kiln's stored heat moved by ${d[key].stored.toFixed(1)} a chamber`);
+      assert(Math.abs(d[key].fuel - out - d[key].stored) < 1e-6 * d[key].fuel,
+        `recovery ${key}: ${d[key].fuel.toFixed(1)} burned, ${out.toFixed(1)} found`);
+    }
+    assert(d.off.preheat === 0, 'heat reached the tiles ahead with the exhaust sent to the chimney');
+    assert(d.on.preheat > 0, 'no heat reached the tiles ahead with the exhaust sent through them');
+    assert(d.off.exhaust > d.on.exhaust, 'the chimney carries no more heat when nothing is recovered');
+    return `per chamber, on: ${d.on.fuel.toFixed(0)} = ${d.on.exhaust.toFixed(0)} chimney + `
+      + `${d.on.unload.toFixed(0)} tiles + ${d.on.ambient.toFixed(0)} walls; `
+      + `off: ${d.off.fuel.toFixed(0)} = ${d.off.exhaust.toFixed(0)} + ${d.off.unload.toFixed(0)} + ${d.off.ambient.toFixed(0)}`;
+  }));
+
   // 28. The other half of 6.5: with the exhaust going straight up the chimney
   //     the chambers ahead get nothing and arrive at the fire cold.
   results.push(check('without recovery the chambers ahead stay cold', () => {
@@ -825,8 +886,11 @@ export function kilnChecks() {
     const p = e.state.gasProfile;
     const ambient = C.temperature.ambientC;
 
-    assert(p.length === C.windows.cool + C.windows.preheat + 1,
-      `${p.length} entries for a flow path of ${C.windows.cool + C.windows.preheat + 1}`);
+    // Inlet (the chamber being unloaded, whose open door lets the air in),
+    // the cooling run, the fire, the preheat run.
+    const pathLength = 1 + C.windows.cool + 1 + C.windows.preheat;
+    assert(p.length === pathLength,
+      `${p.length} entries for a flow path of ${pathLength}`);
     assert(Math.abs(p[0].inC - ambient) < 1e-9,
       `gas enters at ${p[0].inC.toFixed(1)} C, not ambient ${ambient} C`);
 
@@ -872,8 +936,9 @@ export function kilnChecks() {
     const exit = (p) => p[p.length - 1].outC;
     const peak = (p) => Math.max(...p.map((g) => g.outC));
 
-    assert(off.length === C.windows.cool + 1,
-      `${off.length} chambers on the path without recovery, expected ${C.windows.cool + 1}`);
+    // Inlet, the cooling run, and the fire, where the gas leaves.
+    assert(off.length === 1 + C.windows.cool + 1,
+      `${off.length} chambers on the path without recovery, expected ${C.windows.cool + 2}`);
     assert(exit(off) >= peak(off) - 1e-9,
       `exhaust leaves at ${Math.round(exit(off))} C with nothing ahead to cool it, `
       + `below the peak ${Math.round(peak(off))} C`);

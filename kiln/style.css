@@ -51,10 +51,23 @@
   font-display: swap;
 }
 
+/* Orbitron — the landing headline only (.intro-title). Vendored like Archivo
+   so the exhibition laptop needs no network: vendor/fonts/orbitron.woff2,
+   from @fontsource-variable/orbitron 5.1.1, SIL OFL (OFL-orbitron.txt). */
+@font-face {
+  font-family: "Orbitron";
+  src: url("./vendor/fonts/orbitron.woff2") format("woff2");
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   /* --- ground: soot. Warm near-black, never neutral grey. --- */
   --soot:        #16120d;
   --soot-raised: #1e1913;
+  --kiln-floor: #2B2622;   /* inside the ring of chambers (views/ring.js) */
+  --paper: #2e2c29;        /* the blueprint's paper (views/intro.js, views/ring.js) */
   --hairline:    #2b241b;
   --hairline-firm: #443a2c;
 
@@ -72,6 +85,10 @@
    * The heat ramp, ordered coolest (0) to hottest (4).
    * THE ONLY CHROMA ON THE PAGE. Reserved for
    * temperature — if a thing is not hot, it may not use these.
+   *
+   * One exception: produce. Ripe arecanut is this colour in life
+   * (views/problem.js), so it keeps it, but only ever as a lit, shaded
+   * fruit, never as a flat field, so it cannot be read as heat.
    *
    * NOT a blackbody ramp, and deliberately so. Section 9 asks for dull red ->
    * orange -> yellow-white, which is how incandescence really works: a cooling
@@ -129,7 +146,7 @@
 /*
  * min-height, not height: the original one-screen design relied on `height:
  * 100%` to pin body to exactly one viewport with no scroll. The intro (below)
- * is 350vh tall on purpose, and a fixed `height: 100%` on a flex column
+ * is 900vh tall on purpose, and a fixed `height: 100%` on a flex column
  * forces the OTHER children to shrink to fit inside that one viewport instead
  * of letting the page grow — .stage was measuring 0px tall under it, hidden
  * entirely rather than sitting below the fold. `min-height` keeps the old
@@ -188,7 +205,7 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
 /* --------------------------------------------------------------------------
    intro — pinned scroll sequence ahead of the dashboard
 
-   350vh of scroll track; the sticky inner stays pinned to the viewport while
+   900vh of scroll track; the sticky inner stays pinned to the viewport while
    views/intro.js reads scroll progress against #intro's own bounding box and
    drives a three.js camera on #intro-canvas. `flex: none` matters: body below
    is a flex column with more total content than 100vh, and every child with
@@ -203,7 +220,7 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
 .intro {
   position: relative;
   flex: none;
-  height: 350vh;
+  height: 900vh;   /* five phases plus a reading hold (views/intro.js, HOLD) */
 }
 
 .intro-pin {
@@ -228,6 +245,1180 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
   width: 100%;
   height: 100%;
   display: block;
+}
+
+/*
+ * The opening question. Bottom-left over the yard, near-black on the beige
+ * the model sits on. Archivo at its widest and heaviest: the one typeface the
+ * site ships, pushed to a display setting.
+ */
+.intro-copy {
+  position: absolute;
+  left: clamp(var(--space-4), 5vw, 6rem);
+  right: clamp(var(--space-4), 5vw, 6rem);
+  bottom: clamp(var(--space-5), 8vh, 6rem);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  pointer-events: none;
+}
+
+.intro-title {
+  margin: 0;
+  color: #15120f;
+  font-family: "Orbitron", var(--font-display);
+  /* Orbitron Bold, 54px on a 1440px-wide screen (the mockup's setting),
+     scaling with the width from there. Two lines, broken after "teach us"
+     in the markup. */
+  font-size: clamp(1.75rem, 3.75vw, 4.25rem);
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.intro-sub {
+  max-width: 62em;
+  margin: 0;
+  color: #2a2622;
+  font-family: var(--font-display);
+  font-size: clamp(0.95rem, 1.25vw, 1.3rem);
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+/*
+ * The project statement, during the blueprint phase. Top right, in the
+ * drawing's light ink on its dark-grey paper. Hidden until views/intro.js
+ * brings it in; each word is a span it lights as the visitor scrolls.
+ */
+.intro-brief {
+  position: absolute;
+  top: clamp(var(--space-5), 8vh, 6rem);
+  right: clamp(var(--space-4), 5vw, 6rem);
+  max-width: min(30em, 44vw);
+  margin: 0;
+  /* A panel of the paper itself with a hairline, so the drawing's lines
+     don't run through the words. */
+  padding: 1.5rem 1.75rem;
+  background: #3a3733;
+  border-radius: 12px;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 22px 44px -22px rgba(0, 0, 0, 0.7);
+  color: #ece8e1;
+  font-family: var(--font-display);
+  font-size: clamp(1rem, 1.45vw, 1.6rem);
+  font-weight: 400;
+  line-height: 1.45;
+  text-wrap: pretty;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Words not reached yet are faint, not absent: the reader can see how much
+   is left, and the paragraph keeps its shape as it fills in. */
+.intro-brief .word {
+  opacity: 0.18;
+  transition: opacity 120ms linear;
+}
+
+/* --------------------------------------------------------------------------
+   the tour of the kiln's parts (views/anatomy.js)
+
+   Pinned over the kiln like the intro. Everything here is drawn in the
+   blueprint's ink on its paper: a hairline leader from the part to a card
+   in the margin beside the kiln.
+   -------------------------------------------------------------------------- */
+
+.anatomy {
+  position: relative;
+  flex: none;
+  /* height set by views/anatomy.js from the number of steps */
+}
+
+.anatomy-pin {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: hidden;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.anatomy-leader {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+}
+
+.anatomy-leader line {
+  stroke: rgba(236, 232, 225, 0.7);
+  stroke-width: 1;
+}
+
+/* One small dot where the line lands, ringed in the paper's colour so it
+   stays legible on a filled part. No halo: a target ring says "interface",
+   and this is an annotation on a drawing. */
+.anatomy-leader .leader-dot {
+  fill: #ece8e1;
+  stroke: var(--paper);
+  stroke-width: 2;
+}
+.anatomy-leader .leader-halo { display: none; }
+
+/* While one part is picked out, the line that points at it wears the accent
+   the kiln draws it in (--tour-accent, set from views/ring.js). */
+.anatomy-leader[data-mode="part"] line { stroke: var(--tour-accent); }
+.anatomy-leader[data-mode="part"] .leader-dot { fill: var(--tour-accent); }
+
+/* --- the two panels: the note, and the reference image -------------------
+
+   Slips of a slightly lighter stock laid on the drawing sheet. Opaque, one
+   soft shadow to lift them off the grid, and no outline: the edge is the
+   change of tone. Colour is not used for decoration here. The accent appears
+   exactly once on the note, as the key beside the title, because that is the
+   one place it carries information (this colour = that part). */
+.anatomy-card,
+.anatomy-figure {
+  --slip: #3a3733;
+  --slip-ink: #ece8e1;
+  --slip-ink-soft: #b9b4ab;
+  position: absolute;
+  top: 0;
+  left: 0;
+  margin: 0;
+  background: var(--slip);
+  border-radius: 12px;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 22px 44px -22px rgba(0, 0, 0, 0.7);
+  color: var(--slip-ink);
+  font-family: var(--font-display);
+  opacity: 0;
+  visibility: hidden;
+}
+
+.anatomy-card {
+  width: min(23rem, 25vw);
+  padding: 1.5rem 1.6rem 1.25rem;
+}
+
+.anatomy-title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6em;
+  margin: 0 0 0.75rem;
+  color: #ffffff;
+  font-family: "Orbitron", var(--font-display);
+  font-size: clamp(1.05rem, 1.35vw, 1.4rem);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+/* The key: a swatch of the colour the part is drawn in, as on a map legend. */
+.anatomy-key {
+  flex: none;
+  width: 0.62em;
+  height: 0.62em;
+  border-radius: 2px;
+  background: var(--tour-accent);
+  transform: translateY(-0.04em);
+}
+.anatomy-card[data-mode="whole"] .anatomy-key { display: none; }
+
+/* A step shared by two parts: a note either side of the kiln. The one not
+   being shown keeps an empty key, and its image is inside the note,
+   under the words. */
+.anatomy-card[data-pair="true"][data-on="false"] .anatomy-key {
+  background: none;
+  box-shadow: inset 0 0 0 1px var(--slip-ink-soft);
+}
+/* The image as part of the note: no slip of its own, set under the words. */
+.anatomy-figure.is-inline {
+  position: static;
+  width: auto;
+  margin: 1.1rem 0 0;
+  background: none;
+  border-radius: 0;
+  box-shadow: none;
+  opacity: 1 !important;
+  visibility: inherit !important;
+  transform: none !important;
+}
+.anatomy-figure.is-inline img {
+  height: min(11rem, 21vh);
+  border-radius: 8px;
+  object-fit: cover;
+}
+.anatomy-figure.is-inline figcaption { padding: 0.65rem 0 0; }
+.anatomy-figure.is-inline .anatomy-figure-cap { font-size: 0.8125rem; color: var(--slip-ink-soft); }
+.anatomy-figure.is-inline .anatomy-figure-note { margin-top: 0.3rem; font-size: 0.6875rem; }
+
+.anatomy-text {
+  margin: 0;
+  color: var(--slip-ink);
+  font-size: clamp(0.95rem, 1.05vw, 1.0625rem);
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
+/* Below the note: where the knowledge comes from, and where in the tour
+   this is. Quiet, sentence case, set apart by space and one rule. */
+.anatomy-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 1.1rem 0 0;
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(236, 232, 225, 0.14);
+  color: var(--slip-ink-soft);
+  font-size: 0.8125rem;
+  line-height: 1.2;
+}
+
+.anatomy-ev {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55em;
+}
+
+/* The same letter code as the evidence legend on the dashboard. */
+.anatomy-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5em;
+  height: 1.5em;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px rgba(236, 232, 225, 0.45);
+  color: var(--slip-ink);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* Field observation is the only one filled in: it is the firmest ground. */
+.anatomy-card[data-ev="F"] .anatomy-chip {
+  background: var(--slip-ink);
+  box-shadow: none;
+  color: var(--slip);
+}
+
+.anatomy-step { font-variant-numeric: tabular-nums; }
+
+/* The reference image: the picture runs to the slip's edges, with the
+   caption beneath it like a plate in a book. */
+.anatomy-figure {
+  width: min(20rem, 22vw);
+  overflow: hidden;
+}
+
+.anatomy-figure img {
+  display: block;
+  width: 100%;
+  max-height: 42vh;
+  object-fit: cover;
+  background: #1c1b19;
+}
+
+.anatomy-figure figcaption {
+  padding: 0.9rem 1.1rem 1rem;
+}
+
+.anatomy-figure-cap {
+  display: block;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+.anatomy-figure-note {
+  display: block;
+  margin-top: 0.5rem;
+  color: var(--slip-ink-soft);
+  font-size: 0.75rem;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+/* --- "The fire": the computed panel ---------------------------------------
+
+   The same slip as the note, wider, and the main thing on the screen. Read
+   top to bottom it is the kiln's logic in order: what time it is, where in
+   the schedule that falls, the rule that turns one into the other, and what
+   state that leaves each chamber in. */
+.anatomy-compute {
+  --slip: #3a3733;
+  --slip-ink: #ece8e1;
+  --slip-ink-soft: #b9b4ab;
+  --rule: rgba(236, 232, 225, 0.14);
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: min(27rem, 30vw);
+  padding: 1.2rem 1.5rem 1rem;
+  background: var(--slip);
+  border-radius: 12px;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 22px 44px -22px rgba(0, 0, 0, 0.7);
+  color: var(--slip-ink);
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+  opacity: 0;
+  visibility: hidden;
+}
+
+.compute-head {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+}
+
+.compute-clock { flex: none; width: 4.6rem; height: 4.6rem; }
+.compute-clock circle:first-child { fill: none; stroke: rgba(236, 232, 225, 0.35); stroke-width: 1.5; }
+.compute-marks line { stroke: var(--slip-ink); stroke-width: 2.5; stroke-linecap: round; }
+.compute-hand { stroke: var(--tour-accent); stroke-width: 3.5; stroke-linecap: round; }
+.compute-pin { fill: var(--tour-accent); }
+
+.compute-readout { margin: 0; display: flex; flex-direction: column; gap: 0.15rem; }
+.compute-time {
+  color: #ffffff;
+  font-size: clamp(1.6rem, 2.3vw, 2.25rem);
+  font-weight: 600;
+  font-stretch: 88%;
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+.compute-of { color: var(--slip-ink-soft); }
+
+/* The schedule: eight cells, one per chamber and per two hours, filling
+   left to right. The cell being filled is the chamber on fire. */
+.compute-rail {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 3px;
+  margin-top: 1.1rem;
+}
+.rail-cell {
+  position: relative;
+  height: 1.65rem;
+  border-radius: 3px;
+  background: rgba(236, 232, 225, 0.09);
+  overflow: hidden;
+}
+.rail-cell i {
+  position: absolute;
+  inset: 0;
+  background: rgba(236, 232, 225, 0.3);
+  transform-origin: left center;
+  transform: scaleX(0);
+}
+.rail-cell.is-now i { background: var(--tour-accent); }
+.rail-cell b {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--slip-ink);
+}
+.rail-cell.is-now b { color: #1d1030; }
+
+.compute-next {
+  margin: 0.45rem 0 0;
+  color: var(--slip-ink-soft);
+  font-size: 0.8125rem;
+}
+
+/* The rule, worked. Label left, this moment's value right. */
+.compute-rule {
+  margin: 0.95rem 0 0;
+  padding: 0.3rem 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+.compute-rule div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.3rem 0;
+}
+.compute-rule dt { color: var(--slip-ink-soft); }
+.compute-rule dd { margin: 0; color: #ffffff; font-weight: 600; text-align: right; }
+
+/* What is set where right now: the four things that step on at each move. */
+.compute-now { margin: 0; padding: 0.3rem 0; border-bottom: 1px solid var(--rule); }
+.compute-now div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.22rem 0;
+}
+.compute-now dt { color: var(--slip-ink-soft); }
+.compute-now dd { margin: 0; color: var(--slip-ink); text-align: right; }
+
+/* Eight chambers. The marker behind the firing row slides to the next row
+   as the fire crosses, so the move reads as a movement here as well. */
+.compute-table { position: relative; margin-top: 0.7rem; }
+.compute-marker {
+  position: absolute;
+  left: -0.6rem;
+  right: -0.6rem;
+  top: 0;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--tour-accent) 22%, transparent);
+  box-shadow: inset 3px 0 0 var(--tour-accent);
+}
+.compute-rows { position: relative; margin: 0; padding: 0; list-style: none; }
+.compute-rows li {
+  display: grid;
+  grid-template-columns: 1.1rem 1fr 5.4em 10.2em;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.24rem 0;
+  color: var(--slip-ink-soft);
+}
+.compute-rows .row-n { font-weight: 600; color: var(--slip-ink); }
+.compute-rows .row-bar {
+  height: 0.5rem;
+  border-radius: 2px;
+  background: rgba(236, 232, 225, 0.09);
+  overflow: hidden;
+}
+.compute-rows .row-bar i {
+  display: block;
+  height: 100%;
+  transform-origin: left center;
+}
+.compute-rows .row-temp { color: var(--slip-ink); text-align: right; white-space: nowrap; }
+.compute-rows li.is-fire { color: #ffffff; }
+.compute-rows li.is-fire .row-temp { color: #ffffff; font-weight: 600; }
+.compute-rows li.is-fire .row-state { font-weight: 600; }
+
+.compute-fuel {
+  display: grid;
+  grid-template-columns: auto 1fr 2.6em;
+  align-items: center;
+  gap: 0.7rem;
+  margin: 0.7rem 0 0;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--rule);
+}
+.compute-fuel-bar {
+  height: 0.5rem;
+  border-radius: 2px;
+  background: rgba(236, 232, 225, 0.09);
+  overflow: hidden;
+}
+.compute-fuel-bar i {
+  display: block;
+  height: 100%;
+  background: var(--slip-ink);
+  transform-origin: left center;
+  transform: scaleX(0);
+}
+.compute-fuel-num { text-align: right; color: #ffffff; font-weight: 600; }
+
+.compute-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55em;
+  margin: 0.8rem 0 0;
+  color: var(--slip-ink-soft);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+.compute-note .anatomy-chip { flex: none; }
+
+/*
+ * "Heat, handed forward". The same slip as the fire's panel, so the two read
+ * as one instrument turned to a second question.
+ */
+.anatomy-recover {
+  --slip: #3a3733;
+  --slip-ink: #ece8e1;
+  --slip-ink-soft: #b9b4ab;
+  --rule: rgba(236, 232, 225, 0.14);
+  --lost: #d9603f;
+  --kept: #cfc6b4;
+  --walls: #7d776d;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: min(22rem, 26vw);
+  padding: 1.1rem 1.5rem 1rem;
+  background: var(--slip);
+  border-radius: 12px;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 22px 44px -22px rgba(0, 0, 0, 0.7);
+  color: var(--slip-ink);
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+  opacity: 0;
+  visibility: hidden;
+}
+.recover-h { margin: 0 0 0.9rem; font-weight: 600; color: #ffffff; }
+.recover-row {
+  display: grid;
+  grid-template-columns: 1fr 3.4rem;
+  align-items: center;
+  gap: 0.3rem 0.7rem;
+  margin: 0.8rem 0 0;
+}
+.recover-row .rr-name { grid-column: 1 / -1; color: var(--slip-ink); }
+.recover-row .rr-track {
+  display: block;
+  border-radius: 4px;
+  background: rgba(236, 232, 225, 0.07);
+}
+.recover-row .rr-bar {
+  display: block;
+  width: 0;
+  height: 1.25rem;
+  border-radius: 4px;
+  background: var(--kept);
+}
+.recover-row[data-k="off"] .rr-bar { background: var(--lost); }
+.recover-row .rr-num {
+  text-align: right;
+  color: #ffffff;
+  font-weight: 600;
+  opacity: var(--shown, 0);
+}
+.recover-ratio {
+  margin: 1rem 0 0;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--rule);
+  color: #ffffff;
+  line-height: 1.4;
+  opacity: var(--told, 0);
+}
+.anatomy-recover .compute-note { margin-top: 1.1rem; }
+
+/* The line that rises over the kiln as each kiln is shown. Placed by the
+   scroll (anatomy.js, placeSays), never by a timer. */
+.anatomy-say {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  margin: 0;
+  color: #f4f0e9;
+  /* The page's own face, wide and heavy, rather than the title's display
+     face: at this size that one reads as a game's lettering. */
+  font-family: var(--font-display);
+  font-size: 3rem;               /* set to fit by anatomy.js, fitSays */
+  font-stretch: 112%;
+  font-weight: 800;
+  line-height: 0.96;
+  letter-spacing: -0.015em;
+  text-align: center;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  will-change: transform, opacity;
+}
+/* A soft shade under the words, so they are read against one tone and not
+   against tiles, walls and the path at once. It fades with the line. */
+.anatomy-say::before {
+  content: "";
+  position: absolute;
+  inset: -70% -22%;
+  z-index: -1;
+  background: radial-gradient(closest-side,
+    rgba(33, 31, 28, 0.9), rgba(33, 31, 28, 0.72) 45%, rgba(33, 31, 28, 0) 100%);
+}
+/* The first line of each is the quieter one; the second carries the point. */
+.anatomy-say .say-head {
+  display: block;
+  margin-bottom: 0.3em;
+  font-size: 0.36em;
+  font-stretch: 100%;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  color: #b9b4ab;
+}
+.anatomy-say[data-kiln="off"] .say-rest { color: #f0764f; }
+
+/* The one figure on the kiln: beside the chamber the fire reaches next. */
+.anatomy-arrive {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  justify-items: center;
+  gap: 0.1rem;
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  opacity: 0;
+}
+.anatomy-arrive b { color: #ffffff; font-size: 1.25rem; font-weight: 600; }
+.anatomy-arrive[data-kiln="off"] b { color: #d9603f; }
+.anatomy-arrive em { color: #b9b4ab; font-size: 0.75rem; font-style: normal; }
+
+/* The same numerals, on the kiln. */
+.anatomy-numbers { position: absolute; inset: 0; opacity: 0; }
+.anatomy-numbers span {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  color: #d6d1c8;
+  font-family: var(--font-display);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.anatomy-numbers span.is-fire { background: var(--tour-accent); color: #1d1030; }
+
+/* --------------------------------------------------------------------------
+   "The logic in the kiln" (views/logic.js)
+
+   A plain ground with no grid and no kiln, so the section reads as a step
+   back from the building to the idea. Two colour roles only: the accent for
+   whatever is doing the counting, the heat colours for whatever is hot.
+   -------------------------------------------------------------------------- */
+
+.logic {
+  /* The opening screen's clay (config PALETTE.yard), so the page ends its
+     story on the ground it began on. Words on it are dark; the cards stay
+     dark slips, where the heat colours and the accent read best. */
+  --ground: #cab9a7;
+  --on-ground: #1d1915;
+  --card: #2a2724;
+  --ink: #f1ede6;
+  --ink-soft: #a8a297;
+  --line: rgba(241, 237, 230, 0.16);
+  --accent: #B46AFF;
+  --ask-ink: #1d1030;      /* dark ink on the accent (as the Loop card's lit dot) */
+  position: relative;
+  flex: none;
+  pointer-events: none;
+  /* height and the pull up over the tour's tail are set by logic.js */
+}
+.logic-pin {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: hidden;
+  z-index: 3;
+  visibility: hidden;
+}
+.logic-shade { position: absolute; inset: 0; background: var(--ground); opacity: 0; }
+
+/* The chamber numbers: bare on the kiln, boxed once they are a row. */
+.logic-cells { position: absolute; inset: 0; opacity: 0; z-index: 1; }
+.logic-cells span {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  place-items: center;
+  width: var(--cell, 3.5rem);
+  height: var(--cell, 3.5rem);
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1.5px rgba(29, 25, 21, calc(0.45 * var(--boxed, 0)));
+  /* Light on the kiln, dark once the clay ground is up (--lit), light again
+     once they are on the dark panel (--oncard). All set by logic.js. */
+  color: color-mix(in srgb, var(--ink-soft) calc(var(--oncard, 0) * 100%),
+    color-mix(in srgb, var(--on-ground) calc(var(--lit, 0) * 100%), #f1ede6));
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+/* The Loop card's lit dot is the accent: its number goes dark on it. */
+.logic-cells span.is-on { color: #1d1030; }
+
+.logic-intro {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  width: min(44rem, 84vw);
+  text-align: center;
+  opacity: 0;
+}
+.logic-intro h2 {
+  margin: 0 0 1.1rem;
+  color: var(--on-ground);
+  font-family: "Orbitron", var(--font-display);
+  font-size: clamp(2rem, 4vw, 3.6rem);
+  font-weight: 700;
+  line-height: 1.1;
+}
+.logic-intro p {
+  margin: 0 auto;
+  max-width: 36rem;
+  color: var(--on-ground);
+  font-size: clamp(1.05rem, 1.35vw, 1.3rem);
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+/* One dark panel that comes up once and stays; the cards are only what is
+   written and drawn on it, laid exactly over it, and change in place. */
+.logic-panel,
+.logic-card {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(74rem, 88vw);
+  height: min(36rem, 74vh);
+  border-radius: 22px;
+  opacity: 0;
+}
+.logic-panel {
+  background: var(--card);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 34px 70px -34px rgba(60, 40, 20, 0.55);
+}
+/* A few words on the left, the drawing given the room. */
+.logic-card {
+  display: grid;
+  grid-template-columns: minmax(0, 0.42fr) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(1.5rem, 3vw, 3.5rem);
+  padding: clamp(1.75rem, 3.2vw, 3.25rem);
+  visibility: hidden;
+}
+.logic-card-n {
+  margin: 0 0 1.2rem;
+  color: var(--ink-soft);
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+.logic-card h3 {
+  margin: 0 0 1rem;
+  color: #ffffff;
+  font-family: "Orbitron", var(--font-display);
+  font-size: clamp(1.75rem, 3.1vw, 3rem);
+  font-weight: 700;
+  line-height: 1.05;
+}
+.logic-card-text {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(1.05rem, 1.3vw, 1.3rem);
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+.logic-card-art { display: block; width: 100%; height: 100%; overflow: visible; }
+
+/* After the last card: the five terms loose on the clay, then a purple
+   ground (the section's accent, so the question reads as the next thing
+   doing the work) and the question. Stacked: ground, terms, question. */
+.logic-ask {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: var(--accent);
+  opacity: 0;
+}
+.logic-terms { position: absolute; inset: 0; z-index: 3; visibility: hidden; }
+.logic-terms span {
+  position: absolute;
+  top: 0;
+  left: 0;
+  white-space: nowrap;
+  /* Same face as the cards' titles, so the last title can become one. */
+  font-family: "Orbitron", var(--font-display);
+  font-weight: 700;
+  line-height: 1.05;
+  /* --onpanel and --purple are set by logic.js. */
+  color: color-mix(in srgb, #ffffff calc(var(--onpanel, 1) * 100%),
+    color-mix(in srgb, var(--ask-ink) calc(var(--purple, 0) * 100%), var(--on-ground)));
+  opacity: 0;
+}
+.logic-question {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 4;
+  width: min(52rem, 86vw);
+  text-align: center;
+  opacity: 0;
+}
+.logic-question h2 {
+  margin: 0;
+  color: var(--ask-ink);
+  font-family: "Orbitron", var(--font-display);
+  font-size: clamp(2.2rem, 5vw, 4.6rem);
+  font-weight: 700;
+  line-height: 1.12;
+  text-wrap: balance;
+}
+
+/* --------------------------------------------------------------------------
+   The drying problem (views/problem.js)
+
+   A 3D place under a canvas; on top of it only what has to be read: the
+   words low on the left over a soft scrim, the day count and the bars as the
+   tour's dark slips, and labels pinned to things in the world.
+   -------------------------------------------------------------------------- */
+
+.problem {
+  --pb-ink: #f6f1e9;
+  --pb-ink-soft: rgba(246, 241, 233, 0.74);
+  position: relative;
+  flex: none;
+  pointer-events: none;
+  /* height and the pull up over the logic section's end: problem.js */
+}
+.problem-pin {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: hidden;
+  z-index: 4;               /* over the logic section's pin while both hold */
+  visibility: hidden;
+}
+.problem-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.problem-scrim {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 52vh;
+  background: linear-gradient(to top, rgba(20, 16, 12, 0.66), rgba(20, 16, 12, 0.28) 45%, rgba(20, 16, 12, 0));
+  opacity: 0;
+}
+
+.problem-copy {
+  position: absolute;
+  left: clamp(1rem, 5vw, 5rem);
+  bottom: clamp(1.5rem, 8vh, 5.5rem);
+  /* Narrow enough to stay clear of the grower under the dryer's row. */
+  width: min(29rem, calc(100vw - 2rem));
+}
+/* Each passage sits on a dark slip, like the day count and the bars: the
+   world behind it is bright and busy (white walls, palms), and a gradient
+   alone left words sitting on a lit wall unreadable. The slip fades in just
+   ahead of the words and out with them (problem.js). */
+.pb-copy {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: fit-content;
+  max-width: 100%;
+  padding: 1.15rem 1.35rem 1.2rem;
+  background: rgba(24, 20, 16, 0.66);
+  -webkit-backdrop-filter: blur(14px) saturate(1.1);
+  backdrop-filter: blur(14px) saturate(1.1);
+  border-radius: 16px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07), 0 18px 40px -22px rgba(0, 0, 0, 0.55);
+  visibility: hidden;
+  opacity: 0;
+}
+.pb-line {
+  margin: 0;
+  color: var(--pb-ink);
+  font-size: clamp(1.15rem, 1.7vw, 1.7rem);
+  line-height: 1.34;
+  text-wrap: pretty;
+}
+.pb-big {
+  font-family: "Orbitron", var(--font-display);
+  font-size: clamp(1.6rem, 3vw, 2.8rem);
+  font-weight: 700;
+  line-height: 1.1;
+}
+.pb-word { display: inline-block; white-space: pre; opacity: 0; will-change: transform, opacity; }
+.pb-src {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  margin: 1rem 0 0;
+  color: var(--pb-ink-soft);
+  font-size: 0.875rem;
+  opacity: 0;
+}
+.pb-chip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5em;
+  height: 1.5em;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px var(--pb-ink-soft);
+  color: var(--pb-ink);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+/* Field observation is the only one filled in, as on the tour's slips. */
+.pb-chip[data-ev="F"] { background: var(--pb-ink); box-shadow: none; color: #1d1915; }
+/* Not known: dashed, as the dashboard's legend draws U. */
+.pb-chip[data-ev="U"] { box-shadow: none; outline: 1px dashed var(--pb-ink-soft); outline-offset: -1px; }
+/* A term card: in the words' place, after the paragraph that lights an
+   idea in the tray. A purple rule and the idea's name in the title face
+   set it apart from a passage; the pill on the right stays lit with it. */
+.pb-copy--term { border-left: 3px solid #B46AFF; padding-left: 1.2rem; max-width: 26rem; }
+.pb-tc-term {
+  margin: 0 0 0.55rem;
+  color: #B46AFF;
+  font-family: "Orbitron", var(--font-display);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.pb-tc-def { margin: 0; color: var(--pb-ink); font-size: clamp(1.1rem, 1.55vw, 1.45rem); line-height: 1.32; text-wrap: pretty; }
+.pb-tc-here { margin: 0.8rem 0 0; color: var(--pb-ink-soft); font-size: 0.95rem; line-height: 1.45; text-wrap: pretty; }
+.pb-tc-here b { color: #B46AFF; font-weight: 700; margin-right: 0.15em; }
+
+/* The closing line: out of the corner, centred under the drawing, wide,
+   with no slip behind it (the drawing's dark paper is enough). */
+.pb-copy.pb-copy--finale {
+  position: fixed;
+  left: 50%;
+  bottom: clamp(3rem, 13vh, 8rem);
+  width: min(62rem, 86vw);
+  max-width: none;
+  transform: translateX(-50%);
+  padding: 0;
+  background: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: none;
+  text-align: center;
+}
+.pb-copy--finale .pb-line { text-wrap: balance; }
+
+/* Several sources under one passage, one to a line. */
+.pb-srcs { margin-top: 1rem; display: grid; gap: 0.4rem; opacity: 0; }
+.pb-srcs .pb-src { margin: 0; opacity: 1; }
+
+/* The slips: the tour's dark cards, made translucent over the world. */
+.pb-slip {
+  position: absolute;
+  color: var(--pb-ink);
+  background: rgba(29, 25, 21, 0.56);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+  opacity: 0;
+}
+.pb-day {
+  top: clamp(1rem, 5vh, 3rem);
+  right: clamp(1rem, 4vw, 3rem);
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.8rem 1.1rem 0.85rem;
+  text-align: right;
+}
+.pb-day-n {
+  font-family: "Orbitron", var(--font-display);
+  font-size: clamp(1.6rem, 2.6vw, 2.4rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.pb-day-where { color: var(--pb-ink-soft); font-size: 0.8125rem; }
+.pb-bars {
+  right: clamp(1rem, 4vw, 3rem);
+  bottom: clamp(2rem, 10vh, 6.5rem);
+  width: min(26rem, calc(100vw - 2rem));
+  display: grid;
+  gap: 0.7rem;
+  padding: 1rem 1.15rem;
+}
+.pb-bar-row {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.8125rem;
+}
+.pb-bar-row em { font-style: normal; color: var(--pb-ink-soft); font-variant-numeric: tabular-nums; }
+.pb-bar-row i { position: relative; display: block; height: 0.6rem; }
+/* One scale for both rows: 45 days is the full track. */
+.pb-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 99px;
+  background: var(--pb-ink);
+  transform-origin: left;
+  transform: scaleX(0);
+}
+.pb-bar-row:first-child .pb-fill { width: calc(100% * 14 / 45); }
+.pb-fill[data-k="in"] { width: calc(100% * 30 / 45); }
+.pb-fill.is-range { left: calc(100% * 30 / 45); width: calc(100% * 15 / 45); opacity: 0.38; border-radius: 0 99px 99px 0; }
+
+.problem-labels { position: absolute; inset: 0; }
+.pb-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 0.3rem 0.6rem;
+  margin-top: -0.6rem;
+  color: var(--pb-ink);
+  background: rgba(29, 25, 21, 0.6);
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+  opacity: 0;
+}
+
+/* The kiln's return: chamber numbers on the drawing, and the five ideas in
+   a tray across the top, each a small slip. */
+.pb-return { position: absolute; inset: 0; visibility: hidden; }
+.pb-num {
+  position: absolute;
+  top: 0;
+  left: 0;
+  color: #f6f1e9;
+  font-family: var(--font-display);
+  font-size: clamp(1rem, 1.4vw, 1.3rem);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  opacity: 0;
+}
+.pb-tray {
+  /* A column down the right, centred on the screen's height. */
+  position: absolute;
+  top: 50%;
+  right: clamp(1rem, 3vw, 2.5rem);
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.55rem;
+  width: max-content;
+  max-width: min(17rem, 30vw);
+  opacity: 0;
+}
+.pb-tray .pb-term { text-align: right; white-space: nowrap; }
+/* Narrow screens: no room beside the drawing, so a row across the top. */
+@media (max-width: 720px) {
+  .pb-tray {
+    top: clamp(1rem, 5vh, 3rem);
+    right: auto;
+    left: 50%;
+    transform: translateX(-50%);
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: calc(100vw - 2rem);
+  }
+}
+.pb-term {
+  padding: 0.45rem 0.85rem;
+  color: var(--pb-ink);
+  background: rgba(29, 25, 21, 0.62);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border-radius: 99px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  font-family: "Orbitron", var(--font-display);
+  font-size: clamp(0.72rem, 0.95vw, 0.9rem);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  opacity: 0;
+}
+
+/* Stage 6 (views/transform.js): the kiln changed into the dryer, drawn on
+   the kiln drawing's paper in its ink. Purple is the logic section's: it
+   marks whatever does the controlling. */
+.pb-transform { position: absolute; inset: 0; width: 100%; height: 100%; visibility: hidden; opacity: 0; }
+.pb-transform text { font-family: var(--font-display); }
+.pb-transform .is-mid { text-anchor: middle; }
+.pb-transform .pb6-label { font-size: 13px; fill: #9a958d; }
+.pb-transform .pb6-role { font-size: 13px; font-weight: 600; fill: #e4e0da; }
+.pb-transform .pb6-air { font-size: 13px; font-weight: 600; fill: #a9cdd4; }
+.pb-transform .pb6-box { font-size: 15px; font-weight: 600; fill: #ffffff; }
+.pb-transform .pb6-plug { font-size: 14px; font-weight: 600; fill: #B46AFF; }
+.pb-transform .pb6-chip { font-size: 10px; font-weight: 700; fill: #e4e0da; }
+.pb-transform .pb6-chip.is-filled { fill: #2e2c29; }
+/* Stage 7: the dryer's name, in the site's title face (its own wordmark is
+   "A Kiln on Schedule"), and the batch letters that stay in their bays. */
+.pb-transform .pb7-title { font-family: "Orbitron", var(--font-display); font-size: clamp(1.6rem, 3vw, 2.8rem); font-weight: 700; fill: #ffffff; }
+.pb-transform .pb7-sub { font-size: clamp(0.9rem, 1.2vw, 1.1rem); fill: #e4e0da; }
+.pb-transform .pb7-step { font-size: 13px; font-weight: 600; fill: #B46AFF; letter-spacing: 0.04em; }
+.pb-transform .pb7-tag { font-family: "Orbitron", var(--font-display); font-size: 12px; font-weight: 700; fill: #e4e0da; }
+.pb-transform .pb7-role { font-family: "Orbitron", var(--font-display); font-size: 11.5px; font-weight: 700; letter-spacing: 0.06em; }
+.pb-transform .pb7-desc { font-size: 12.5px; font-weight: 600; }
+/* The tray: an idea lights when the beat that keeps it lands. */
+.pb-term { transition: background-color 400ms ease, color 400ms ease, box-shadow 400ms ease; }
+.pb-term.is-lit { background: rgba(180, 106, 255, 0.28); box-shadow: inset 0 0 0 1px rgba(180, 106, 255, 0.7); }
+.pb-term.is-now { background: #B46AFF; color: #1d1030; box-shadow: 0 0 0 4px rgba(180, 106, 255, 0.25); }
+
+/* Narrow screens: the bars go up under the day count, out of the words' way. */
+@media (max-width: 720px) {
+  .pb-bars { top: calc(clamp(1rem, 5vh, 3rem) + 5.2rem); bottom: auto; }
+}
+.logic-card-art text { font-family: var(--font-display); fill: var(--ink-soft); font-size: 14px; }
+.logic-card-art .is-mid { text-anchor: middle; }
+.logic-card-art .is-end { text-anchor: end; }
+.logic-card-art .lc-num { text-anchor: middle; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.logic-card-art .lc-num.is-end { text-anchor: end; }
+.logic-card-art .lc-key { font-size: 12.5px; }
+.logic-card-art .lc-cell.is-empty { stroke: var(--ink-soft); stroke-width: 1.5; stroke-dasharray: 4 4; }
+
+/* 1. Algorithm */
+.logic-card-art .lc-line { font-size: 21px; }
+.logic-card-art .lc-line { fill: #ffffff; }
+.logic-card-art .lc-line.is-dim { fill: var(--ink-soft); }
+.logic-card-art .lc-bullet { fill: var(--accent); }
+.logic-card-art .lc-box { fill: #332f2b; stroke: var(--line); stroke-width: 2; }
+.logic-card-art .lc-box.is-on { stroke: var(--accent); }
+.logic-card-art .lc-boxtext { font-size: 22px; font-weight: 600; fill: #ffffff; font-variant-numeric: tabular-nums; }
+.logic-card-art .lc-wire { fill: none; stroke: var(--ink-soft); stroke-width: 2; opacity: 0.7; }
+.logic-card-art .lc-wirehead { fill: none; stroke: var(--ink-soft); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.logic-card-art .lc-token { fill: var(--accent); }
+.logic-card-art .lc-sweep { fill: none; stroke: var(--accent); stroke-width: 4; stroke-linecap: round; }
+.logic-card-art .lc-mark { fill: none; stroke: var(--ink-soft); stroke-width: 2; }
+.logic-card-art .lc-tick { fill: none; stroke: var(--ink-soft); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.logic-card-art .lc-mark.is-on,
+.logic-card-art .lc-tick.is-on { stroke: var(--accent); stroke-width: 3; }
+
+/* 2. Loop */
+.logic-card-art .lc-track { fill: none; stroke: var(--line); stroke-width: 2; }
+.logic-card-art .lc-join { fill: none; stroke: var(--line); stroke-width: 2; }
+.logic-card-art .lc-join.is-on { stroke: var(--accent); stroke-width: 4; }
+.logic-card-art .lc-dot { fill: #3b3733; }
+.logic-card-art .lc-dot.is-on { fill: var(--accent); }
+.logic-card-art .lc-dotnum { text-anchor: middle; font-size: 16px; font-weight: 600; fill: var(--ink); pointer-events: none; }
+.logic-card-art .lc-marker { fill: none; stroke: var(--accent); stroke-width: 3; }
+.logic-card-art .lc-big { text-anchor: middle; font-family: "Orbitron", var(--font-display); font-size: 64px; font-weight: 700; fill: #ffffff; }
+.logic-card-art .lc-soft.is-on { fill: var(--accent); font-weight: 600; }
+
+/* 5. Trigger: the wire lights as the clock comes round; the tiles' input is
+   an empty socket, dashed and unlit. */
+.logic-card-art .lc-wire.is-on,
+.logic-card-art .lc-wirehead.is-on { stroke: var(--accent); opacity: 1; }
+.logic-card-art .lc-socket { fill: none; stroke: var(--ink-soft); stroke-width: 2; stroke-dasharray: 5 5; }
+.logic-card-art .lc-line-soft { font-size: 15px; font-weight: 600; fill: var(--ink); }
+
+/* 4. Forwarding */
+.logic-card-art .lc-flow { fill: none; stroke: #f0b24a; stroke-width: 3; stroke-linecap: round; }
+.logic-card-art .lc-flowhead { fill: none; stroke: #f0b24a; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+
+/* The kiln's own labels belong to the dashboard. Until it is revealed the
+   kiln is the intro's drawing and then the tour's, and the cards do the
+   naming — so no labels as the drawing settles, nor during the tour. */
+body.pre-reveal .label-layer,
+body.touring .label-layer {
+  opacity: 0;
+  transition: opacity 200ms linear;
 }
 
 /* --------------------------------------------------------------------------
@@ -369,10 +1560,10 @@ input:focus-visible {
  * stacked directly under `.intro-pin` (z-index 1 against its 2). This is
  * what makes the hand-off a real crossfade rather than a hard cut: without
  * it, #ring-canvas only enters the viewport once the visitor scrolls past
- * all 350vh of `.intro`, so there is nothing underneath for the intro canvas
+ * all 900vh of `.intro`, so there is nothing underneath for the intro canvas
  * to fade onto while it is still pinned. Fixing `.stage` also means it
  * contributes no height to the page while pre-reveal is active, so the
- * scrollable page is exactly `.intro`'s 350vh — the scroll simply ends on
+ * scrollable page is exactly `.intro`'s 900vh — the scroll simply ends on
  * the bare kiln, which is the "nothing else" the brief asks for here.
  *
  * ring.js keeps rendering #ring-canvas every frame regardless of any of this

@@ -11,6 +11,10 @@ import {
 } from './config.js';
 import { createEngine } from './engine.js';
 import { createIntro } from './views/intro.js';
+import { createAnatomy } from './views/anatomy.js';
+import { createLogic } from './views/logic.js';
+import { createProblem } from './views/problem.js';
+import { recordLoop } from './tourRun.js';
 import { createRing, SIMULATED_COLOUR } from './views/ring.js';
 import { createPanel } from './views/panel.js';
 import { createLabels, LABELLED_COMPONENTS } from './views/labels.js';
@@ -32,7 +36,7 @@ const ring = createRing(document.getElementById('ring-canvas'), {
  * into (the bare kiln, dashboard chrome still hidden by body.pre-reveal),
  * just without the camera move. Collapsing #intro to nothing rather than
  * merely not animating it: a visitor who has asked for reduced motion
- * should not also have to scroll through 350vh of a frozen opening shot to
+ * should not also have to scroll through 900vh of a frozen opening shot to
  * get to the kiln.
  */
 const introSection = document.getElementById('intro');
@@ -46,8 +50,28 @@ if (reduceMotion) {
   intro = createIntro({
     sectionEl: introSection,
     canvas: document.getElementById('intro-canvas'),
+    ring,                                              // the blueprint kiln is drawn from it
+    copyEl: document.querySelector('.intro-copy'),
+    briefEl: document.querySelector('.intro-brief'),
   });
 }
+
+/**
+ * The tour of the kiln's parts (views/anatomy.js), after the intro.
+ *
+ * It points at a RUNNING kiln: one full loop of the real engine, recorded
+ * ahead of time (tourRun.js) from a kiln in steady running. The tour shows
+ * the record's first moment while it introduces the parts, scrubs through
+ * the whole loop in "The fire", and rests on its last moment after. The
+ * visitor's own kiln (`engine`) stays cold and empty until they light it;
+ * the ring draws the record only while the tour is on screen.
+ */
+const run = recordLoop();
+const anatomy = createAnatomy({ sectionEl: document.getElementById('anatomy'), ring, run });
+// After the tour: the same recorded loop, read as five ideas from computing.
+const logic = createLogic({ sectionEl: document.getElementById('logic'), ring, run });
+// Then the question it ends on, answered: the drying problem the dryer is for.
+const problem = createProblem({ sectionEl: document.getElementById('problem'), ring, run });
 
 const labels = createLabels(document.getElementById('label-layer'), ring);
 
@@ -181,6 +205,36 @@ function revealDashboard() {
   chart.update(engine.state, true);
 }
 
+/** Back to the full-screen kiln, for a visitor scrolling up into the tour. */
+function hideDashboard() {
+  document.body.classList.add('pre-reveal');
+  ring.resize();
+}
+
+/**
+ * The hand-off from the tour and the section after it. Scrolling to the end
+ * of #problem (which follows #logic, which follows #anatomy) reveals the
+ * dashboard and jumps to its top (the top bar), so it arrives as a whole
+ * screen. Scrolling back up past a quarter-screen above it returns to the
+ * tour — and lands short of the tour's end, or the two would trade places
+ * on every frame.
+ */
+const topbar = document.querySelector('.topbar');
+let revealed = false;
+
+function checkReveal() {
+  if (!revealed && problem.isDone()) {
+    revealed = true;
+    revealDashboard();
+    window.scrollTo({ top: topbar.offsetTop, behavior: 'instant' });
+  } else if (revealed && window.scrollY < topbar.offsetTop - window.innerHeight * 0.25) {
+    revealed = false;
+    hideDashboard();
+    const end = document.documentElement.scrollHeight - window.innerHeight;
+    window.scrollTo({ top: end - window.innerHeight * 0.35, behavior: 'instant' });
+  }
+}
+
 window.__revealDashboard = revealDashboard;
 
 // --- failure reporting ------------------------------------------------------
@@ -231,8 +285,19 @@ function frame(now) {
     engine.step(dt);
 
     // The ring needs dt to settle chamber colours at a rate tied to the cycle.
-    ring.update(engine.state, dt);
+    // The tour draws the fired demonstration kiln; everything else, the
+    // visitor's own.
+    const touring = !revealed && anatomy.isActive();
+    document.body.classList.toggle('touring', touring);
+    // ...and at the end of the drying problem, the recorded loop again, as
+    // the kiln comes back (views/problem.js, stage 5).
+    const shownState = touring ? anatomy.frame() : (!revealed && problem.kilnFrame()) || engine.state;
+    ring.update(shownState, dt);
     intro?.update();   // reads scroll position only; no engine state involved
+    anatomy.update(shownState);
+    logic.update();
+    problem.update();
+    checkReveal();
     labels.update(engine.state);     // must follow ring: it reads the camera
     panel.update(engine.state);
     chart.update(engine.state);      // redraws only when the record changes
@@ -255,6 +320,8 @@ requestAnimationFrame(frame);
 // Brief rule 14.10: debugging starts in the console.
 window.kiln = engine;
 window.__ring = ring;        // segments[], path — inspect the drawing
+window.__anatomy = anatomy;
+window.__run = run;         // the recorded loop the tour scrubs through
 window.__intro = intro;      // camera, renderer, scene, getBuilding() — inspect the camera path
 window.__cfg = { C, PALETTE, STAGE_COLOUR, TAGS, OPEN_QUESTIONS, COMPONENTS, EVIDENCE };
 window.__chart = chart;

@@ -31,9 +31,105 @@
 
 import * as THREE from 'three';
 import { C, PALETTE, STAGE_COLOUR, COMPONENTS } from '../config.js';
-import { relativeHeat, gasCurve, gasAt } from '../engine.js';
+import { relativeHeat, gasCurve, gasAt, ROWS, inFireZone } from '../engine.js';
 import { createLoopPath } from './kilnPath.js';
 import { heatHex } from './heatRamp.js';
+
+/**
+ * The kiln is drawn as the same blueprint the intro hands off from: grey
+ * fills on dark-grey paper with light ink. Only the neutral colours change
+ * here — heat and air keep their own palette entries, because they are the
+ * data. Ring-local on purpose: the chart and the legend keep the dashboard's
+ * palette.
+ */
+const RP = {
+  ...PALETTE,
+  soot: '#4b4945',          // chamber voids
+  'soot-raised': '#54524d', // empty chambers, the island
+  'sand-faint': '#403e3b',  // the masonry band, cold clay
+  'sand-dim': '#9a958d',
+  sand: '#e4e0da',
+  'sand-bright': '#ffffff',
+  'kiln-floor': '#3b3a36',  // the courtyard inside the ring
+};
+// Every outline in the kiln is drawn in this, like the intro's ink.
+const INK_LINE = new THREE.Color('#e4e0da');
+/**
+ * The part the tour is pointing at is drawn in this, fill and outline both.
+ * A bright sky blue: the opposite of the heat ramp (yellow to red), and far
+ * brighter and more saturated than the pale blue-grey kept for air, so "this
+ * is the part I mean" can never be mistaken for "this part is hot". A drawing
+ * convention.
+ */
+const ACCENT = new THREE.Color('#B46AFF');
+// How far a chamber's floor takes the accent when the lit tour picks it out
+// (present(): fireGlow, pathGlow). The tiles on top keep their heat colours.
+const CHAMBER_GLOW = 0.75;
+// How strongly a part takes the accent. Chambers are most of the kiln's area,
+// so they are tinted rather than flooded.
+const ACCENT_STRENGTH = { chambers: 0.6 };
+const ACCENT_DEFAULT = 0.92;
+
+// The tour's kiln before it is lit (see present()): tiles as faint ink, the
+// air's route as one thin line of even width.
+const COLD_TILE = new THREE.Color('#e4e0da');
+const COLD_TILE_OPACITY = 0.26;
+const AIR_LINE = new THREE.Color('#e4e0da');
+const AIR_LINE_HALF = 0.028;
+const AIR_LINE_HEAD = 0.2;
+// The fire's colour reaches its own chamber first and the far side of the
+// ring last; this is how much of the lighting-up that stagger takes.
+const HEAT_SPREAD = 1.2;
+
+const clamp01 = (x) => Math.min(1, Math.max(0, x));
+const smooth01 = (x) => { const t = clamp01(x); return t * t * (3 - 2 * t); };
+
+/**
+ * The paper under the kiln, with the intro's 1 m / 5 m grid. The grid is
+ * measured in the INTRO's world (metres in the factory) so it carries on from
+ * the drawing without a jump; setPaper() says where the kiln was drawn and at
+ * what scale. ring (x, z) -> factory (ox + s x, oz - s z), the mapping
+ * views/intro.js uses.
+ */
+function createPaper() {
+  const mat = new THREE.ShaderMaterial({
+    uniforms: {
+      uPaper: { value: new THREE.Color(PALETTE.paper) },
+      uScale: { value: 1 },
+      uOrigin: { value: new THREE.Vector2(0, 0) },
+    },
+    vertexShader: /* glsl */`
+      varying vec2 vF;
+      uniform float uScale;
+      uniform vec2 uOrigin;
+      void main() {
+        vec4 w = modelMatrix * vec4(position, 1.0);
+        vF = vec2(uOrigin.x + uScale * w.x, uOrigin.y - uScale * w.z);
+        gl_Position = projectionMatrix * viewMatrix * w;
+      }
+    `,
+    fragmentShader: /* glsl */`
+      varying vec2 vF;
+      uniform vec3 uPaper;
+      float grid(vec2 p, float s) {
+        vec2 c = p / s;
+        vec2 g = abs(fract(c - 0.5) - 0.5) / fwidth(c);
+        return 1.0 - min(min(g.x, g.y), 1.0);
+      }
+      void main() {
+        vec3 c = uPaper + vec3(grid(vF, 1.0) * 0.06 + grid(vF, 5.0) * 0.14);
+        gl_FragColor = vec4(c, 1.0);
+        #include <colorspace_fragment>
+      }
+    `,
+    depthWrite: false,
+    side: THREE.DoubleSide,   // the ring's camera is mirrored (see createRing)
+  });
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(400, 400).rotateX(-Math.PI / 2), mat);
+  mesh.position.y = -0.05;
+  mesh.renderOrder = -10;
+  return mesh;
+}
 
 const SETTLE_FRACTION = 0.3;
 const SNAP_DISTANCE = 0.01;
@@ -158,6 +254,12 @@ function bandOutline(path, s0, s1, offInner, offOuter, y, steps = 40) {
   return g;
 }
 
+/** The component an object belongs to: the nearest componentGroup above it. */
+function partOf(o) {
+  for (let p = o; p; p = p.parent) if (p.userData.component) return p.userData.component;
+  return null;
+}
+
 function componentGroup(id) {
   const g = new THREE.Group();
   g.userData.component = id;
@@ -193,7 +295,9 @@ export function createRing(canvas, options = {}) {
   const inset = P.wallInset;
 
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
-  renderer.setClearColor(new THREE.Color(PALETTE.soot), 1);
+  // The blueprint's paper, the sheet the intro's drawing hands off onto. The
+  // grid itself is a mesh (createPaper) so it can line up with the drawing's.
+  renderer.setClearColor(new THREE.Color(RP.paper), 1);
 
   const scene = new THREE.Scene();
 
@@ -233,7 +337,7 @@ export function createRing(canvas, options = {}) {
 
   // Heights are only a draw order under an orthographic top-down camera.
   const Y = {
-    masonry: 0, floor: 0.01, tiles: 0.02, tileHatch: 0.025, wall: 0.03,
+    ground: -0.01, masonry: 0, floor: 0.01, tiles: 0.02, tileHatch: 0.025, wall: 0.03,
     flue: 0.04, damper: 0.05, air: 0.06, outline: 0.07,
     // The island fills the middle, inside the duct, so it never overlaps the
     // band geometry — its height only has to sit under the chimney.
@@ -244,17 +348,39 @@ export function createRing(canvas, options = {}) {
     stoke: 0.09,
   };
 
+  // ------------------------------------------------------------ inner floor
+  // The open ground inside the ring of chambers, out to the band's inner
+  // edge, under everything else. Without it the canvas's beige backdrop shows
+  // through the courtyard and the kiln reads as a hollow frame. A fan from the
+  // centre: the loop is convex, so every edge sees the middle.
+  {
+    const steps = 260;
+    const pos = [];
+    for (let i = 0; i < steps; i++) {
+      const a = path.at(i / steps);
+      const b = path.at((i + 1) / steps);
+      pos.push(0, Y.ground, 0,
+        b.x - b.nx * halfBand, Y.ground, b.z - b.nz * halfBand,
+        a.x - a.nx * halfBand, Y.ground, a.z - a.nz * halfBand);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    root.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({
+      color: new THREE.Color(RP['kiln-floor']), side: THREE.DoubleSide,
+    })));
+  }
+
   // ---------------------------------------------------------------- masonry
   // A — the kiln's bulk. Walls are implied by there being separate chambers.
   const massGroup = componentGroup('dividingWalls');
   root.add(massGroup);
   massGroup.add(new THREE.Mesh(
     bandGeometry(path, 0, 1, -halfBand, halfBand, Y.masonry, 260),
-    new THREE.MeshBasicMaterial({ color: new THREE.Color(PALETTE['sand-faint']) }),
+    new THREE.MeshBasicMaterial({ color: new THREE.Color(RP['sand-faint']) }),
   ));
   massGroup.add(new THREE.LineSegments(
     bandOutline(path, 0, 1, -halfBand, halfBand, Y.outline, 260),
-    new THREE.LineBasicMaterial({ color: new THREE.Color(PALETTE['sand-dim']) }),
+    new THREE.LineBasicMaterial({ color: new THREE.Color(RP['sand-dim']) }),
   ));
 
   // ---------------------------------------------------------------- chambers
@@ -264,7 +390,7 @@ export function createRing(canvas, options = {}) {
   const segments = [];
 
   for (let i = 0; i < count; i++) {
-    const material = new THREE.MeshBasicMaterial({ color: new THREE.Color(PALETTE.soot) });
+    const material = new THREE.MeshBasicMaterial({ color: new THREE.Color(RP.soot) });
     const mesh = new THREE.Mesh(
       bandGeometry(path, sStart(i), sEnd(i), -halfBand + inset, halfBand - inset, Y.floor),
       material,
@@ -273,7 +399,10 @@ export function createRing(canvas, options = {}) {
     chambersGroup.add(mesh);
     segments.push({
       mesh, material, index: i,
-      current: new THREE.Color(PALETTE['sand-faint']),
+      current: new THREE.Color(RP['sand-faint']),
+      // The same, for the stack at each end of the chamber: the end the fire
+      // reaches first, and the far end. A chamber is not one temperature.
+      ends: [new THREE.Color(RP['sand-faint']), new THREE.Color(RP['sand-faint'])],
       // How much of the chamber's stack is in place, 0 to 1. Animated, so
       // tiles go in and come out one at a time instead of blinking.
       fill: 0,
@@ -312,7 +441,7 @@ export function createRing(canvas, options = {}) {
    */
   const hatchTexture = stripeTexture(renderer, P.tileHatch);
   const hatchMaterial = new THREE.MeshBasicMaterial({
-    color: new THREE.Color(PALETTE.soot),
+    color: new THREE.Color(RP.soot),
     map: hatchTexture,
     transparent: true,
     opacity: P.tileHatch.opacity,
@@ -353,7 +482,7 @@ export function createRing(canvas, options = {}) {
       for (const [t0, t1] of endBands) {
         const m = new THREE.Mesh(
           bandGeometry(path, t0, t1, o0, o1, Y.tiles, 4),
-          new THREE.MeshBasicMaterial({ color: new THREE.Color(PALETTE['sand-faint']) }),
+          new THREE.MeshBasicMaterial({ color: new THREE.Color(RP['sand-faint']) }),
         );
         tilesGroup.add(m);
         perChamber.push(m);
@@ -377,7 +506,7 @@ export function createRing(canvas, options = {}) {
   // A — something separates the chambers.
   const wallsGroup = componentGroup('dividingWalls');
   root.add(wallsGroup);
-  const crossMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(PALETTE['sand-dim']) });
+  const crossMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(RP['sand-dim']) });
   for (let i = 0; i < count; i++) {
     wallsGroup.add(new THREE.Mesh(
       bandGeometry(path, sEnd(i), sEnd(i) + gap / count,
@@ -396,7 +525,7 @@ export function createRing(canvas, options = {}) {
     const half = (sEnd(i) - sStart(i)) * P.wicketWidthFraction / 2;
     const m = new THREE.Mesh(
       bandGeometry(path, mid - half, mid + half, halfBand - inset, halfBand, Y.wall, 6),
-      new THREE.MeshBasicMaterial({ color: new THREE.Color(PALETTE['sand-dim']) }),
+      new THREE.MeshBasicMaterial({ color: new THREE.Color(RP['sand-dim']) }),
     );
     wicketGroup.add(m);
     wickets.push(m);
@@ -447,14 +576,14 @@ export function createRing(canvas, options = {}) {
       };
 
       const disc = new THREE.Mesh(stokeGeo, new THREE.MeshBasicMaterial({
-        color: new THREE.Color(PALETTE.soot), ...onTop,
+        color: new THREE.Color(RP.soot), ...onTop,
       }));
       disc.position.set(x, Y.stoke, z);
       disc.renderOrder = 10;
       stokeGroup.add(disc);
 
       const ring = new THREE.LineLoop(ringGeo, new THREE.LineBasicMaterial({
-        color: new THREE.Color(PALETTE['sand-faint']), ...onTop,
+        color: new THREE.Color(RP['sand-faint']), ...onTop,
       }));
       ring.position.set(x, Y.stoke, z);
       ring.renderOrder = 11;
@@ -490,6 +619,25 @@ export function createRing(canvas, options = {}) {
    */
   const ductGroup = componentGroup('flueDuct');
   root.add(ductGroup);
+  /**
+   * Which leaves the tour nothing to point AT. So the void gets a fill that
+   * exists only while the tour has the flue in focus (`focusOnly`: its opacity
+   * is the focus weight, and 0 the rest of the time). Flagged `ink` so the
+   * edge pass and the intro's drawing — both of which collect the kiln's
+   * shapes — leave it alone: it is a highlight, not a part.
+   */
+  const flueGlow = new THREE.MeshBasicMaterial({
+    color: ACCENT, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false,
+  });
+  flueGlow.userData.focusOnly = 0.5;
+  const addGlow = (geo) => {
+    const m = new THREE.Mesh(geo, flueGlow);
+    m.userData.ink = true;
+    ductGroup.add(m);
+  };
+  // From the island's edge out to the chambers' inner wall: the whole void.
+  addGlow(bandGeometry(ductPath, 0, 1,
+    -(P.flueWidth / 2 + P.islandInset), ductInset - halfBand, Y.flue, 200));
 
   // ------------------------------------------------------------------ island
   // A — the solid middle of the kiln, with a channel cut through it.
@@ -506,6 +654,9 @@ export function createRing(canvas, options = {}) {
   const islandHalfW = (C.form.width - ductInset * 2) / 2 - P.flueWidth / 2 - P.islandInset;
   const islandHalfD = (C.form.depth - ductInset * 2) / 2 - P.flueWidth / 2 - P.islandInset;
   const channelHalf = P.channelWidth / 2;
+  // The channel is the last leg of the flue, so it lights with it.
+  addGlow(new THREE.PlaneGeometry(P.channelWidth, islandHalfD * 2)
+    .rotateX(-Math.PI / 2).translate(0, Y.flue, 0));
 
   /**
    * One block of the island. `side` is -1 for the left half, +1 for the right.
@@ -545,7 +696,7 @@ export function createRing(canvas, options = {}) {
     geo.rotateX(-Math.PI / 2);          // shape XY -> kiln XZ
     geo.translate(0, Y.island, 0);
     islandGroup.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
-      color: new THREE.Color(PALETTE['soot-raised']), side: THREE.DoubleSide,
+      color: new THREE.Color(RP['soot-raised']), side: THREE.DoubleSide,
     })));
 
     // An edge, so the masonry reads as a solid rather than a hole in the page.
@@ -554,7 +705,7 @@ export function createRing(canvas, options = {}) {
       new THREE.BufferGeometry().setFromPoints(
         pts.map((p) => new THREE.Vector3(p.x, Y.outline, -p.y)),
       ),
-      new THREE.LineBasicMaterial({ color: new THREE.Color(PALETTE['sand-faint']) }),
+      new THREE.LineBasicMaterial({ color: new THREE.Color(RP['sand-faint']) }),
     ));
   }
 
@@ -565,7 +716,7 @@ export function createRing(canvas, options = {}) {
   const chimneyGeo = new THREE.CircleGeometry(P.chimneyRadius, 28);
   chimneyGeo.rotateX(-Math.PI / 2);
   const chimney = new THREE.Mesh(chimneyGeo, new THREE.MeshBasicMaterial({
-    color: new THREE.Color(PALETTE['soot-raised']), side: THREE.DoubleSide,
+    color: new THREE.Color(RP['soot-raised']), side: THREE.DoubleSide,
   }));
   chimney.position.y = Y.damper;
   chimneyGroup.add(chimney);
@@ -578,7 +729,7 @@ export function createRing(canvas, options = {}) {
         );
       }),
     ),
-    new THREE.LineBasicMaterial({ color: new THREE.Color(PALETTE['sand-dim']) }),
+    new THREE.LineBasicMaterial({ color: new THREE.Color(RP['sand-dim']) }),
   ));
 
   // ----------------------------------------------------------------- dampers
@@ -602,7 +753,7 @@ export function createRing(canvas, options = {}) {
     const m = new THREE.Mesh(
       bandGeometry(path, mid - half, mid + half, -halfBand, -halfBand + inset, Y.wall, 6),
       new THREE.MeshBasicMaterial({
-        color: new THREE.Color(PALETTE['sand-dim']), side: THREE.DoubleSide,
+        color: new THREE.Color(RP['sand-dim']), side: THREE.DoubleSide,
       }),
     );
     damperGroup.add(m);
@@ -634,7 +785,7 @@ export function createRing(canvas, options = {}) {
   // tiles beneath it and would otherwise melt into them.
   const airEdge = new THREE.LineSegments(
     new THREE.BufferGeometry(),
-    new THREE.LineBasicMaterial({ color: new THREE.Color(PALETTE['sand-bright'] ?? PALETTE.sand) }),
+    new THREE.LineBasicMaterial({ color: new THREE.Color(RP['sand-bright'] ?? RP.sand) }),
   );
   airGroup.add(airEdge);
 
@@ -643,7 +794,7 @@ export function createRing(canvas, options = {}) {
   const airHead = new THREE.Mesh(
     new THREE.BufferGeometry(),
     new THREE.MeshBasicMaterial({
-      color: new THREE.Color(PALETTE['heat-1']),
+      color: new THREE.Color(RP['heat-1']),
       transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthWrite: false,
     }),
   );
@@ -662,10 +813,56 @@ export function createRing(canvas, options = {}) {
   const airInlet = new THREE.Mesh(
     new THREE.BufferGeometry(),
     new THREE.MeshBasicMaterial({
-      color: new THREE.Color(PALETTE.air), side: THREE.DoubleSide,
+      color: new THREE.Color(RP.air), side: THREE.DoubleSide,
     }),
   );
   airGroup.add(airInlet);
+
+  /**
+   * The partition: a movable shutter (sheet metal in early kilns, later a
+   * sheet of paper that burns away as the fire nears) across the tunnel just
+   * beyond the open damper. It is what makes the draught go ONE way: without
+   * it the chimney would pull air the short way round, through the freshly
+   * stacked chambers, and none through the fire. Moved on one chamber at
+   * every move, with the damper. L — from writing on other kilns; not seen
+   * at Kundapur. Flagged `ink` because it is rebuilt when it moves, which the
+   * once-only edge pass could not follow.
+   */
+  const partitionGroup = componentGroup('partition');
+  root.add(partitionGroup);
+  const partition = new THREE.Mesh(
+    new THREE.BufferGeometry(),
+    new THREE.MeshBasicMaterial({
+      color: new THREE.Color('#e4e0da'), transparent: true, opacity: 1,
+      side: THREE.DoubleSide, depthWrite: false, depthTest: false,
+    }),
+  );
+  partition.userData.ink = true;
+  partition.frustumCulled = false;
+  partition.renderOrder = 12;
+  partitionGroup.add(partition);
+
+  /**
+   * The leading edge of the firing zone, for the tour (present(): front). A
+   * bright bar across the tunnel at the row the fire has reached, creeping
+   * forward through the chamber and over the dividing line into the next, so
+   * the fire is seen to travel rather than one chamber going dark while
+   * another lights. Flagged `ink` so the edge pass and the intro's drawing
+   * leave it alone.
+   */
+  const fireFront = new THREE.Mesh(
+    new THREE.BufferGeometry(),
+    new THREE.MeshBasicMaterial({
+      color: new THREE.Color('#fff4d8'), transparent: true, opacity: 1,
+      side: THREE.DoubleSide, depthWrite: false, depthTest: false,
+    }),
+  );
+  fireFront.userData.ink = true;
+  fireFront.frustumCulled = false;
+  fireFront.renderOrder = 12;
+  fireFront.visible = false;
+  fireFront.material.userData.mul = 0;
+  root.add(fireFront);
 
   /** Even out a route's point spacing, interpolating width and heat with it. */
   function resampleRoute(route, n) {
@@ -737,9 +934,11 @@ export function createRing(canvas, options = {}) {
     return best;
   }
 
-  const AIR = new THREE.Color(PALETTE.air);
-  const AIR_SPENT = new THREE.Color(PALETTE['air-spent']);
+  const AIR = new THREE.Color(RP.air);
+  const DOOR_SEALED = new THREE.Color(RP['sand-dim']);
+  const AIR_SPENT = new THREE.Color(RP['air-spent']);
   const gasCol = new THREE.Color();
+  const tipCol = new THREE.Color();
   const coolTone = new THREE.Color();
 
   /**
@@ -819,11 +1018,41 @@ export function createRing(canvas, options = {}) {
     const edge = edgeAttr.array;
     let tipHalf = 0;
 
+    /**
+     * The tour (present()) shows the route twice. Cold, it is a LINE: one
+     * width, one light colour, drawn from the inlet as far as `air` says, with
+     * the arrowhead riding its end. Lit, it becomes the arrow described above.
+     * `mix` is how far between the two it is, so the line swells and colours
+     * in place rather than being swapped for another drawing.
+     */
+    const mix = stage ? smooth01(stage.heat) : 1;
+    const draw = stage ? clamp01(stage.air) : 1;
+    let lastI = Math.max(1, Math.round(draw * (route.length - 1)));
+    /**
+     * The tour's last step draws only the part of the route from the fire on.
+     * `airFrom` brings the start up to where the fire's chamber begins;
+     * `airCut` brings the end back to the middle of that chamber, which is
+     * where the damper is in the kiln with no recovery. Both are found from
+     * `pos`, the route's own count of chambers travelled.
+     */
+    let firstI = 0;
+    if (stage && (stage.airFrom > 0 || stage.airCut > 0)) {
+      const indexAt = (pos) => {
+        const i = route.findIndex((p) => p.pos >= pos);
+        return i < 0 ? route.length - 1 : i;
+      };
+      const fire = C.windows.cool + 1;
+      firstI = Math.round(indexAt(fire) * clamp01(stage.airFrom ?? 0));
+      const stop = indexAt(fire + 0.5);
+      lastI = Math.round(lastI + (stop - lastI) * clamp01(stage.airCut ?? 0));
+      lastI = Math.max(firstI + 2, Math.min(route.length - 1, lastI));
+    }
+
     for (let i = 0; i < route.length; i++) {
       const p = route[i];
       const h = relativeHeat(gasAt(curve, p.pos));
-      const w = gasHalfWidth(h);
-      if (i === route.length - 1) tipHalf = w;
+      const w = AIR_LINE_HALF + (gasHalfWidth(h) - AIR_LINE_HALF) * mix;
+      if (i === lastI) tipHalf = w;
 
       const ax = p.x + p.nx * w; const az = p.z + p.nz * w;
       const bx = p.x - p.nx * w; const bz = p.z - p.nz * w;
@@ -833,6 +1062,8 @@ export function createRing(canvas, options = {}) {
       pos[k + 3] = bx; pos[k + 4] = Y.air; pos[k + 5] = bz;
 
       gasColour(h, p.spentShape * spentMax, gasCol);
+      if (mix < 1) gasCol.lerpColors(AIR_LINE, gasCol, mix);
+      if (i === lastI) tipCol.copy(gasCol);
       col[k] = gasCol.r; col[k + 1] = gasCol.g; col[k + 2] = gasCol.b;
       col[k + 3] = gasCol.r; col[k + 4] = gasCol.g; col[k + 5] = gasCol.b;
     }
@@ -849,8 +1080,10 @@ export function createRing(canvas, options = {}) {
       const next = (i + 1) * 6;
       for (const [side, base] of [[0, 0], [3, segs * 6]]) {
         const e = base + i * 6;
+        // Nothing is outlined before the point the ribbon starts from.
+        const to = i < firstI ? here : next;
         edge[e] = pos[here + side]; edge[e + 1] = Y.outline; edge[e + 2] = pos[here + side + 2];
-        edge[e + 3] = pos[next + side]; edge[e + 4] = Y.outline; edge[e + 5] = pos[next + side + 2];
+        edge[e + 3] = pos[to + side]; edge[e + 4] = Y.outline; edge[e + 5] = pos[to + side + 2];
       }
     }
 
@@ -858,9 +1091,21 @@ export function createRing(canvas, options = {}) {
     colourAttr.needsUpdate = true;
     edgeAttr.needsUpdate = true;
 
+    // Only as much of the route as has been drawn. The outline exists to
+    // separate the coloured arrow from the tiles; a bare line needs none.
+    airRibbon.geometry.setDrawRange(firstI * 6, (lastI - firstI) * 6);
+    airEdge.visible = mix > 0.01 && lastI === route.length - 1;
+    // The tour can ask for the whole arrow fainter (the last step); the focus
+    // pass multiplies `mul` into each material's opacity.
+    const fade = stage ? (stage.airAlpha ?? 1) : 1;
+    airEdge.material.userData.mul = mix * fade;
+    airRibbon.material.userData.mul = fade;
+    airHead.material.userData.mul = fade;
+    airInlet.visible = draw > 0.01 && firstI === 0;
+
     // --- the arrowhead, which grows with the ribbon it finishes ------------
-    const tip = route[route.length - 1];
-    const prev = route[route.length - 2];
+    const tip = route[lastI];
+    const prev = route[lastI - 1];
     let tx = tip.x - prev.x;
     let tz = tip.z - prev.z;
     const tl = Math.hypot(tx, tz) || 1;
@@ -870,7 +1115,7 @@ export function createRing(canvas, options = {}) {
      * a head scaled straight off it would reach 0.71 into a chimney of radius
      * 0.46 and come out the far side.
      */
-    const headLen = Math.min(tipHalf * 3.4, P.chimneyRadius);
+    const headLen = Math.min(Math.max(tipHalf * 3.4, AIR_LINE_HEAD * (1 - mix)), P.chimneyRadius);
     const headHalf = headLen * (2.1 / 3.4);
     const head = headAttr.array;
     head[0] = tip.x + tx * headLen; head[1] = Y.air; head[2] = tip.z + tz * headLen;
@@ -879,9 +1124,7 @@ export function createRing(canvas, options = {}) {
     headAttr.needsUpdate = true;
 
     // Literally the ribbon's final colour, so the join is invisible.
-    airHead.material.color.copy(
-      gasColour(relativeHeat(gasAt(curve, tip.pos)), tip.spentShape * spentMax, gasCol),
-    );
+    airHead.material.color.copy(tipCol);
   }
 
   /**
@@ -923,6 +1166,8 @@ export function createRing(canvas, options = {}) {
     const cool = C.windows.cool;
     // How far past the fire the gas travels before it finds an open damper.
     const lead = recovery ? C.windows.preheat : 0;
+    // The middle of the chamber behind the cooling run: the one being
+    // unloaded, whose doorway stands open. That doorway is the air inlet.
     const from = (firePos - cool - 0.5) / count;
     const to = (firePos + lead + 0.5) / count;
 
@@ -956,7 +1201,10 @@ export function createRing(canvas, options = {}) {
       const off = (1 - e) * (halfBand + P.airInletLead);
       // Already inside the first chamber by the time the curve straightens, so
       // the gas starts picking up heat here rather than at a hard line.
-      push(p.x + p.nx * off, p.z + p.nz * off, e * P.airInletTurn);
+      // The air comes in at the MIDDLE of the chamber being unloaded, where
+      // its doorway is, so it is already half a chamber along the model's
+      // path (which counts from that chamber's start).
+      push(p.x + p.nx * off, p.z + p.nz * off, 0.5 + e * P.airInletTurn);
     }
 
     // --- 2. along the chambers: cooling run, fire, preheat run -------------
@@ -966,12 +1214,12 @@ export function createRing(canvas, options = {}) {
      * along that span a point is. That is the entire mapping onto the model.
      */
     const MAIN = 150;
-    const spanChambers = cool + lead + 1;
+    const spanChambers = cool + lead + 2;     // + the chamber the air comes in by
     for (let i = 1; i <= MAIN; i++) {
       const u = i / MAIN;
       const s = from + turnIn + (to - from - turnIn) * u;
       const p = path.at(s);
-      push(p.x, p.z, (s - from) * count);
+      push(p.x, p.z, 0.5 + (s - from) * count);
     }
 
     // --- 3. out through the open damper, into the flue ---------------------
@@ -1102,14 +1350,22 @@ export function createRing(canvas, options = {}) {
      * is midway through the wall when that equals halfBand - inset/2. Solve
      * for e and the crossing point follows.
      */
-    const reach = halfBand + P.airInletLead;
-    const eCross = 1 - (halfBand - inset / 2) / reach;
-    const inletMid = from + eCross * turnIn;
-    const inletHalf = (P.airInletWidthFraction / 2) / count;
+    // The inlet IS the open doorway: the same footprint as that chamber's
+    // wicket, drawn in the air tone over it. (It used to be a separate
+    // opening cut a little further along the wall.)
+    const inletHalf = ((1 - gap) / count) * P.wicketWidthFraction / 2;
     airInlet.geometry.dispose();
     airInlet.geometry = bandGeometry(
-      path, inletMid - inletHalf, inletMid + inletHalf,
-      halfBand - inset, halfBand, Y.wall, 6,
+      path, from - inletHalf, from + inletHalf,
+      halfBand - inset, halfBand, Y.wall + 0.001, 6,
+    );
+
+    // The partition stands across the tunnel just beyond the open damper.
+    const ps = (firePos + lead + 1) / count;
+    const pHalf = 0.035 / count;
+    partition.geometry.dispose();
+    partition.geometry = bandGeometry(
+      path, ps - pHalf, ps + pHalf, -halfBand + inset, halfBand - inset, Y.stoke, 3,
     );
 
     /**
@@ -1128,7 +1384,7 @@ export function createRing(canvas, options = {}) {
      */
     const open = (((firePos + lead) % count) + count) % count;
     dampers.forEach((d, i) => {
-      d.material.color.set(i === open ? PALETTE.air : PALETTE['sand-dim']);
+      d.material.color.set(i === open ? RP.air : RP['sand-dim']);
     });
     return open;
   }
@@ -1170,6 +1426,7 @@ export function createRing(canvas, options = {}) {
    * because what physically moves every two hours is unknown (5.2).
    */
   function update(state, dtMs = 16) {
+    lastDt = dtMs;
     const recovery = state.params.recovery !== false;
     const routeKey = `${state.firePos}:${recovery}`;
     if (routeKey !== lastRoute) {
@@ -1181,7 +1438,12 @@ export function createRing(canvas, options = {}) {
 
     // No fire, no draught: nothing is moving through a kiln that has not been
     // lit, so the airflow arrow stays off until it is.
-    airGroup.visible = state.phase !== 'charging';
+    const st = stage;
+    // Unlit, the tiles' outlines are as faint as the tiles: a stack of 96
+    // outlined slips at full ink is the busiest thing in the drawing.
+    const tileInk = inkMats.get('tiles');
+    if (tileInk) tileInk.userData.mul = st ? 0.3 + 0.7 * smooth01(st.heat) : 1;
+    airGroup.visible = state.phase !== 'charging' && (!st || st.air > 0.001);
 
     const tickMs = (state.params.tickSeconds / state.params.speed) * 1000;
     const tau = Math.max(1, (tickMs * SETTLE_FRACTION) / 4);
@@ -1191,6 +1453,14 @@ export function createRing(canvas, options = {}) {
       const ch = state.chambers[i];
       const seg = segments[i];
 
+      // Staged for the tour: how far round from the fire this chamber is (the
+      // order things happen in), and how lit it is — the fire's own chamber
+      // first, the far side of the ring last.
+      const ord = (((i - state.firePos) % count) + count) % count;
+      const lit01 = st
+        ? smooth01(st.heat * (1 + HEAT_SPREAD) - Math.min(ord, count - ord) * HEAT_SPREAD / (count / 2))
+        : 1;
+
       // The tiles carry the temperature — relative, simulated, never degrees.
       heatColour(ch.heat, tileColour);
       const d = Math.abs(tileColour.r - seg.current.r)
@@ -1198,6 +1468,25 @@ export function createRing(canvas, options = {}) {
         + Math.abs(tileColour.b - seg.current.b);
       if (d < SNAP_DISTANCE) seg.current.copy(tileColour);
       else seg.current.lerp(tileColour, k);
+
+      // Each end stack follows the rows it stands on: the near half of the
+      // chamber's rows for the first, the far half for the second. This is
+      // what lets a chamber be seen taking the fire from one end.
+      for (let e = 0; e < 2; e++) {
+        const rows = ch.rowHeat;
+        let h = ch.heat;
+        if (rows && rows.length) {
+          const half = Math.ceil(rows.length / 2);
+          const part = e === 0 ? rows.slice(0, half) : rows.slice(rows.length - half);
+          h = part.reduce((a, b) => a + b, 0) / part.length;
+        }
+        heatColour(h, tileColour);
+        const de = Math.abs(tileColour.r - seg.ends[e].r)
+          + Math.abs(tileColour.g - seg.ends[e].g)
+          + Math.abs(tileColour.b - seg.ends[e].b);
+        if (de < SNAP_DISTANCE) seg.ends[e].copy(tileColour);
+        else seg.ends[e].lerp(tileColour, k);
+      }
 
       /**
        * Tiles go in and come out one at a time.
@@ -1224,7 +1513,18 @@ export function createRing(canvas, options = {}) {
        * that is burning — the exact thing the charging phase fixed.
        */
       const sealed = ch.loaded && (ch.stage === 'fire' || ch.stage === 'cool');
-      if (sealed) seg.fill = 1;
+      // The tour stacks the chambers itself, one after another round the
+      // ring. Once it is running the record (`live`), the stack is a function
+      // of simulated time instead, so it runs backwards with the scroll: the
+      // chamber being unloaded empties across its two hours, and the one
+      // being restacked fills across the next two.
+      if (st) {
+        const staged = clamp01((st.tiles * (count + 1) - ord) / 2);
+        const live = ch.stage === 'empty' ? 1 - state.subTime
+          : ch.stage === 'wait' ? state.subTime
+            : ch.loaded ? 1 : 0;
+        seg.fill = staged + (live - staged) * (st.live ?? 0);
+      } else if (sealed) seg.fill = 1;
       else if (seg.fill < target) seg.fill = Math.min(target, seg.fill + fillRate);
       else if (seg.fill > target) seg.fill = Math.max(target, seg.fill - fillRate);
 
@@ -1255,14 +1555,41 @@ export function createRing(canvas, options = {}) {
       for (let n = 0; n < stack.length; n++) {
         const shown = n < placed;
         stack[n].visible = shown;
-        stack[n].material.color.copy(seg.current);
+        // Unlit (tour only) a tile is faint ink: there, and nothing more. It
+        // takes its heat colour, and its solidity, as the kiln is lit.
+        // Tiles were built across the chamber, both ends together, so even
+        // indices are the near stack and odd the far one.
+        stack[n].material.color.lerpColors(COLD_TILE, seg.ends[n % 2], lit01);
+        stack[n].material.userData.mul = COLD_TILE_OPACITY + (1 - COLD_TILE_OPACITY) * lit01;
         // Tied to the tile's own visibility, so unloading takes the mark away
         // one tile at a time instead of leaving it hanging over an empty slot.
-        hatch[n].visible = shown && baked;
+        hatch[n].visible = shown && baked && lit01 > 0.5;
       }
 
       // The void stays dark so an empty chamber still reads as a chamber.
-      seg.material.color.set(ch.loaded ? PALETTE.soot : PALETTE[STAGE_COLOUR.empty.key]);
+      const loaded = st ? seg.fill > 0 : ch.loaded;
+      seg.material.color.set(loaded ? RP.soot : RP[STAGE_COLOUR.empty.key]);
+      // The lit tour picks chambers out by their floor: the one on fire, then
+      // the ones the air crosses on either side of it (the cooling run behind
+      // and the preheating run ahead).
+      if (st) {
+        const onPath = ord >= 1 && (ord <= C.windows.preheat || ord >= count - C.windows.cool);
+        // The fire's mark can sit between two chambers while it crosses
+        // (fireAt is a position round the ring, not a chamber index), so its
+        // weight here is how near this chamber is to it.
+        const at = st.fireAt ?? state.firePos;
+        const d = Math.abs((((i - at) % count) + count * 1.5) % count - count / 2);
+        // Only the nearest chamber takes the mark: it hands over to the next
+        // in a short window as the fire crosses the boundary, rather than
+        // spreading across both for the whole crossing.
+        const onFire = 1 - smooth01(clamp01((d - 0.42) / 0.16));
+        // `pathAhead` lets the tour take the mark off the chambers ahead of
+        // the fire alone, for the kiln whose gas never reaches them, and
+        // `pathBehind` off the cooling run when only the way out is drawn.
+        const ahead = ord >= 1 && ord <= C.windows.preheat;
+        const glow = Math.max(onFire * (st.fireGlow ?? 0), onPath ? (st.pathGlow ?? 0) * (ahead ? (st.pathAhead ?? 1) : (st.pathBehind ?? 1)) : 0);
+        if (glow > 0.001) seg.material.color.lerp(ACCENT, glow * CHAMBER_GLOW);
+      }
 
       /**
        * Fuel only goes into the chamber that is burning, so its holes are the
@@ -1273,8 +1600,18 @@ export function createRing(canvas, options = {}) {
        * Elsewhere the holes sit on a dark chamber, so there the rim does the
        * work and the fill stays near the background.
        */
-      const lit = ch.stage === 'fire';
-      stokeHoles[i].forEach(({ disc, ring }) => {
+      // Fuel goes in only where the firing zone is, and the zone is a run of
+      // rows, not a chamber: it straddles two chambers for most of every
+      // interval (engine.js, FIRE_ZONE). One hole per row.
+      const zoned = state.fireRow !== undefined && state.phase !== 'charging';
+      const litChamber = ch.stage === 'fire' && lit01 > 0.5;
+      // While the tour points at the holes they are filled in, so there is
+      // something more than a hairline ring to take the accent.
+      const stokeW = st ? (focusWeights.get('stokeHoles') ?? 0) : 0;
+      stokeHoles[i].forEach(({ disc, ring }, hole) => {
+        const lit = zoned
+          ? lit01 > 0.5 && inFireZone(state, i * ROWS + Math.min(ROWS - 1, hole))
+          : litChamber;
         /**
          * Only the chamber being stoked gets a filled hole. Everywhere else
          * the ring alone marks the opening.
@@ -1285,13 +1622,50 @@ export function createRing(canvas, options = {}) {
          * solid as the lit one and every chamber looked like it was burning.
          * Not drawing it at all is both clearer and more honest.
          */
-        disc.visible = lit;
-        ring.material.color.set(lit ? PALETTE.soot : PALETTE['sand-dim']);
+        // The tour fills them in one after another, round from the fire's
+        // chamber (`stoke`), so the eye is led along the roof.
+        const reached = !st || st.stoke === undefined
+          || st.stoke * (count * P.stokeHolesPerChamber + 1) > ord * P.stokeHolesPerChamber + hole;
+        disc.visible = lit || (stokeW > 0.02 && reached);
+        disc.material.color.set(RP.soot);
+        disc.material.userData.mul = lit ? 1 : stokeW;
+        ring.material.color.set(lit ? RP.soot : RP['sand-dim']);
       });
 
-      // A bricked-up door is solid; an empty chamber stands open.
-      wickets[i].material.color.set(ch.loaded ? PALETTE['sand-dim'] : PALETTE.soot);
+      // A bricked-up door is solid; an empty chamber stands open. The tour
+      // bricks them up one after another.
+      const doorsStaged = st ? clamp01(st.doors * count - ord) : 0;
+      const sealed01 = st
+        ? doorsStaged + ((ch.loaded ? 1 : 0) - doorsStaged) * (st.live ?? 0)
+        : (ch.loaded ? 1 : 0);
+      wickets[i].material.color.set(RP.soot).lerp(DOOR_SEALED, sealed01);
     }
+
+    // The fire's front, while it is crossing from one chamber to the next.
+    // Nothing to partition off until there is a draught.
+    partitionGroup.visible = state.phase !== 'charging' && (!st || (st.partition ?? 0) > 0.001);
+    partition.material.userData.mul = st ? (st.partition ?? 0) : 1;
+
+    const front = st ? (st.front ?? null) : null;
+    fireFront.visible = front !== null && (st.heat ?? 0) > 0.5;
+    fireFront.material.userData.mul = fireFront.visible ? 0.9 : 0;
+    if (fireFront.visible) {
+      // `front` is a position round the ring in chambers: where the leading
+      // edge of the firing zone has got to.
+      const s = front / count;
+      const half = 0.03 / count;
+      fireFront.geometry.dispose();
+      fireFront.geometry = bandGeometry(
+        path, s - half, s + half, -halfBand + inset, halfBand - inset, Y.stoke, 3);
+    }
+
+    // Written every frame (not only when the route is rebuilt) so the tour can
+    // show all the dampers shut before it opens the one.
+    const damperOpen = st ? st.damper : 1;
+    dampers.forEach((d, i) => {
+      d.material.color.set(RP['sand-dim']);
+      if (i === openDamper) d.material.color.lerp(AIR, damperOpen);
+    });
 
     render();
   }
@@ -1303,7 +1677,12 @@ export function createRing(canvas, options = {}) {
       .filter((id, i, all) => id && all.indexOf(id) === i);
   }
 
+  let lastDt = 16;
+  let focusReady = false;        // set once the focus tables below are built
+  let stage = null;              // the tour's staging of the drawing: see present()
+  const focusWeights = new Map();
   function render() {
+    if (focusReady) applyFocus(lastDt);
     renderer.render(scene, camera);
   }
 
@@ -1413,15 +1792,268 @@ export function createRing(canvas, options = {}) {
   }
 
   resize();
+  // Blueprint ink: every structural outline in the same light line, as the
+  // intro draws it. Heat and air lines keep their own colours.
+  const neutral = ['sand-faint', 'sand-dim', 'sand', 'sand-bright'].map((k) => new THREE.Color(RP[k]).getHex());
+  root.traverse((o) => {
+    if (o.isLine && !o.material.vertexColors && neutral.includes(o.material.color.getHex())) {
+      o.material.color.copy(INK_LINE);
+    }
+  });
+
+  // And every shape gets an inked edge, the way the intro draws the kiln
+  // (views/intro.js builds its edges from these same meshes). Children of
+  // their mesh, so they follow its visibility and transform: tiles that come
+  // and go take their outline with them. The air ribbon is rebuilt every
+  // frame, so it is left as a fill.
+  // One ink material per part, not one for the whole kiln, so focus() can
+  // dim one part's outlines without dimming another's.
+  const inkMats = new Map();
+  const inkFor = (part) => {
+    if (!inkMats.has(part)) {
+      inkMats.set(part, new THREE.LineBasicMaterial({ color: INK_LINE, transparent: true, opacity: 0.9 }));
+    }
+    return inkMats.get(part);
+  };
+  const edgeMeshes = [];
+  root.traverse((o) => {
+    if (!o.isMesh || o.userData.ink || !o.frustumCulled) return;
+    if (airGroup && o.parent === airGroup) return;
+    edgeMeshes.push(o);
+  });
+  for (const o of edgeMeshes) {
+    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(o.geometry, 20), inkFor(partOf(o)));
+    edges.userData.ink = true;
+    edges.renderOrder = 5;
+    o.add(edges);
+  }
+
+  const paper = createPaper();
+  scene.add(paper);
+
+  /**
+   * Line the paper's grid up with the intro's drawing (views/intro.js calls
+   * this once it has placed the kiln in the shed): `scale` metres per kiln
+   * unit, and the factory position of the kiln's centre.
+   */
+  function setPaper({ scale, originX, originZ }) {
+    paper.material.uniforms.uScale.value = scale;
+    paper.material.uniforms.uOrigin.value.set(originX, originZ);
+  }
+
   buildAirRibbon(0);
+
+  // ------------------------------------------------------------------ focus
+  /**
+   * Bring one part forward (views/anatomy.js, the tour): it takes the accent
+   * colour, fill and outline, and the rest of the kiln fades back.
+   *
+   * Every material is filed under the parts that use it, with the opacity and
+   * colour it was built with; each frame the parts' weights ease toward the
+   * request and the materials are re-derived from those built values, so
+   * nothing compounds. `dynamic` materials are the ones update() recolours
+   * every frame — those are tinted from whatever update() just wrote, which
+   * is equally fresh. Nothing in update() writes opacity; a material that
+   * needs its own (`userData.mul`) says so and it is multiplied in here.
+   */
+  const FOCUS_DIM = 0.72;                 // how far the other parts fade
+  const focusMats = new Map();            // material -> { parts, opacity, transparent, color, dynamic }
+  root.traverse((o) => {
+    if (!o.material) return;
+    const part = partOf(o);
+    for (const m of [].concat(o.material)) {
+      if (!focusMats.has(m)) {
+        focusMats.set(m, {
+          parts: new Set(), opacity: m.opacity, transparent: m.transparent,
+          color: m.color ? m.color.clone() : null, dynamic: false,
+        });
+      }
+      focusMats.get(m).parts.add(part);
+    }
+  });
+  for (const m of [
+    ...segments.map((sg) => sg.material),
+    ...tileMeshes.flat().map((t) => t.material),
+    ...wickets.map((w) => w.material),
+    ...dampers.map((d) => d.material),
+    ...stokeHoles.flat().flatMap(({ disc, ring }) => [disc.material, ring.material]),
+    airHead.material,
+  ]) focusMats.get(m).dynamic = true;
+
+  const focusReq = { part: null, amount: 0 };
+  let focusAmount = 0;
+  focusReady = true;
+
+  /** `part` is one part's name, or a list of names picked out together. */
+  function focus(part, amount = 1) {
+    focusReq.part = part;
+    focusReq.amount = amount;
+  }
+
+  /**
+   * Stage the kiln for the tour, or `null` to draw the state as it is.
+   * Each value runs 0 to 1:
+   *
+   *   tiles   chambers stacked, one after another round the ring
+   *   doors   wicket doors bricked up, in the same order
+   *   damper  the one open damper shown open
+   *   air     how much of the air's route is drawn, as a plain line
+   *   heat    the kiln lit: tiles take their heat colours and the line
+   *           becomes the heat-carrying arrow
+   *   live    0 as assembled by the stages above, 1 as the state has it
+   *           (which chambers are loaded, which doors are open)
+   *   fireAt  where the fire's mark is, as a position round the ring; may
+   *           sit between two chambers. Defaults to the state's firePos
+   *   front   where the firing zone's leading edge is, as a position round
+   *           the ring in chambers, or null for none
+   *   partition  the movable partition beyond the open damper shown
+   *   fireGlow  the firing chamber's floor in the accent
+   *   pathGlow  the same for the chambers the air crosses but the fire is
+   *             not in: the ones cooling behind it and preheating ahead
+   *
+   * A staging of the DRAWING only. The state underneath is untouched, and
+   * with everything at 1 the kiln is drawn exactly as it would be without.
+   */
+  function present(s) {
+    stage = s;
+  }
+
+  function applyFocus(dtMs) {
+    const k = 1 - Math.exp(-dtMs / 160);
+    focusAmount += (focusReq.amount - focusAmount) * k;
+    for (const { parts } of focusMats.values()) {
+      for (const p of parts) {
+        const w = focusWeights.get(p) ?? 0;
+        const wanted = Array.isArray(focusReq.part) ? focusReq.part.includes(p) : p === focusReq.part;
+        focusWeights.set(p, w + ((wanted ? 1 : 0) - w) * k);
+      }
+    }
+    for (const [m, e] of focusMats) {
+      let w = 0; let part = null;
+      for (const p of e.parts) {
+        const pw = focusWeights.get(p) ?? 0;
+        if (pw >= w) { w = pw; part = p; }
+      }
+      if (m.userData.focusOnly) {
+        m.opacity = m.userData.focusOnly * w * focusAmount;
+        continue;
+      }
+      const f = (1 - FOCUS_DIM * focusAmount * (1 - w)) * (m.userData.mul ?? 1);
+      m.opacity = e.opacity * f;
+      m.transparent = e.transparent || f < 0.999;
+      if (e.color) {
+        if (!e.dynamic) m.color.copy(e.color);
+        const a = w * focusAmount * (ACCENT_STRENGTH[part] ?? ACCENT_DEFAULT);
+        if (a > 0.001) m.color.lerp(ACCENT, a);
+      }
+    }
+    // Among the dampers in focus, the open one goes dark: a gap in the wall
+    // where the others are shut. (White would sit too close to the pale blue.)
+    if (stage) {
+      const w = (focusWeights.get('dampers') ?? 0) * focusAmount * stage.damper;
+      if (w > 0.001) dampers[openDamper].material.color.lerp(OPEN_GAP, w);
+    }
+  }
+  const OPEN_GAP = new THREE.Color('#1c1b19');
+
+  /**
+   * A point ON a part, for the tour's leader line to touch. Where a part has
+   * many pieces (stoke holes, doors, tile stacks) it is the piece nearest the
+   * label anchor for it, so the line points at something actually drawn.
+   */
+  const centre = new THREE.Vector3();
+  const box = new THREE.Box3();
+  function nearestIn(group, target, visibleOnly = true) {
+    let best = null; let bestD = Infinity;
+    group[visibleOnly ? 'traverseVisible' : 'traverse']((o) => {
+      if (!o.isMesh || o.userData.ink) return;
+      box.setFromObject(o).getCenter(centre);
+      const d = centre.distanceToSquared(target);
+      if (d < bestD) { bestD = d; best = centre.clone(); }
+    });
+    return best ?? target;
+  }
+  function anchorFor(part, state) {
+    const pre = C.windows.preheat;
+    const cool = C.windows.cool;
+    const on = (i) => {
+      const s = (((i % count) + count) % count + 0.5) / count;
+      const p = path.at(s);
+      return new THREE.Vector3(p.x, Y.air, p.z);
+    };
+    const byId = Object.fromEntries(anchors(state).map((a) => [a.id, a.pos]));
+    switch (part) {
+      // A chamber on the left of the kiln, the side the tour's note is on,
+      // so the leader does not cross the drawing.
+      case 'chambers': return on(state.firePos + 5);
+      // The first stack to go in: the tour loads the chambers in order from
+      // the fire's (see update(): `ord`), so that is where the eye should
+      // already be when the tiles start to appear. A fixed tile, hidden or
+      // not, so the card does not move while the stacking plays.
+      case 'tiles': {
+        const stack = tileMeshes[((state.firePos % count) + count) % count];
+        return box.setFromObject(stack[0]).getCenter(new THREE.Vector3());
+      }
+      case 'dividingWalls': {
+        const p = path.at(((state.firePos + 3) % count) / count);
+        return new THREE.Vector3(p.x, Y.air, p.z);
+      }
+      case 'wicketDoors': return nearestIn(wicketGroup, byId.wicketDoors);
+      case 'stokeHoles': return nearestIn(stokeGroup, on(state.firePos));
+      case 'flueDuct': return byId.flueDuct.clone();
+      case 'dampers': return byId.dampers.clone();
+      case 'kilnIsland': return new THREE.Vector3(-(channelHalf + islandHalfW) / 2, Y.air, 0);
+      case 'chimney': return byId.chimney.clone();
+      case 'airPath': return on(state.firePos - cool - 1);
+      case 'partition': {
+        const p = path.at((state.firePos + pre + 1) / count);
+        return new THREE.Vector3(p.x, Y.air, p.z);
+      }
+      case 'fire': return on(state.firePos);
+      case 'recovery': return on(state.firePos - 1);
+      default: return new THREE.Vector3();
+    }
+  }
+
+  /**
+   * Draw the kiln smaller, about its centre (1 = as fitted by resize()). The
+   * tour uses it to keep the kiln clear of the panels either side of it.
+   * resize() leaves the zoom alone, so it survives a window resize.
+   */
+  function setZoom(z, panPx = 0) {
+    // panPx slides the drawing sideways on screen (+ is right), for when the
+    // room either side of the kiln is not the same. The camera looks straight
+    // down with world x along screen x, so it moves the other way.
+    const w = renderer.domElement.clientWidth || 1;
+    const x = -(2 * panPx / w) * Math.abs(camera.right) / z;
+    if (Math.abs(camera.zoom - z) < 1e-4 && Math.abs(camera.position.x - x) < 1e-4) return;
+    camera.zoom = z;
+    camera.position.x = x;
+    camera.updateProjectionMatrix();
+    camera.updateMatrixWorld();
+  }
+  /** The kiln's width as a share of the canvas's, at zoom 1. */
+  function kilnShare() {
+    const b = path.bounds;
+    return ((b.maxX - b.minX) / 2 + halfBand) / Math.abs(camera.right);
+  }
+
+  /** Just outside the outer wall at the middle of chamber i: for numbering. */
+  function chamberPoint(i) {
+    const p = path.at((((i % count) + count) % count + 0.5) / count);
+    const off = halfBand + 0.26;
+    return new THREE.Vector3(p.x + p.nx * off, Y.air, p.z + p.nz * off);
+  }
+
   render();
 
   return {
-    update, resize, dispose, render, anchors, attachScrub, components,
+    focus, present, anchorFor, chamberPoint, setZoom, kilnShare, accent: `#${ACCENT.getHexString()}`,
+    update, resize, dispose, render, anchors, attachScrub, components, setPaper,
     segments, path, ductPath, scene, camera, renderer, tileMeshes, tileHatches,
     groups: {
       massGroup, chambersGroup, tilesGroup, wallsGroup, wicketGroup,
-      stokeGroup, ductGroup, islandGroup, chimneyGroup, damperGroup, airGroup,
+      stokeGroup, ductGroup, islandGroup, chimneyGroup, damperGroup, airGroup, partitionGroup,
     },
   };
 }

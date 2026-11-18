@@ -19,6 +19,7 @@ export function createHistory() {
     return {
       tick: state.tick,
       firePos: state.firePos,
+      fireRow: state.fireRow,
       fuelIndex: state.fuelIndex,
       // Chambers actually fired, the denominator of the recovery comparison.
       firings: state.firings,
@@ -33,6 +34,13 @@ export function createHistory() {
         onFuel: state.thermal.on.fuel,
         off: state.thermal.off.temps.slice(),
         offFuel: state.thermal.off.fuel,
+        // The rows the model actually integrates (ROWS to a chamber). The
+        // chamber means above are derived from these; both are kept so a
+        // scrub restores the kiln exactly, not a smoothed copy of it.
+        onLedger: { ...state.thermal.on.ledger },
+        offLedger: { ...state.thermal.off.ledger },
+        onCells: state.thermal.on.cells.slice(),
+        offCells: state.thermal.off.cells.slice(),
         // The gas profile is NOT recorded: it is a pure function of these
         // temperatures and the fire's position, and the engine recomputes it
         // from them. Recording it would be a second copy free to disagree.
