@@ -11,6 +11,7 @@ import {
 } from './config.js';
 import { createEngine } from './engine.js';
 import { createSmoothScroll } from './scroll.js';
+import { createNav } from './nav.js';
 import { createIntro } from './views/intro.js';
 import { createCharRise } from './views/charRise.js';
 import { createAnatomy } from './views/anatomy.js';
@@ -48,6 +49,10 @@ const ring = createRing(document.getElementById('ring-canvas'), {
 const introSection = document.getElementById('intro');
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   || window.innerWidth < 560;
+
+// The site bar: the four pages. It opens on the intro's clay unless the
+// intro is skipped, and steps aside while the story scrolls (nav.js).
+createNav({ current: 'story', autoHide: true, tone: reduceMotion ? 'dark' : 'light' });
 
 let intro = null;
 if (reduceMotion) {

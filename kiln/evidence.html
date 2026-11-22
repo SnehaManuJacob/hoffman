@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Evidence · A Kiln on Schedule</title>
+  <meta name="description" content="Where every claim on this site comes from: what was seen or told at the tile works and by growers, what comes from published research, what was assumed, simulated or is still unknown, and the full list of sources.">
+  <link rel="preload" href="./vendor/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="./vendor/fonts/orbitron.woff2" as="font" type="font/woff2" crossorigin>
+  <!-- One stamp for every local file: run `python3 bump-version.py` after any change. -->
+  <link rel="stylesheet" href="site.css?v=20261122p">
+  <link rel="stylesheet" href="evidence-page.css?v=20261122p">
+  <script type="importmap">
+  {
+    "imports": {
+      "./scroll.js": "./scroll.js?v=20261122p",
+      "./nav.js": "./nav.js?v=20261122p",
+      "./config.js": "./config.js?v=20261122p",
+      "./evidence-data.js": "./evidence-data.js?v=20261122p",
+      "./evidence-page.js": "./evidence-page.js?v=20261122p"
+    }
+  }
+  </script>
+</head>
+<body class="page-evidence" data-page="evidence">
+  <a class="skip-link" href="#sources">Skip to the list of sources</a>
+
+  <main class="ev">
+
+    <header class="ev-hero" id="top">
+      <p class="ev-mark">The record</p>
+      <h1 class="ev-title">Evidence</h1>
+      <p class="ev-lede">Every claim on this site says how it is known: seen, told, read, assumed, simulated, or not known at all. This page is where those marks lead. It keeps what was observed apart from what was borrowed, and both apart from what was inferred.</p>
+      <div class="ev-headline" id="headline"></div>
+    </header>
+
+    <nav class="ev-rail" aria-label="On this page">
+      <ol>
+        <li><a href="#scales"><b>01</b>Three questions</a></li>
+        <li><a href="#shape"><b>02</b>The shape</a></li>
+        <li><a href="#field"><b>03</b>Fieldwork</a></li>
+        <li><a href="#readings"><b>04</b>Readings</a></li>
+        <li><a href="#model"><b>05</b>The model</a></li>
+        <li><a href="#disagree"><b>06</b>Disagreements</a></li>
+        <li><a href="#open"><b>07</b>Still open</a></li>
+        <li><a href="#sources"><b>08</b>Sources</a></li>
+      </ol>
+    </nav>
+
+    <!-- 01 -->
+    <section class="ev-sec" id="scales" aria-labelledby="scales-h">
+      <header class="ev-sec-head">
+        <p class="ev-num">01 · Three questions</p>
+        <h2 id="scales-h">Three different questions, never one scale</h2>
+        <p class="ev-sec-lede">How a fact is known, how strong a reading is, and how real an application is are separate questions. Only the first is marked with a letter. The other two appear only where they apply, so that a mark never turns into a score of how true something is.</p>
+      </header>
+      <div class="ev-scales" id="scale-cards"></div>
+    </section>
+
+    <!-- 02 -->
+    <section class="ev-sec" id="shape" aria-labelledby="shape-h">
+      <header class="ev-sec-head">
+        <p class="ev-num">02 · The shape of the evidence</p>
+        <h2 id="shape-h">The further from the kiln, the less is observed</h2>
+        <p class="ev-sec-lede">Every mark shown on each part of the site, by kind. Field marks hold the kiln tour and the drying problem; the dryer is mostly design decisions and open questions. That is what a proposal should look like.</p>
+      </header>
+      <div class="ev-shape" id="shape-chart"></div>
+      <details class="ev-table-toggle"><summary>Show as a table</summary><div id="shape-table"></div></details>
+      <p class="ev-note">Counted from the pages' own code on 22 November 2026, leaving out keys and repeated marks. A count of marks, not of independent facts: one fact can be marked on several pages.</p>
+    </section>
+
+    <!-- 03 -->
+    <section class="ev-sec" id="field" aria-labelledby="field-h">
+      <header class="ev-sec-head">
+        <p class="ev-num">03 · Fieldwork</p>
+        <h2 id="field-h">What was seen, and what was told</h2>
+        <p class="ev-sec-lede">Everything marked F on this site, in one list. "Field" covers two different things: what was seen or counted on site, and what people said. Where the research does not say which, neither does this page.</p>
+      </header>
+      <div class="ev-how-key" id="how-key"></div>
+      <div id="field-log"></div>
+      <p class="ev-note">Limits: one site, one season, a few conversations. No instruments were used, and nothing was weighed or timed. The photographs on the kiln page show other kilns.</p>
+    </section>
+
+    <!-- 04 -->
+    <section class="ev-sec" id="readings" aria-labelledby="readings-h">
+      <header class="ev-sec-head">
+        <p class="ev-num">04 · Readings</p>
+        <h2 id="readings-h">How far the computing reading holds</h2>
+        <p class="ev-sec-lede">The story reads the kiln through five ideas from computing. That is an interpretation, not an observation. A separate survey of 49 concepts rated each connection and said where it breaks. These are its ratings for the entries nearest each idea.</p>
+      </header>
+      <div class="ev-levels" id="levels"></div>
+      <div class="ev-readings" id="reading-cards"></div>
+      <div class="ev-rejected">
+        <h3>Tried and rejected</h3>
+        <p class="ev-note">Kept on purpose. A similar word or a similar look is not a shared mechanism.</p>
+        <ul id="rejected"></ul>
+      </div>
+    </section>
+
+    <!-- 05 -->
+    <section class="ev-sec" id="model" aria-labelledby="model-h">
+      <header class="ev-sec-head">
+        <p class="ev-num">05 · The model</p>
+        <h2 id="model-h">Every number the kiln model uses</h2>
+        <p class="ev-sec-lede">The kiln on the site is a simulation built on a handful of field facts. Everything below is read straight from its code, so this list cannot drift from what the model does.</p>
+      </header>
+
+      <div class="ev-methods" id="methods"></div>
+
+      <div class="ev-register">
+        <div class="ev-filter" role="group" aria-label="Show values marked">
+          <span>Show</span>
+          <div id="filter"></div>
+          <label class="ev-search"><span class="ev-sr">Search values</span><input type="search" id="search" placeholder="Search"></label>
+        </div>
+        <div id="register"></div>
+        <p class="ev-note" id="register-count"></p>
+      </div>
+    </section>
+
+    <!-- 06 -->
+    <section class="ev-sec" id="disagree" aria-labelledby="disagree-h">
+      <header class="ev-sec-head">
+        <p class="ev-num">06 · Disagreements</p>
+        <h2 id="disagree-h">Where the sources disagree</h2>
+        <p class="ev-sec-lede">Noted rather than quietly resolved. Each says which figure the site uses, and why.</p>
+      </header>
+      <div class="ev-disagree" id="disagree-list"></div>
+    </section>
+
+    <!-- 07 -->
+    <section class="ev-sec" id="open" aria-labelledby="open-h">
+      <header class="ev-sec-head">
+        <p class="ev-num">07 · Still open</p>
+        <h2 id="open-h">What would settle the rest</h2>
+        <p class="ev-sec-lede">The unknowns on every page, grouped by what it would take to answer them. Most need nothing more than another visit and the right question.</p>
+      </header>
+      <div class="ev-open" id="open-list"></div>
+    </section>
+
+    <!-- 08 -->
+    <section class="ev-sec" id="sources" aria-labelledby="sources-h">
+      <header class="ev-sec-head">
+        <p class="ev-num">08 · Sources</p>
+        <h2 id="sources-h">Every source, and what it is used for</h2>
+        <p class="ev-sec-lede">Grouped by subject. Links are as recorded in the research behind this site and were not re-checked for this page. Where the research cites only a website or an organisation, the entry says the exact page is still to be found.</p>
+      </header>
+      <div class="ev-src-tools">
+        <label><span>Type</span><select id="src-type"></select></label>
+        <label class="ev-check"><input type="checkbox" id="src-missing"> Only those without a confirmed link</label>
+        <p class="ev-src-count" id="src-count" aria-live="polite"></p>
+      </div>
+      <div id="source-list"></div>
+    </section>
+
+    <section class="ev-sec ev-sec--end" aria-label="Where next">
+      <nav class="ev-doors">
+        <a class="ev-door" href="./index.html"><span class="ev-door-k">The story</span><span class="ev-door-t">What can an old kiln teach us about designing new systems?</span></a>
+        <a class="ev-door" href="./kiln.html"><span class="ev-door-k">The kiln</span><span class="ev-door-t">How the original system works.</span></a>
+        <a class="ev-door" href="./proposal.html"><span class="ev-door-k">The proposal</span><span class="ev-door-t">The Drying Cycle, and what remains to be tested.</span></a>
+      </nav>
+    </section>
+  </main>
+
+  <script type="module">import './evidence-page.js';</script>
+</body>
+</html>

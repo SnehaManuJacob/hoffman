@@ -1,0 +1,791 @@
+/**
+ * kiln-page.css — "The kiln" page.
+ *
+ * Its identity is the technical drawing: the blueprint paper the story's
+ * kiln is drawn on (`--paper`, with its faint grid), ink line drawings,
+ * section numbers painted like the markings on a kiln door. Everything else
+ * is the story's own language from site.css: Orbitron for what a section
+ * says, Archivo for reading, dark slips for panels, heat colour only for
+ * heat, purple only for "the part I mean".
+ */
+
+.page-kiln {
+  --k-paper: #2e2c29;
+  --k-slip: #3a3733;
+  --k-slip-2: #34312e;
+  --k-ink: #e4e0da;
+  --k-ink-soft: #9a958d;
+  --k-rule: rgba(228, 224, 218, 0.14);
+  --k-accent: #B46AFF;
+
+  /* One rhythm for the whole page, so every section breathes the same way.
+     sec: between sections. head: a section's heading to its content.
+     block: between the big pieces inside one section. gap: between cards
+     in a row. pad: inside a card. */
+  --kp-sec: clamp(5rem, 4rem + 5vw, 9rem);
+  --kp-head: clamp(2rem, 1.5rem + 1.5vw, 3rem);
+  --kp-block: clamp(2rem, 1.5rem + 1.5vw, 3rem);
+  --kp-gap: var(--space-4);
+  --kp-pad: var(--space-5);
+  /* Type for what is not a heading: item titles, reading, notes, captions. */
+  --kp-item: 1.0625rem;
+  --kp-cap: 0.8125rem;
+  --kp-measure: 44rem;
+  background-color: var(--k-paper);
+  background-image:
+    linear-gradient(rgba(228, 224, 218, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(228, 224, 218, 0.045) 1px, transparent 1px);
+  background-size: 40px 40px;
+  color: var(--k-ink);
+}
+
+.kp {
+  display: block;
+  width: min(76rem, 100% - 2 * clamp(1rem, 4vw, 3rem));
+  margin: 0 auto;
+  padding-top: 3.5rem;   /* under the site bar */
+}
+
+.kp a { color: inherit; text-decoration-color: rgba(228, 224, 218, 0.4); text-underline-offset: 0.18em; }
+.kp a:hover { text-decoration-color: currentColor; }
+
+/* ---- markings: narrow caps, the one place caps are used ---- */
+.kp-mark,
+.kp-num,
+.kd-mark,
+.kp-fact-unit,
+.kp-tl-year,
+.kp-type-moves,
+.kp-src-kind,
+.kp-unknown dt {
+  font-stretch: 72%;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* ===========================================================================
+   Opening
+   =========================================================================== */
+.kp-hero { padding: clamp(3.5rem, 2rem + 6vw, 7.5rem) 0 0; }
+.kp-mark { margin: 0 0 var(--space-5); color: var(--k-ink-soft); font-size: var(--fs-micro); }
+.kp-title {
+  margin: 0;
+  max-width: 14ch;
+  color: #ffffff;
+  font-family: "Orbitron", var(--font-display);
+  font-size: var(--title-hero);
+  font-weight: 700;
+  line-height: 1.05;
+}
+.kp-lede {
+  max-width: 40rem;
+  margin: var(--space-5) 0 0;
+  color: var(--k-ink);
+  font-size: clamp(1.1rem, 1rem + 0.45vw, 1.375rem);
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+.kp-back { max-width: 40rem; margin: var(--space-4) 0 0; color: var(--k-ink-soft); font-size: var(--fs-small); line-height: 1.5; }
+
+/* The five figures: one slab, cut into equal cells. */
+.kp-facts {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 2px;
+  margin: clamp(2.5rem, 2rem + 2vw, 4rem) 0 0;
+  border-radius: var(--r-panel);
+  overflow: hidden;
+  box-shadow: var(--panel-edge);
+}
+.kp-fact {
+  display: flex;
+  flex-direction: column;
+  padding: var(--kp-pad);
+  background: var(--k-slip);
+}
+.kp-fact dt { display: flex; flex-direction: column; gap: var(--space-2); }
+.kp-fact-fig {
+  color: #ffffff;
+  font-family: "Orbitron", var(--font-display);
+  font-size: clamp(1.5rem, 2.2vw, 2.1rem);
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;   /* "850–900" is one figure, never two lines */
+  font-variant-numeric: tabular-nums;
+}
+.kp-fact-unit { color: var(--k-ink-soft); font-size: var(--fs-micro); }
+.kp-fact dd {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin: var(--space-4) 0 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--k-rule);
+  color: var(--k-ink);
+  font-size: var(--fs-small);
+  line-height: 1.45;
+}
+.kp-fact[data-ev="U"] .kp-fact-fig { color: var(--k-ink-soft); }
+
+/* ===========================================================================
+   The contents rail (wide screens only)
+   =========================================================================== */
+.kp-rail { display: none; }
+@media (min-width: 1560px) {
+  .kp-rail {
+    display: block;
+    position: fixed;
+    top: 50%;
+    left: clamp(1rem, 2vw, 2rem);
+    transform: translateY(-50%);
+    z-index: 5;
+  }
+  .kp-rail ol { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-1); }
+  .kp-rail a {
+    display: flex;
+    gap: var(--space-2);
+    padding: var(--space-1) 0;
+    color: var(--k-ink-soft);
+    font-size: 0.75rem;
+    text-decoration: none;
+    opacity: 0.6;
+    transition: opacity 160ms linear, color 160ms linear;
+  }
+  .kp-rail a b { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .kp-rail a:hover,
+  .kp-rail a.is-current { color: #ffffff; opacity: 1; }
+}
+
+/* ===========================================================================
+   Sections
+   =========================================================================== */
+.kp-sec {
+  padding: var(--kp-sec) 0 0;
+  scroll-margin-top: 3.5rem;
+}
+.kp-sec-head { margin-bottom: var(--kp-head); }
+.kp-sec-head > :not(.kp-num) { max-width: var(--kp-measure); }
+/* Every section opens on the same ruled line, its number painted at the
+   left like the title strip of a drawing sheet: one recurring mark that
+   carries the eye from section to section. */
+.kp-num {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin: 0 0 var(--space-5);
+  color: var(--k-accent);
+  font-size: var(--fs-micro);
+}
+.kp-num::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--k-rule);
+}
+.kp-sec-head h2 {
+  margin: 0;
+  color: #ffffff;
+  font-family: "Orbitron", var(--font-display);
+  font-size: var(--title-lg);
+  font-weight: 700;
+  line-height: 1.12;
+  text-wrap: balance;
+}
+.kp-sec-lede {
+  margin: var(--space-5) 0 0;
+  color: var(--k-ink);
+  font-size: clamp(1.0625rem, 1rem + 0.25vw, 1.1875rem);
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+.kp-note { margin: var(--space-3) 0 0; color: var(--k-ink-soft); font-size: var(--fs-small); line-height: 1.55; text-wrap: pretty; }
+.kp-src {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  margin: var(--space-4) 0 0;
+  color: var(--k-ink-soft);
+  font-size: var(--kp-cap);
+  line-height: 1.5;
+}
+
+.kp-figure {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: var(--kp-pad);
+  background: var(--k-slip);
+  border-radius: var(--r-panel);
+  box-shadow: var(--panel-edge);
+}
+.kp-figure-h {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+  color: #ffffff;
+  font-size: var(--kp-item);
+  font-weight: 600;
+  line-height: 1.3;
+}
+.kp-split { display: grid; grid-template-columns: 1.15fr 1fr; gap: var(--kp-gap); margin-top: var(--kp-block); }
+/* Side by side, the two figures end on one line: each note sits at its
+   figure's foot, however tall the chart above it. */
+.kp-split .kp-figure > .kp-note {
+  margin-top: auto;
+  padding-top: var(--space-4);
+}
+
+/* ===========================================================================
+   01 Lineage
+   =========================================================================== */
+.kp-timeline {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(10.5rem, 1fr));
+  gap: 0;
+  margin: 0;
+  padding: 0 0 var(--space-3);
+  list-style: none;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scroll-snap-type: x proximity;
+}
+.kp-tl {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-6) var(--space-5) 0 0;
+  scroll-snap-align: start;
+}
+/* The line the years hang from, and a tick at each. */
+.kp-tl::before {
+  content: "";
+  position: absolute;
+  top: 0.6rem;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--k-rule);
+}
+.kp-tl::after {
+  content: "";
+  position: absolute;
+  top: calc(0.6rem - 4px);
+  left: 0;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--k-paper);
+  box-shadow: inset 0 0 0 1.5px var(--k-ink);
+}
+.kp-tl.is-here::after { background: var(--k-ink); }
+.kp-tl-year { position: absolute; top: 1.4rem; left: 0; color: var(--k-ink-soft); font-size: var(--fs-micro); }
+.kp-tl h3 {
+  margin: var(--space-5) 0 var(--space-2);
+  color: #ffffff;
+  font-size: var(--kp-item);
+  font-weight: 600;
+  line-height: 1.3;
+  text-wrap: balance;
+}
+.kp-tl p { margin: 0; color: var(--k-ink); font-size: var(--fs-small); line-height: 1.55; }
+/* The chips share one line along the foot of the timeline. */
+.kp-tl .kp-tl-ev { display: flex; gap: var(--space-1); margin-top: auto; padding-top: var(--space-4); }
+
+.kp-shapes { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-3); }
+.kp-shape { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); text-align: center; }
+.kp-shape svg { width: 100%; max-width: 7rem; aspect-ratio: 1; margin-bottom: var(--space-2); }
+.kp-shape b { color: #ffffff; font-size: var(--fs-small); font-weight: 600; }
+.kp-shape span { color: var(--k-ink-soft); font-size: var(--kp-cap); line-height: 1.35; }
+
+/* ---- small bar charts (decline, pace) ---- */
+.kp-bars { display: block; width: 100%; height: auto; overflow: visible; font-family: var(--font-display); }
+.kp-grid-line { stroke: var(--k-rule); stroke-width: 1; }
+.kp-axis { fill: var(--k-ink-soft); font-size: 11px; font-variant-numeric: tabular-nums; }
+.kp-bar-name { fill: var(--k-ink); font-size: 13px; }
+.kp-bar-val { fill: #ffffff; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.kp-bar-mark { fill: var(--k-ink); }
+.kp-bar.is-derived .kp-bar-mark { fill: transparent; stroke: var(--k-ink); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.kp-bar { cursor: default; outline: none; }
+.kp-bar:hover .kp-bar-mark,
+.kp-bar:focus-visible .kp-bar-mark { fill: #ffffff; }
+.kp-bar.is-derived:hover .kp-bar-mark,
+.kp-bar.is-derived:focus-visible .kp-bar-mark { fill: rgba(255, 255, 255, 0.14); stroke: #ffffff; }
+.kp-tip {
+  min-height: 2.9em;
+  margin-top: var(--space-3);
+  color: var(--k-ink-soft);
+  font-size: var(--kp-cap);
+  line-height: 1.4;
+  opacity: 0;
+  transition: opacity 140ms linear;
+}
+.kp-tip.is-on { opacity: 1; color: var(--k-ink); }
+
+/* ===========================================================================
+   02 Anatomy
+   =========================================================================== */
+.kp-anatomy {
+  display: grid;
+  grid-template-columns: 13rem minmax(0, 1fr) 20rem;
+  gap: var(--space-6);
+  align-items: start;
+}
+/* The list of parts and the card both stay in view while the two drawings
+   scroll past between them. */
+.kp-parts { position: sticky; top: 5rem; margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; }
+.kp-parts button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 2.5rem;
+  padding: var(--space-2) var(--space-3);
+  color: var(--k-ink);
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  font: inherit;
+  font-size: var(--fs-small);
+  text-align: left;
+  cursor: pointer;
+}
+.kp-parts button:hover { background: rgba(228, 224, 218, 0.06); }
+.kp-parts button[aria-pressed="true"] { background: var(--k-slip); color: #ffffff; box-shadow: inset 3px 0 0 var(--k-accent); }
+.kp-parts button:focus-visible { outline: 2px solid var(--k-ink); outline-offset: 1px; }
+
+.kp-drawings { display: grid; gap: var(--space-6); }
+.kp-drawing { margin: 0; }
+.kp-drawing figcaption {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+.kp-drawing figcaption > span { color: #ffffff; font-size: var(--kp-item); font-weight: 600; }
+.kp-drawing figcaption em { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--k-ink-soft); font-style: normal; font-size: var(--kp-cap); text-align: right; }
+.kp-drawing svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: rgba(22, 18, 13, 0.18);
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1px var(--k-rule);
+}
+/* Parts can be picked from the drawing too. */
+.kp-drawing [data-part] { cursor: pointer; }
+.kd-num { fill: var(--k-ink-soft); font-family: var(--font-display); font-size: 13px; font-weight: 600; font-stretch: 72%; }
+.kd-mark { fill: var(--k-ink-soft); font-family: var(--font-display); font-size: 11px; }
+.kd-ghost { opacity: 0; }
+/* Structure nobody picks: it steps back with the rest when a part is chosen. */
+.kp-drawing svg.has-focus > path:not([data-part]) { opacity: 0.75; }
+
+/* A part is picked: everything else steps back; the part takes the accent. */
+.kp-drawing svg.has-focus [data-part] { transition: opacity 200ms linear, stroke 200ms linear, fill 200ms linear; }
+.kp-drawing svg.has-focus [data-part]:not(.is-on),
+.kp-drawing svg.has-focus [data-part]:not(.is-on) * { opacity: 0.5; }
+.kp-drawing svg.has-focus .kd-ghost:not(.is-on) { opacity: 0; }
+.kp-drawing svg [data-part].is-on,
+.kp-drawing svg [data-part].is-on * { opacity: 1; }
+.kp-drawing svg .kd-line.is-on,
+.kp-drawing svg .is-on > .kd-line { stroke: var(--k-accent); }
+.kp-drawing svg .kd-fill.is-on:not(.kd-tunnel):not(path[fill="none"]),
+.kp-drawing svg .is-on > .kd-fill:not(.kd-flue) { fill: var(--k-accent); }
+.kp-drawing svg .kd-tunnel.is-on[fill="none"] { stroke: color-mix(in srgb, var(--k-accent) 55%, #4b4945); }
+.kp-drawing svg .kd-tunnel.is-on:not([fill="none"]) { fill: color-mix(in srgb, var(--k-accent) 40%, #4b4945); }
+.kp-drawing svg path.kd-fill.is-on[fill="none"] { stroke: var(--k-accent); }
+.kp-drawing svg .is-on > .kd-flue { stroke: color-mix(in srgb, var(--k-accent) 55%, #4b4945); }
+.kp-drawing svg .kd-outline.is-on { stroke: var(--k-accent); }
+.kp-drawing svg .kd-door.is-on { stroke: var(--k-accent); }
+.kp-drawing svg text.is-on { fill: var(--k-accent); }
+
+.kp-part-card {
+  position: sticky;
+  top: 5rem;
+  padding: var(--kp-pad);
+  background: var(--k-slip);
+  border-radius: var(--r-panel);
+  box-shadow: var(--panel-edge), var(--panel-shadow);
+}
+.kp-part-card h3 {
+  margin: 0;
+  color: #ffffff;
+  font-family: "Orbitron", var(--font-display);
+  font-size: clamp(1.15rem, 1.5vw, 1.45rem);
+  font-weight: 700;
+}
+.kp-part-ev { display: flex; align-items: center; gap: var(--space-2); margin: var(--space-3) 0 0; color: var(--k-ink-soft); font-size: var(--kp-cap); }
+.kp-part-text { margin: var(--space-4) 0 0; color: var(--k-ink); font-size: var(--fs-body); line-height: 1.6; text-wrap: pretty; }
+.kp-part-photo { margin: var(--space-5) 0 0; }
+.kp-part-photo img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 10px; }
+.kp-part-photo figcaption { display: grid; gap: var(--space-1); margin-top: var(--space-3); font-size: var(--kp-cap); line-height: 1.45; color: var(--k-ink); }
+.kp-part-photo em { color: var(--k-ink-soft); font-style: normal; }
+
+/* ===========================================================================
+   03 The air's route
+   =========================================================================== */
+.kp-air {
+  display: grid;
+  gap: var(--kp-pad);
+  padding: var(--kp-pad);
+  background: rgba(22, 18, 13, 0.18);
+  border-radius: var(--r-panel);
+  box-shadow: inset 0 0 0 1px var(--k-rule);
+}
+.kp-air-scroll { min-width: 0; }
+.kp-air-svg { display: block; width: 100%; height: auto; }
+.ka-ch rect { transition: opacity 220ms linear; }
+.kp-air-svg[data-stage] .ka-ch:not(.is-on) rect { opacity: 0.55; }
+.ka-role { font-size: 10.5px; }
+.ka-ch.is-on .ka-role { fill: #ffffff; }
+.ka-air {
+  stroke: var(--air);
+  opacity: 0.28;
+  transition: opacity 220ms linear;
+}
+.ka-air.is-spent { stroke: var(--air-spent); }
+.ka-air.is-on {
+  opacity: 1;
+  stroke-dasharray: 10 8;
+  animation: ka-flow 900ms linear infinite;
+}
+.ka-head { fill: var(--air); }
+@keyframes ka-flow { to { stroke-dashoffset: -18; } }
+
+/* Below the drawing, ruled off from it: the six stages to choose from, and
+   what the chosen one means. */
+.kp-air-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: var(--space-6);
+  align-items: start;
+  padding-top: var(--kp-pad);
+  border-top: 1px solid var(--k-rule);
+}
+.kp-air-steps { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(2, 1fr); gap: 2px; }
+.kp-air-steps button {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  width: 100%;
+  height: 100%;
+  min-height: 2.75rem;
+  padding: var(--space-3);
+  color: var(--k-ink);
+  background: rgba(228, 224, 218, 0.04);
+  border: 0;
+  border-radius: 8px;
+  font: inherit;
+  font-size: var(--fs-small);
+  text-align: left;
+  cursor: pointer;
+}
+.kp-air-steps button b { color: var(--k-ink-soft); font-variant-numeric: tabular-nums; }
+.kp-air-steps button:hover { background: rgba(228, 224, 218, 0.08); }
+.kp-air-steps button[aria-pressed="true"] { background: var(--k-slip); color: #ffffff; box-shadow: inset 3px 0 0 var(--air); }
+.kp-air-steps button:focus-visible { outline: 2px solid var(--k-ink); outline-offset: 1px; }
+.kp-air-card h3 { margin: 0; color: #ffffff; font-family: "Orbitron", var(--font-display); font-size: clamp(1.15rem, 1rem + 0.5vw, 1.4rem); font-weight: 700; line-height: 1.25; }
+.kp-air-card p { margin: var(--space-3) 0 0; color: var(--k-ink); line-height: 1.6; text-wrap: pretty; }
+.kp-air-card .kp-air-ev { display: flex; gap: var(--space-2); align-items: flex-start; margin-top: var(--space-4); color: var(--k-ink-soft); font-size: var(--kp-cap); line-height: 1.5; }
+
+.kp-aside {
+  margin-top: var(--space-6);
+  border-top: 1px solid var(--k-rule);
+  border-bottom: 1px solid var(--k-rule);
+}
+.kp-aside summary {
+  padding: var(--space-4) 0;
+  color: #ffffff;
+  font-weight: 600;
+  cursor: pointer;
+}
+.kp-aside > div { max-width: var(--kp-measure); padding: var(--space-2) 0 var(--space-5) calc(0.45em + var(--space-3)); }
+.kp-aside p { margin: 0 0 var(--space-3); color: var(--k-ink); line-height: 1.6; }
+
+/* Every fold on the page opens the same way: a drawn caret, the one the
+   chambers table already uses, never the font's triangle. */
+.kp-aside > summary,
+.kp-sources > summary,
+.kp-table-toggle > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  list-style: none;
+}
+.kp-aside > summary::-webkit-details-marker,
+.kp-sources > summary::-webkit-details-marker,
+.kp-table-toggle > summary::-webkit-details-marker { display: none; }
+.kp-aside > summary::before,
+.kp-sources > summary::before,
+.kp-table-toggle > summary::before {
+  content: "";
+  flex: none;
+  width: 0.45em;
+  height: 0.45em;
+  margin-top: -0.15em;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  opacity: 0.7;
+  transform: rotate(-45deg);
+  transition: transform 140ms ease;
+}
+.kp-aside[open] > summary::before,
+.kp-sources[open] > summary::before,
+.kp-table-toggle[open] > summary::before { transform: rotate(45deg); }
+.kp-aside > summary:hover::before,
+.kp-sources > summary:hover::before,
+.kp-table-toggle > summary:hover::before { opacity: 1; }
+
+/* ===========================================================================
+   04 Two readings
+   =========================================================================== */
+.kp-readings { display: grid; grid-template-columns: minmax(0, 27rem) minmax(0, 1fr); gap: clamp(2rem, 4vw, 4.5rem); align-items: start; }
+.kp-toggle { display: inline-flex; max-width: 100%; padding: 3px; margin-bottom: var(--space-5); background: rgba(228, 224, 218, 0.06); border-radius: var(--r-pill); }
+.kp-toggle button {
+  padding: var(--space-2) var(--space-4);
+  color: var(--k-ink-soft);
+  background: transparent;
+  border: 0;
+  border-radius: var(--r-pill);
+  font: inherit;
+  font-size: var(--fs-small);
+  cursor: pointer;
+}
+.kp-toggle button[aria-checked="true"] { color: #1d1915; background: var(--k-ink); font-weight: 600; }
+.kp-toggle button:focus-visible { outline: 2px solid var(--k-ink); outline-offset: 2px; }
+.kp-grid { border-radius: 10px; outline: none; }
+.kp-grid:focus-visible { box-shadow: 0 0 0 2px var(--k-ink); }
+.kp-st { display: block; width: 100%; max-width: 27rem; height: auto; cursor: crosshair; font-family: var(--font-display); }
+.kp-heat-key { display: flex; align-items: center; gap: var(--space-2); max-width: 27rem; margin-top: var(--space-3); color: var(--k-ink-soft); font-size: var(--kp-cap); }
+.kp-grid-wrap > .kp-note { max-width: 27rem; margin-top: var(--space-4); }
+.kp-heat-key i { flex: 1; height: 8px; border-radius: 4px; }
+.kp-heat-key b { width: 14px; height: 8px; margin-left: var(--space-3); border-radius: 2px; background: #3b3a36; box-shadow: inset 0 0 0 1px var(--k-rule); }
+.kp-st-band { fill: none; stroke: #ffffff; stroke-width: 2; opacity: 0; }
+.kp-st-band.is-on { opacity: 1; }
+
+.kp-read-out {
+  position: sticky;
+  top: 5rem;
+  padding: var(--kp-pad);
+  background: var(--k-slip);
+  border-radius: var(--r-panel);
+  box-shadow: var(--panel-edge), var(--panel-shadow);
+}
+.kp-read-out h3 { margin: 0 0 var(--space-4); color: #ffffff; font-family: "Orbitron", var(--font-display); font-size: clamp(1.15rem, 1rem + 0.5vw, 1.4rem); font-weight: 700; line-height: 1.25; }
+.kp-read-chart { display: block; width: 100%; height: auto; overflow: visible; font-family: var(--font-display); }
+.kp-line { fill: none; stroke: #ffffff; stroke-width: 2; stroke-linejoin: round; }
+.kp-cross { stroke: var(--k-ink-soft); stroke-width: 1; stroke-dasharray: 3 3; }
+.kp-dot { fill: #ffffff; stroke: var(--k-slip); stroke-width: 2; }
+.kp-stage { fill: rgba(228, 224, 218, 0.08); }
+.kp-stage--fire { fill: rgba(228, 224, 218, 0.28); }
+.kp-stage-label { fill: var(--k-ink); font-size: 10.5px; font-stretch: 72%; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+.kp-stage-label--small { fill: var(--k-ink-soft); font-size: 9px; }
+.kp-colbar { stroke: none; }
+.kp-colbar.is-sel { stroke: #ffffff; stroke-width: 2; }
+.kp-read-text { margin: var(--space-4) 0 0; color: var(--k-ink); line-height: 1.6; text-wrap: pretty; }
+.kp-read-out .kp-src { padding-top: var(--space-4); border-top: 1px solid var(--k-rule); }
+
+/* ===========================================================================
+   05 Run the kiln
+   =========================================================================== */
+.kp-model-note {
+  margin: var(--space-5) 0 0;
+  padding: var(--space-3) var(--space-4);
+  color: var(--k-ink);
+  font-size: var(--fs-small);
+  line-height: 1.5;
+  border-left: 2px dashed var(--k-ink-soft);
+}
+.kp-sec--run .evidence-strip { margin-bottom: var(--space-3); border-radius: 10px; }
+.kp-run {
+  overflow: hidden;
+  border-radius: var(--r-panel);
+  /* An outer edge: an inset one would be painted under the canvas. */
+  box-shadow: 0 0 0 1px var(--k-rule), var(--panel-shadow);
+}
+/* The dashboard's column was cut for the story's clay ground. On this page's
+   paper it takes the page's own slip and rules, so the model reads as one
+   more panel of the drawing set, not a different site set into it. */
+.kp-run .side {
+  background: var(--k-slip-2);
+  border-left-color: var(--k-rule);
+}
+.kp-run .side > section,
+.kp-run .side > details { padding: var(--space-5); border-bottom-color: var(--k-rule); }
+.kp-run .transport { flex-wrap: wrap; row-gap: var(--space-2); padding: var(--space-3) var(--space-5); border-top-color: var(--k-rule); }
+.kp-run .stage {
+  min-height: 0;
+  height: min(52rem, calc(100vh - 6rem));
+  height: min(52rem, calc(100dvh - 6rem));
+}
+
+/* ===========================================================================
+   06 Other kilns
+   =========================================================================== */
+.kp-types { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--kp-gap); margin: 0; padding: 0; list-style: none; }
+.kp-type {
+  display: flex;
+  flex-direction: column;
+  padding: var(--kp-pad);
+  background: var(--k-slip);
+  border-radius: var(--r-panel);
+  box-shadow: var(--panel-edge);
+}
+.kp-type.is-here { box-shadow: var(--panel-edge), inset 0 0 0 1.5px var(--k-ink); }
+.kp-type-art { display: block; width: 100%; height: 5.5rem; margin-bottom: var(--space-5); overflow: visible; }
+.kp-type-moves { margin: 0; color: var(--k-ink-soft); font-size: var(--fs-micro); }
+.kp-type h3 { margin: var(--space-2) 0 var(--space-2); color: #ffffff; font-size: var(--kp-item); font-weight: 600; line-height: 1.3; }
+.kp-type p { margin: 0; color: var(--k-ink); font-size: var(--fs-small); line-height: 1.55; text-wrap: pretty; }
+/* Chips on one line along the foot of the row of cards. */
+.kp-type .kp-type-ev { margin-top: auto; padding-top: var(--space-4); }
+
+.kta-box { fill: #4b4945; stroke: var(--k-ink); stroke-width: 1.2; }
+.kta-car { fill: var(--k-ink); }
+.kta-trench { fill: none; stroke: #4b4945; stroke-width: 14; }
+.kta-cycle { fill: none; stroke: var(--k-ink-soft); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.kta-arrow { fill: none; stroke: var(--k-ink-soft); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+/* The fire is the one hot thing in these drawings. */
+.kta-fire { fill: var(--heat-4); }
+.kta-travel { animation: kta-travel 6s steps(6, end) infinite; transform: translateX(27px); }
+@keyframes kta-travel { from { transform: translateX(27px); } to { transform: translateX(207px); } }
+.kta-ride { animation: kta-ride 6s linear infinite; }
+@keyframes kta-ride { from { transform: translateX(-10px); } to { transform: translateX(190px); } }
+.kta-orbit { offset-path: path("M 40 45 H 160 A 23 23 0 0 1 160 45.01"); animation: none; transform: translate(40px, 22px); }
+.kta-pulse { animation: kta-pulse 3s ease-in-out infinite; transform-origin: 100px 45px; }
+@keyframes kta-pulse { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
+@supports (offset-path: path("M 0 0")) {
+  .kta-orbit {
+    transform: none;
+    offset-path: path("M 40 22 H 160 A 23 23 0 0 1 160 68 H 40 A 23 23 0 0 1 40 22 Z");
+    offset-rotate: 0deg;
+    animation: kta-orbit 8s linear infinite;
+  }
+  @keyframes kta-orbit { from { offset-distance: 0%; } to { offset-distance: 100%; } }
+}
+
+.kp-pace { margin-top: var(--kp-block); }
+.kp-pace .kp-figure-h { margin-bottom: 0; }
+/* Full width would make this a 180-character line; it keeps the measure. */
+.kp-pace > .kp-note { max-width: var(--kp-measure); margin-bottom: var(--space-5); }
+.kp-table-toggle { margin-top: var(--space-4); padding-top: var(--space-3); border-top: 1px solid var(--k-rule); }
+.kp-table-toggle summary { color: var(--k-ink-soft); font-size: var(--fs-small); cursor: pointer; }
+.kp-table-toggle summary:hover { color: var(--k-ink); }
+#pace-table { overflow-x: auto; }
+.kp-table { width: 100%; min-width: 36rem; margin-top: var(--space-3); border-collapse: collapse; font-size: var(--fs-small); }
+.kp-table th, .kp-table td { padding: var(--space-2) var(--space-3) var(--space-2) 0; border-bottom: 1px solid var(--k-rule); text-align: left; vertical-align: top; }
+.kp-table thead th { color: var(--k-ink-soft); font-weight: 500; }
+.kp-table tbody th { color: #ffffff; font-weight: 600; }
+
+/* ===========================================================================
+   07 Not known
+   =========================================================================== */
+.kp-unknowns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--kp-gap); margin: 0; padding: 0; list-style: none; }
+.kp-unknown {
+  padding: var(--kp-pad);
+  border-radius: var(--r-panel);
+  /* A hole in the record: drawn as an outline, dashed like the U chip. */
+  border: 1px dashed rgba(228, 224, 218, 0.32);
+}
+.kp-unknown-ev { margin: 0 0 var(--space-3); }
+.kp-unknown h3 { margin: 0; color: #ffffff; font-size: var(--kp-item); font-weight: 600; line-height: 1.3; text-wrap: balance; }
+.kp-unknown dl { margin: var(--space-4) 0 0; display: grid; gap: var(--space-4); }
+.kp-unknown dt { color: var(--k-ink-soft); font-size: var(--fs-micro); }
+.kp-unknown dd { margin: var(--space-1) 0 0; color: var(--k-ink); font-size: var(--fs-small); line-height: 1.55; }
+
+/* ===========================================================================
+   Sources and doors
+   =========================================================================== */
+.kp-sec--end { padding-bottom: clamp(4rem, 3rem + 4vw, 7rem); }
+.kp-sources { border-top: 1px solid var(--k-rule); border-bottom: 1px solid var(--k-rule); }
+.kp-sources summary { padding: var(--space-4) 0; color: #ffffff; cursor: pointer; }
+.kp-sources summary h2 { display: inline; margin: 0; font-family: var(--font-display); font-size: var(--kp-item); font-weight: 600; }
+.kp-sources ul { margin: 0; padding: var(--space-2) 0 var(--space-6); list-style: none; display: grid; gap: var(--space-4); }
+.kp-sources li {
+  display: grid;
+  grid-template-columns: 9rem minmax(0, 1fr);
+  gap: var(--space-1) var(--space-4);
+  font-size: var(--fs-small);
+  line-height: 1.45;
+}
+.kp-src-kind { grid-row: span 2; color: var(--k-ink-soft); font-size: var(--fs-micro); padding-top: 0.15em; }
+.kp-src-cite { color: #ffffff; }
+.kp-src-note { color: var(--k-ink-soft); }
+
+.kp-doors { display: grid; grid-template-columns: 1fr 1fr; gap: var(--kp-gap); margin-top: var(--kp-block); }
+.kp-door {
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  background: var(--k-slip);
+  border-radius: var(--r-panel);
+  color: inherit;
+  text-decoration: none;
+  box-shadow: var(--panel-edge);
+  transition: background-color 160ms linear;
+}
+a.kp-door:hover { background: #44413c; }
+a.kp-door:focus-visible { outline: 2px solid var(--k-ink); outline-offset: 2px; }
+.kp-door-k { color: var(--k-ink-soft); font-size: var(--fs-micro); font-stretch: 72%; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+.kp-door-k small { margin-left: var(--space-2); font-size: 0.6875rem; font-stretch: 72%; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
+.kp-door-t { color: #ffffff; font-family: "Orbitron", var(--font-display); font-size: clamp(1.1rem, 1rem + 0.5vw, 1.4rem); font-weight: 700; line-height: 1.3; text-wrap: balance; }
+.kp-door.is-soon { opacity: 0.55; }
+
+/* ===========================================================================
+   Narrower screens
+   =========================================================================== */
+@media (max-width: 1100px) {
+  /* Five figures in two rows, three over two, each row filling the width. */
+  .kp-facts { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .kp-fact { grid-column: span 2; }
+  .kp-fact:nth-child(n + 4) { grid-column: span 3; }
+  .kp-anatomy { grid-template-columns: minmax(0, 1fr) 18rem; }
+  .kp-parts { position: static; grid-column: 1 / -1; grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr)); }
+  .kp-types { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kp-unknowns { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 860px) {
+  .kp-split,
+  .kp-anatomy,
+  .kp-readings,
+  .kp-air-controls,
+  .kp-doors { grid-template-columns: 1fr; }
+  .kp-part-card,
+  .kp-read-out { position: static; }
+  /* The drawing keeps a legible size and scrolls on its own. */
+  .kp-air-scroll { overflow-x: auto; scrollbar-width: thin; margin: 0 calc(-1 * var(--kp-pad)); padding: 0 var(--kp-pad); }
+  .kp-air-svg { min-width: 680px; }
+  .kp-run .stage { height: auto; }
+  .kp-run .ring-pane { min-height: 70vh; }
+  .kp-sources li { grid-template-columns: 1fr; }
+  .kp-src-kind { grid-row: auto; }
+}
+@media (max-width: 560px) {
+  .page-kiln { --kp-pad: var(--space-4); --kp-gap: var(--space-3); }
+  .kp-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kp-fact,
+  .kp-fact:nth-child(n + 4) { grid-column: auto; }
+  .kp-fact:last-child { grid-column: 1 / -1; }
+  .kp-types,
+  .kp-unknowns { grid-template-columns: 1fr; }
+  .kp-shapes { grid-template-columns: repeat(2, 1fr); row-gap: var(--space-5); }
+  .kp-air-steps { grid-template-columns: 1fr; }
+  /* Too narrow for a pill: a full-width segmented control whose two halves
+     may wrap without looking broken. */
+  .kp-toggle { display: flex; width: 100%; border-radius: 12px; }
+  .kp-toggle button { flex: 1; padding: var(--space-2) var(--space-3); border-radius: 9px; font-size: var(--kp-cap); line-height: 1.35; }
+  .kp-door { padding: var(--space-5); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ka-air.is-on,
+  .kta-travel,
+  .kta-ride,
+  .kta-orbit,
+  .kta-pulse { animation: none; }
+}

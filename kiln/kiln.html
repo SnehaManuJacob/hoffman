@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The kiln · A Kiln on Schedule</title>
+  <meta name="description" content="How the Hoffmann kiln works: its lineage, its parts, the route its air takes, a model you can run, and what is still not known about the kiln at Kundapur.">
+  <link rel="preload" href="./vendor/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="./vendor/fonts/orbitron.woff2" as="font" type="font/woff2" crossorigin>
+  <!-- One stamp for every local file: run `python3 bump-version.py` after any change. -->
+  <link rel="stylesheet" href="site.css?v=20261122p">
+  <!-- style.css carries the runnable kiln's own styles (ring, side panel,
+       transport, evidence strip, sheet); everything else on this page is in
+       kiln-page.css. Its story sections are all class-scoped and absent here. -->
+  <link rel="stylesheet" href="style.css?v=20261122p">
+  <link rel="stylesheet" href="kiln-page.css?v=20261122p">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "./vendor/three.module.js",
+      "./scroll.js": "./scroll.js?v=20261122p",
+      "./nav.js": "./nav.js?v=20261122p",
+      "./kiln-page.js": "./kiln-page.js?v=20261122p",
+      "./config.js": "./config.js?v=20261122p",
+      "./engine.js": "./engine.js?v=20261122p",
+      "./history.js": "./history.js?v=20261122p",
+      "./tourRun.js": "./tourRun.js?v=20261122p",
+      "./views/ring.js": "./views/ring.js?v=20261122p",
+      "./views/panel.js": "./views/panel.js?v=20261122p",
+      "./views/labels.js": "./views/labels.js?v=20261122p",
+      "./views/chart.js": "./views/chart.js?v=20261122p",
+      "./views/evidence.js": "./views/evidence.js?v=20261122p",
+      "./views/clock.js": "./views/clock.js?v=20261122p",
+      "./views/heatRamp.js": "./views/heatRamp.js?v=20261122p",
+      "./views/kilnPath.js": "./views/kilnPath.js?v=20261122p",
+      "./views/kilnDrawings.js": "./views/kilnDrawings.js?v=20261122p"
+    }
+  }
+  </script>
+  <script src="./vendor/d3.min.js"></script>
+</head>
+<body class="page-kiln" data-page="kiln">
+  <a class="skip-link" href="#run">Skip to the kiln you can run</a>
+
+  <main class="kp">
+
+    <!-- ===================================================================
+         Opening. The page's question in one line, and the five things the
+         factory told or showed us, each with how it is known.
+         =================================================================== -->
+    <header class="kp-hero" id="top">
+      <p class="kp-mark">The original system</p>
+      <h1 class="kp-title">The Hoffmann kiln</h1>
+      <p class="kp-lede">A fire that never goes out, and a building organised around it. This page takes the kiln apart: where it came from, its parts, the route its air takes, a model you can run, and what is still not known about the one at Kundapur.</p>
+      <p class="kp-back">In the <a href="./index.html">story</a>, the kiln gets a five-step tour. Here, the mechanism behind it.</p>
+
+      <dl class="kp-facts" id="facts" aria-label="The kiln at Prabhakar Tile Works, in figures"></dl>
+    </header>
+
+    <!-- A quiet contents rail on wide screens: where you are on a long page. -->
+    <nav class="kp-rail" aria-label="On this page">
+      <ol>
+        <li><a href="#lineage"><b>01</b>Lineage</a></li>
+        <li><a href="#anatomy"><b>02</b>Anatomy</a></li>
+        <li><a href="#air"><b>03</b>The air's route</a></li>
+        <li><a href="#readings"><b>04</b>Two readings</a></li>
+        <li><a href="#run"><b>05</b>Run the kiln</a></li>
+        <li><a href="#kilns"><b>06</b>Other kilns</a></li>
+        <li><a href="#unknowns"><b>07</b>Not known</a></li>
+      </ol>
+    </nav>
+
+    <!-- ===================================================================
+         01 Lineage
+         =================================================================== -->
+    <section class="kp-sec" id="lineage" aria-labelledby="lineage-h">
+      <header class="kp-sec-head">
+        <p class="kp-num">01 · Lineage</p>
+        <h2 id="lineage-h">An idea that travelled, and changed shape on the way</h2>
+        <p class="kp-sec-lede">Hoffmann's kiln was copied around the world within forty years. It reached the Mangalore coast as part of a new tile industry, and it is one of the last of its kind still firing there.</p>
+      </header>
+
+      <ol class="kp-timeline" id="timeline"></ol>
+
+      <div class="kp-split">
+        <figure class="kp-figure">
+          <figcaption class="kp-figure-h">Plans changed as the kiln spread <span class="chip" data-ev="L" title="Literature: from published writing on other Hoffmann kilns">L</span></figcaption>
+          <div class="kp-shapes" id="shapes"></div>
+          <p class="kp-note">Circular first, then elliptical, then the rectangular "racetrack", which was cheaper to build and drew air more evenly. A kiln at the Albuquerque factory in Mangalore is described as z-shaped. Which shape the Kundapur kiln has is not known.</p>
+        </figure>
+
+        <figure class="kp-figure">
+          <figcaption class="kp-figure-h">Tile factories in Mangalore <span class="chip" data-ev="L" title="Literature: from published reports">L</span></figcaption>
+          <div class="kp-decline" id="decline"></div>
+          <p class="kp-note">Reasons given in the reports: a shift to concrete roofs, clay running short, rising labour and transport costs. The count is for Mangalore only; it says nothing about how many remain around Kundapur.</p>
+        </figure>
+      </div>
+    </section>
+
+    <!-- ===================================================================
+         02 Anatomy
+         =================================================================== -->
+    <section class="kp-sec" id="anatomy" aria-labelledby="anatomy-h">
+      <header class="kp-sec-head">
+        <p class="kp-num">02 · Anatomy</p>
+        <h2 id="anatomy-h">The parts, and how each is known</h2>
+        <p class="kp-sec-lede">Only a few parts were seen at Kundapur. The rest come from writing about other Hoffmann kilns, or are drawn because something has to be. Choose a part to see where it sits and what is known about it.</p>
+      </header>
+
+      <div class="kp-anatomy">
+        <ul class="kp-parts" id="parts" aria-label="Parts of the kiln"></ul>
+
+        <div class="kp-drawings">
+          <figure class="kp-drawing">
+            <figcaption><span>Plan</span><em><span class="chip" data-ev="U" title="Unknown">U</span> Drawn as a racetrack. The real shape is not known.</em></figcaption>
+            <svg id="plan" viewBox="0 0 640 420" role="img" aria-label="Plan of the kiln: eight chambers in a loop around a central island and chimney"></svg>
+          </figure>
+          <figure class="kp-drawing">
+            <figcaption><span>Section through one chamber</span><em>Schematic, not to scale.</em></figcaption>
+            <svg id="section" viewBox="0 0 640 420" role="img" aria-label="Cross-section through one chamber: arched tunnel, stacked tiles, fuel holes in the roof, wicket door, damper and flue"></svg>
+          </figure>
+        </div>
+
+        <article class="kp-part-card" id="part-card" aria-live="polite"></article>
+      </div>
+    </section>
+
+    <!-- ===================================================================
+         03 The air's route
+         =================================================================== -->
+    <section class="kp-sec" id="air" aria-labelledby="air-h">
+      <header class="kp-sec-head">
+        <p class="kp-num">03 · The air's route</p>
+        <h2 id="air-h">One way in, one way out</h2>
+        <p class="kp-sec-lede">The saving does not come from a better fire. It comes from the order in which the air meets the tiles. Here the loop is unrolled into a line, so the whole route can be followed.</p>
+      </header>
+
+      <div class="kp-air">
+        <!-- Only the drawing scrolls sideways on a phone; the steps and the
+             card below it stay at the screen's width. -->
+        <div class="kp-air-scroll">
+          <svg class="kp-air-svg" id="air-svg" viewBox="0 0 960 300" role="img" aria-labelledby="air-step-h"></svg>
+        </div>
+
+        <div class="kp-air-controls">
+          <ol class="kp-air-steps" id="air-steps" aria-label="Stages of the air's route"></ol>
+          <article class="kp-air-card" aria-live="polite">
+            <h3 id="air-step-h"></h3>
+            <p id="air-step-text"></p>
+            <p class="kp-air-ev" id="air-step-ev"></p>
+          </article>
+        </div>
+      </div>
+
+      <details class="kp-aside">
+        <summary>What an energy audit of this tile cluster proposed</summary>
+        <div>
+          <p>Between 2008 and 2012, India's Bureau of Energy Efficiency audited tile kilns in the Mangalore–Kundapura cluster. Its reports found exhaust leaving the kilns at about 350–400 °C, and no temperature measurement anywhere in the cluster: firing was held by the stokers' skill. Its first proposal was a movable fan that pulls the exhaust through <em>more</em> chambers of unfired tiles before it leaves.</p>
+          <p>In this page's terms: let the air cross more tiles ahead before the open damper. The savings in the reports are projections. No evidence was found that any of them were carried out.</p>
+          <p class="kp-src"><span class="chip" data-ev="L" title="Literature">L</span> BEE (2012), detailed project reports for the Mangalore tile cluster: <a href="https://sameeeksha.org/pdf/dpr/Mangalore_tiles_cluster/" rel="noopener">SAMEEEKSHA directory</a>.</p>
+        </div>
+      </details>
+    </section>
+
+    <!-- ===================================================================
+         04 Two readings
+         =================================================================== -->
+    <section class="kp-sec" id="readings" aria-labelledby="readings-h">
+      <header class="kp-sec-head">
+        <p class="kp-num">04 · Two readings</p>
+        <h2 id="readings-h">One chamber's life, or one moment of the whole kiln</h2>
+        <p class="kp-sec-lede">Every chamber goes through the same firing, two hours behind the one before it. Read the table below down a column and you get one chamber's life; read it across a row and you get the whole kiln at one moment, every chamber at a different stage.</p>
+      </header>
+
+      <div class="kp-readings">
+        <div class="kp-grid-wrap">
+          <div class="kp-toggle" role="radiogroup" aria-label="Read the table">
+            <button type="button" role="radio" aria-checked="true" data-read="col">Down a column: one chamber</button>
+            <button type="button" role="radio" aria-checked="false" data-read="row">Across a row: one moment</button>
+          </div>
+          <div class="kp-grid" id="grid" tabindex="0" aria-describedby="grid-help"></div>
+          <p class="kp-note" id="grid-help">Columns are chambers 1–8; rows are hours 0–16, one full loop. Colour is the model's heat. Use the arrow keys to move.</p>
+        </div>
+        <div class="kp-read-out" aria-live="polite">
+          <h3 id="read-h"></h3>
+          <svg class="kp-read-chart" id="read-chart" viewBox="0 0 420 260" role="img"></svg>
+          <p class="kp-read-text" id="read-text"></p>
+          <p class="kp-src"><span class="chip" data-ev="S" title="Simulated">S</span> Simulated: one loop of the model, on the two-hour interval recorded at the factory. Heat is on the model's own 0–1 scale, not a temperature. The only temperature from the factory is the 850–900 °C peak.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================
+         05 Run the kiln. The dashboard the story no longer shows: the same
+         engine, ring, chart and panels, with the same ids, so main.js's
+         wiring carries over unchanged in kiln-page.js.
+         =================================================================== -->
+    <section class="kp-sec kp-sec--run" id="run" aria-labelledby="run-h">
+      <header class="kp-sec-head">
+        <p class="kp-num">05 · Run the kiln</p>
+        <h2 id="run-h">A model you can run</h2>
+        <p class="kp-sec-lede">The same model the story is drawn from. Light it, let it run, and turn heat recovery off to see what the chambers ahead lose. Then empty a chamber in the chambers table and watch what happens when the fire reaches it.</p>
+        <p class="kp-model-note">This is a model, not a record. There is no score and no right way to run it. What the factory does when a chamber is not ready is not known, so all three outcomes are shown and none is marked correct.</p>
+      </header>
+
+      <div class="evidence-strip" id="evidence-strip" hidden>
+        <ul class="legend" id="legend"></ul>
+        <button type="button" class="ctrl" id="btn-sources">Where this comes from</button>
+      </div>
+
+      <div class="kp-run">
+        <div class="stage">
+          <section class="ring-pane">
+            <canvas id="ring-canvas"></canvas>
+            <div id="label-layer" class="label-layer" aria-hidden="true"></div>
+            <div class="transport" id="transport">
+              <button id="btn-play" class="ctrl">Play</button>
+              <button id="btn-step" class="ctrl">Step forward</button>
+              <label class="speed">
+                Speed
+                <input type="range" id="speed" min="0.25" max="4" step="0.25" value="1">
+                <output id="speed-out">1&times;</output>
+              </label>
+              <div class="clock" data-ev="F">
+                <svg class="dial" id="dial" viewBox="-50 -50 100 100" aria-hidden="true">
+                  <circle class="dial-rim" cx="0" cy="0" r="46"></circle>
+                  <g class="dial-marks" id="dial-marks"></g>
+                  <line class="dial-hand" id="dial-hand" x1="0" y1="0" x2="0" y2="-37"></line>
+                  <circle class="dial-pin" cx="0" cy="0" r="2.5"></circle>
+                </svg>
+                <span class="clock-value" id="clock-value">0</span>
+                <span class="clock-unit">h elapsed</span>
+              </div>
+            </div>
+          </section>
+
+          <aside class="side" data-native-scroll>
+            <section class="context-pane">
+              <h2 class="pane-title">What is happening</h2>
+              <div id="context" class="context"></div>
+            </section>
+
+            <section class="recovery-pane">
+              <div class="recovery-head">
+                <h2 class="pane-title">Heat recovery</h2>
+                <label class="pill">
+                  <input type="checkbox" id="recovery" checked>
+                  <span>Reuse heat</span>
+                </label>
+              </div>
+              <p class="fuel-unit muted">Fuel per chamber fired, in relative units</p>
+              <dl class="fuel-compare" id="fuel-compare">
+                <div class="fuel-row" data-mode="on">
+                  <span class="fuel-mark" aria-hidden="true"></span>
+                  <dt>When the exhaust crosses the tiles ahead</dt>
+                  <dd><span class="fuel-value" data-ev="S"><span id="fuel-on">&ndash;</span><span class="fuel-suffix">rel.</span></span></dd>
+                  <dd class="fuel-why" id="why-on" data-ev="L"></dd>
+                </div>
+                <div class="fuel-row" data-mode="off">
+                  <span class="fuel-mark" aria-hidden="true"></span>
+                  <dt>When it goes straight to the chimney</dt>
+                  <dd><span class="fuel-value" data-ev="S"><span id="fuel-off">&ndash;</span><span class="fuel-suffix">rel.</span></span></dd>
+                  <dd class="fuel-why" id="why-off" data-ev="A"></dd>
+                </div>
+              </dl>
+              <p class="qualifier" id="recovery-note" data-ev="S"></p>
+            </section>
+
+            <section class="chart-pane">
+              <h2 class="pane-title">Space and time</h2>
+              <div id="chart" class="chart-placeholder" data-ev="S" tabindex="0" role="slider" aria-label="Kiln time" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="Not yet lit"></div>
+            </section>
+
+            <details class="debug-pane">
+              <summary><h2 class="pane-title">Chambers table: load or empty by hand</h2></summary>
+              <div id="debug"></div>
+            </details>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================
+         06 Other kilns
+         =================================================================== -->
+    <section class="kp-sec" id="kilns" aria-labelledby="kilns-h">
+      <header class="kp-sec-head">
+        <p class="kp-num">06 · Other kilns</p>
+        <h2 id="kilns-h">What moves, and what stays put</h2>
+        <p class="kp-sec-lede">Kilns differ less in their fire than in what they move. The Hoffmann kiln's answer, moving the fire through ware that stays put, is one of four.</p>
+      </header>
+
+      <ul class="kp-types" id="types"></ul>
+
+      <figure class="kp-figure kp-pace">
+        <figcaption class="kp-figure-h">How long one full loop takes</figcaption>
+        <p class="kp-note">Three Hoffmann-type kilns. The Kundapur loop is worked out from two field facts (8 chambers, a move every 2 hours) and was not observed whole. Dashed bars are worked out from other figures; the solid one was reported as it is. The scale is logarithmic: each gridline is ten times the last.</p>
+        <div class="kp-pace-chart" id="pace"></div>
+        <details class="kp-table-toggle">
+          <summary>Show as a table</summary>
+          <div id="pace-table"></div>
+        </details>
+      </figure>
+    </section>
+
+    <!-- ===================================================================
+         07 Not known
+         =================================================================== -->
+    <section class="kp-sec" id="unknowns" aria-labelledby="unknowns-h">
+      <header class="kp-sec-head">
+        <p class="kp-num">07 · Not known</p>
+        <h2 id="unknowns-h">What we still don't know about this kiln</h2>
+        <p class="kp-sec-lede">These are holes in the record, not details left out. Where the model needs an answer, it makes one up and says so, and each could change if the factory is asked again.</p>
+      </header>
+      <ul class="kp-unknowns" id="unknown-list"></ul>
+    </section>
+
+    <!-- ===================================================================
+         Sources for this page, and the way on.
+         =================================================================== -->
+    <section class="kp-sec kp-sec--end" aria-labelledby="sources-h">
+      <details class="kp-sources">
+        <summary><h2 id="sources-h">Sources for this page</h2></summary>
+        <ul id="page-sources"></ul>
+      </details>
+
+      <nav class="kp-doors" aria-label="Where next">
+        <a class="kp-door" href="./index.html">
+          <span class="kp-door-k">Back to the story</span>
+          <span class="kp-door-t">What can an old kiln teach us about designing new systems?</span>
+        </a>
+        <a class="kp-door" href="./proposal.html">
+          <span class="kp-door-k">Next: the proposal</span>
+          <span class="kp-door-t">The kiln's organisation, carried to drying arecanut in the rain.</span>
+        </a>
+      </nav>
+    </section>
+  </main>
+
+  <dialog class="sheet" id="sources">
+    <header class="sheet-head">
+      <h2>Where all this comes from</h2>
+      <button type="button" class="ctrl" id="btn-sources-close">Close sources</button>
+    </header>
+    <div class="sheet-body" id="sources-body"></div>
+  </dialog>
+
+  <!-- The evidence switch. Moved into the site bar by kiln-page.js. -->
+  <template id="evidence-pill">
+    <label class="pill">
+      <input type="checkbox" id="evidence-mode">
+      <span class="when-off">Show evidence</span>
+      <span class="when-on">Evidence on</span>
+    </label>
+  </template>
+
+  <script type="module">import './kiln-page.js';</script>
+</body>
+</html>
