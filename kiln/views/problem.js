@@ -68,7 +68,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from '../vendor/utils/BufferGeometryUtils.js';
 import { GLTFLoader } from '../vendor/loaders/GLTFLoader.js';
 import { C, PALETTE } from '../config.js';
-import { LOGIC_TAIL_VH } from './logic.js';
+import { LOGIC_TAIL_VH, NUT_HOLD_VH } from './logic.js';
 import { createTransform, T6, COPY6 } from './transform.js';
 
 // Carries this module's ?v= stamp, so a re-bake under the same name is not
@@ -85,10 +85,40 @@ const prog = ([a, b], x) => clamp01((x - a) / (b - a));
 const lerp = (a, b, k) => a + (b - a) * k;
 const bump = (a, b, c, d, x) => smooth(a, b, x) * (1 - smooth(c, d, x));
 
+/**
+ * The pause once the first nut has landed on the question and finished its
+ * bounce: story time stands still at HOLD_AT for NUT_HOLD_VH of scroll, then
+ * carries on. Everything below is written in story time, so it needs no change.
+ */
+const HOLD_AT = 32;
+const holdWarp = (x) => (x <= HOLD_AT ? x : x < HOLD_AT + NUT_HOLD_VH ? HOLD_AT : x - NUT_HOLD_VH);
+
+/**
+ * The lift from over the drawn plan, out over the village in the rain, and
+ * down to the grower's door: three moves back to back, the last of them a
+ * 50 m drop in 22vh. The story is slowed through it (and only through it:
+ * the slope eases in and out, so there is no change of pace at either end) by
+ * giving it STRETCH.EXTRA more scroll. Camera, words, rain and the door all
+ * read the same story time, so they stay in step.
+ */
+const STRETCH = { A: 3040, B: 3150, EXTRA: 80 };
+const stretchOf = (s) => s + STRETCH.EXTRA * smooth(STRETCH.A, STRETCH.B, s);
+function unstretch(u) {
+  if (u <= STRETCH.A) return u;
+  if (u >= STRETCH.B + STRETCH.EXTRA) return u - STRETCH.EXTRA;
+  let lo = STRETCH.A; let hi = STRETCH.B;            // stretchOf rises: bisect
+  for (let k = 0; k < 28; k++) {
+    const mid = (lo + hi) / 2;
+    if (stretchOf(mid) < u) lo = mid; else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+const warp = (x) => unstretch(holdWarp(x));
+
 /** The story, in viewport heights of (smoothed) scroll from the pin. */
 const P = {
   DROP: [4, 30],
-  COVER: [24, 52],          // purple comes up over the question
+  COVER: [32, 54],          // purple comes up over the question, once the nut has settled
   DAWN: [56, 104],          // and thins into morning
   NUTS_IN: [72, 128],       // the batch ripples in round the first nut
   ROOF_DAYS: [230, 304],
@@ -102,7 +132,9 @@ const P = {
   SPOIL: [408, 430],
   INDOORS: [424, 464],
   IN_DAYS: [468, 542],
-  BARS: [482, 546],
+  // The bars sum up once the count has run out, with "two to three times as
+  // long", rather than racing the day count while it is still going.
+  BARS: [540, 592],
   WALL: [440, 466, 560, 584],
   BACK_OUT: [836, 866],     // once the rain has cleared, every roof spread out again
   SWEEP: [670, 730],        // a rain front crosses the village
@@ -136,22 +168,51 @@ const P = {
 const SRC = { F: 'Field observation', L: 'Literature', A: 'Assumption', U: 'Unknown' };
 const src = (code, text) => `<p class="pb-src"><span class="pb-chip" data-ev="${code}" title="${SRC[code]}">${code}</span>${text}</p>`;
 
-/** What is said, and when: [in from, in to, out from, out to]. */
+/**
+ * What is said, and when: [in from, in to, out from, out to].
+ *
+ * THE PROBLEM, TOLD AS A MYSTERY
+ * The visitor has just met the kiln, so the risk here is answering too soon.
+ * The words hold the kiln back until the obvious fix has failed: until then
+ * it is only SEEN, on the horizon, still smoking in the rain, with a label
+ * and no explanation. One idea per slip, in the order the visitor needs them:
+ *
+ *   the practice   roofs of nuts drying in the sun
+ *   the rhythm     up to two weeks                    (the day count)
+ *   the test       ready when the husk peels          (planted: it is the
+ *                                                      dryer's trigger later)
+ *   the turn       Unless it rains.                   big
+ *   the cost       indoors, and waits                 (the day count runs on)
+ *                  two to three times as long         big, with the bars
+ *   the scale      every roof waits on the rain       the tile works seen,
+ *                                                     not named as the answer
+ *   the means      growers already have a fuel        just before it is used
+ *   the fix        one box, one heater; it fails twice
+ *   the turn       Brick-makers had the same problem. big
+ *   the answer     Hoffmann, 1858
+ *
+ * Big lines are kept for the three turns, so they read as the story's
+ * hinges. Detail that slowed the line (damp air slows rather than spoils)
+ * moves into the source chip, where it is still on the page and labelled.
+ */
 const COPY = [
   { at: [106, 120, 178, 190], text: 'Across coastal villages, rooftops are covered with arecanut, spread out to dry in the sun.', src: src('F', 'Growers dry their nuts on their roofs') },
-  { at: [226, 240, 352, 364], text: 'Drying takes up to two weeks. The nut is ready when it is hard and its husk peels away easily.', src: src('F', 'Growers, asked for this project') },
-  { at: [372, 386, 426, 440], text: 'Unless it rains. Rain falling on the nuts spoils them.', src: src('F', 'Growers') },
-  { at: [442, 456, 522, 536], text: 'Damp air only slows them down. So when it rains, the drying moves indoors, and waits.', src: src('F', 'Growers: indoors, a month to a month and a half') },
-  { at: [536, 550, 586, 598], text: 'The same nuts, two to three times as long.', big: true },
-  { at: [664, 676, 784, 796], text: 'Inside the kiln, the fire never waited for the weather. Its heat came from inside, kept to a rule. And the growers already have a fuel: many burn the husks.', src: src('F', 'Growers, on husk as fuel') },
-  { at: [830, 842, 898, 910], text: 'The obvious fix: one box, one heater, burning husk.' },
+  { at: [226, 240, 298, 310], text: 'In the sun, drying takes up to two weeks.', src: src('F', 'Growers, asked for this project') },
+  { at: [314, 326, 352, 364], text: 'It is ready when it is hard and the husk peels away.', src: src('F', 'Growers test their nuts by hand') },
+  { at: [372, 386, 426, 440], text: 'Unless it rains.', big: true, src: src('F', 'Growers: rain on the nuts spoils them') },
+  { at: [442, 456, 522, 536], text: 'So the drying moves indoors, and waits.', src: src('F', 'Growers: indoors, in damp air, a month to a month and a half') },
+  { at: [540, 552, 608, 620], text: 'The same nuts, two to three times as long.', big: true },
+  { at: [646, 660, 716, 728], text: 'Across the village, every batch waits on the rain.' },
+  { at: [776, 788, 826, 838], text: 'Growers already have a fuel, though: arecanut husk.', src: src('F', 'Growers: husk is burned as fuel in other work') },
+  { at: [840, 852, 898, 910], text: 'The obvious fix: one box, one heater.' },
   { at: [910, 922, 952, 964], text: 'But the air leaves while it could still dry more…' },
   { at: [964, 976, 1014, 1026], text: '…and everything stops to empty and refill, then heats up again from cold.' },
+  { at: [1030, 1042, 1070, 1082], text: 'Brick-makers had the same problem.', big: true },
+  { at: [1084, 1096, 1150, 1162], text: 'In 1858, Friedrich Hoffmann patented a kiln that never let its fire go out, and never let its heat leave unused.', src: src('L', 'History of the Hoffmann kiln') },
   { at: [1378, 1392, 1482, 1494], text: "Let's take a look at the Hoffmann Kiln again.", big: true },
-  { at: [1034, 1048, 1100, 1114], text: 'Brick-makers had the same problem. In 1858 Friedrich Hoffmann patented a kiln that never let its fire go out, and never let its heat leave unused.', src: src('L', 'History of the Hoffmann kiln') },
 ];
 // Stage 6's words, in the same slips (views/transform.js).
-COPY.push(...COPY6.map((c) => (c.term ? c : { ...c, src: c.srcs ? `<div class="pb-srcs">${c.srcs.map(([k, t]) => src(k, t)).join('')}</div>` : undefined })));
+COPY.push(...COPY6.map((c) => (c.term ? c : { ...c, lit: !(c.big || c.finale || c.ask), src: c.srcs ? `<div class="pb-srcs">${c.srcs.map(([k, t]) => src(k, t)).join('')}</div>` : undefined })));
 
 // ------------------------------------------------------------------- colours
 const col = (hex) => new THREE.Color(hex);
@@ -208,8 +269,8 @@ function rng(seed) {
   };
 }
 
-export function createProblem({ sectionEl, ring, run }) {
-  const total = P.END;
+export function createProblem({ sectionEl, ring, run, followScroll = true }) {
+  const total = P.END + NUT_HOLD_VH + STRETCH.EXTRA;
   sectionEl.style.height = `${total + 100}vh`;
   sectionEl.style.marginTop = `-${100 + LOGIC_TAIL_VH}vh`;
 
@@ -227,6 +288,9 @@ export function createProblem({ sectionEl, ring, run }) {
     node.className = 'pb-copy';
     // The closing line: centred under the drawing, wide, on the bare paper.
     if (c.finale) node.classList.add('pb-copy--finale');
+    // The question the page ends on: in the middle, over the village.
+    if (c.ask) node.classList.add('pb-copy--finale', 'pb-copy--ask');
+    if (c.lit) node.classList.add('pb-copy--lit');
     if (c.term) {
       // A term card: the idea's name, what it means, and what it is here.
       // Built whole (no word-by-word): it reads as a definition, not a line.
@@ -258,6 +322,33 @@ export function createProblem({ sectionEl, ring, run }) {
     return { ...c, node, words, srcNode };
   });
 
+  // Where the words stand: the union of every slip shown between scroll
+  // `from` and `to`, in the pin's pixels. Taking all of them (not the one up
+  // now) keeps a panel beside them still while one passage hands to the next.
+  // Every slip sits on the column's bottom edge (.pb-copy), so a panel set
+  // beside them shares their baseline.
+  function captionBox(from, to) {
+    let l = Infinity; let r = -Infinity; let t = Infinity; let b = -Infinity;
+    for (const { at, node } of copy) {
+      if (at[3] < from || at[0] > to) continue;
+      const x = copyEl.offsetLeft + node.offsetLeft;
+      const y = copyEl.offsetTop + node.offsetTop;
+      l = Math.min(l, x); r = Math.max(r, x + node.offsetWidth);
+      t = Math.min(t, y); b = Math.max(b, y + node.offsetHeight);
+    }
+    return r > l ? { left: l, right: r, top: t, bottom: b } : null;
+  }
+  // A panel of pw x ph, read with the words: to their right, on their
+  // baseline; on a narrow screen, stacked just above them. Null if neither
+  // fits, and the panel keeps its own place.
+  function beside(cap, pw, ph, w, h) {
+    if (!cap) return null;
+    const GAP = 16; const M = 16;
+    if (cap.right + GAP + pw <= w - M) return { x: cap.right + GAP, y: cap.bottom - ph };
+    if (cap.top - GAP - ph >= M) return { x: cap.left, y: cap.top - GAP - ph };
+    return null;
+  }
+
   // The day count and the two bars, as slips.
   hud.innerHTML = `
     <div class="pb-slip pb-day"><span class="pb-day-n">Day 1</span><span class="pb-day-where">on the roof</span></div>
@@ -273,10 +364,13 @@ export function createProblem({ sectionEl, ring, run }) {
 
   // Labels pinned to places in the world.
   const LABELS = [
-    { text: 'caught by the rain', at: new THREE.Vector3(3.05, 6.75, 2.35), show: (s) => bump(P.SPOIL[0] + 6, P.SPOIL[1], P.IN_DAYS[0], P.IN_DAYS[0] + 14, s) },
-    { text: 'the tile works', at: new THREE.Vector3(-44, 16, -108), show: (s) => bump(664, 680, 784, 796, s) },
-    { text: 'heater, burning husk', at: new THREE.Vector3(9.6, 1.5, 3.6), show: (s) => bump(836, 850, 952, 962, s) },
-    { text: 'still warm, still dry: it could take more water', at: new THREE.Vector3(13.9, 6.4, 3.0), show: (s) => bump(914, 926, 956, 966, s) },
+    { text: 'caught by the rain: spoilt', at: new THREE.Vector3(3.05, 6.75, 2.35), show: (s) => bump(P.SPOIL[0] + 6, P.SPOIL[1], P.IN_DAYS[0], P.IN_DAYS[0] + 14, s) },
+    // Seen, not explained: the words say nothing of the kiln until the box
+    // dryer has failed. Up in the quiet after the village line, as the camera
+    // turns and holds on the tile works.
+    { text: 'the tile works, still firing', at: new THREE.Vector3(-44, 16, -108), show: (s) => bump(704, 718, 784, 796, s) },
+    { text: 'heater, burning husk', at: new THREE.Vector3(9.6, 1.5, 3.6), show: (s) => bump(842, 856, 952, 962, s) },
+    { text: 'still warm, still dry', at: new THREE.Vector3(13.9, 6.4, 3.0), show: (s) => bump(914, 926, 956, 966, s) },
   ].map((l) => {
     const node = document.createElement('div');
     node.className = 'pb-label';
@@ -385,6 +479,14 @@ export function createProblem({ sectionEl, ring, run }) {
         doorPivot.add(mesh);
       } else if (m.name === 'Web_dryer') {
         dryer.add(mesh);
+      } else if (m.name === 'Web_cycle') {
+        cycleBody.add(mesh);
+      } else if (m.name === 'Web_croof') {
+        cycleRoof.add(mesh);
+      } else if (m.name.startsWith('Web_cdoor')) {
+        const b = Number(m.name.slice(-1));
+        mesh.position.set(-cycleDoors[b].position.x, 0, -cycleDoors[b].position.z);
+        cycleDoors[b].add(mesh);
       } else {
         world.add(mesh);
       }
@@ -402,6 +504,78 @@ export function createProblem({ sectionEl, ring, run }) {
     });
     world.add(bunchMesh);
   });
+
+  // ---- The Drying Cycle, built (Stage 8; build_village.py, "the Tiled Row"):
+  // four bays in a row beside the house, where the box dryer stood. Baked
+  // apart, so it can rise from its plan, its roofs settle on, a door open.
+  const CY = { x0: 9.6, bw: 3.2, d: 3.8, zc: 2.0, pl: 0.45, dw: 0.96 };
+  const cyCx = (b) => CY.x0 + CY.bw * (b + 0.5);
+  const cycle = new THREE.Group(); cycle.visible = false;
+  world.add(cycle);
+  const cycleBody = new THREE.Group(); cycle.add(cycleBody);
+  const cycleRoof = new THREE.Group(); cycle.add(cycleRoof);
+  // Each door hangs from its left jamb, so it can swing out.
+  const cycleDoors = Array.from({ length: 4 }, (_, b) => {
+    const g = new THREE.Group();
+    g.position.set(cyCx(b) - CY.dw / 2, 0, CY.zc + CY.d / 2 + 0.04);
+    cycleBody.add(g);
+    return g;
+  });
+  // The furnace's fire, through its firebox, and its light on the ground.
+  const cyFireMat = new THREE.MeshBasicMaterial({ color: '#ef6c1a' });
+  const cyFire = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.46), cyFireMat);
+  cyFire.position.set(CY.x0 - 1.25, 0.55, CY.zc + 0.6 + 0.89);
+  cycleBody.add(cyFire);
+  const cyFireLight = new THREE.PointLight(0xff8a3a, 0, 10, 1.6);
+  cyFireLight.position.set(CY.x0 - 1.25, 0.9, CY.zc + 2.2);
+  cycle.add(cyFireLight);
+  // Warm light inside the bay whose door opens.
+  const cyBayLight = new THREE.PointLight(0xffc27a, 0, 7, 1.8);
+  cyBayLight.position.set(cyCx(1), 1.6, CY.zc + 0.6);
+  cycle.add(cyBayLight);
+  // The open bay's warm inside, seen through its doorway: a glow, since the
+  // bake is drawn unlit and a light would not show on it.
+  const cyGlow = (() => {
+    const c = document.createElement('canvas'); c.width = 32; c.height = 64;
+    const x = c.getContext('2d');
+    const g = x.createLinearGradient(0, 64, 0, 0);
+    g.addColorStop(0, 'rgba(236,170,92,1)'); g.addColorStop(1, 'rgba(160,96,44,0.9)');
+    x.fillStyle = g; x.fillRect(0, 0, 32, 64);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.92, 1.84), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, opacity: 0, fog: false }));
+    m.position.set(cyCx(1), CY.pl + 0.94, CY.zc + CY.d / 2 - 0.14);
+    cycleBody.add(m);
+    return m;
+  })();
+  // Its plan, in the drawing's ink, on the ground: what the diagram's plan
+  // crosses into, before the walls rise from it.
+  const cyPlanMat = new THREE.LineBasicMaterial({ color: '#e4e0da', transparent: true, opacity: 0, fog: false, depthWrite: false });
+  const cyPlan = (() => {
+    const y = 0.06; const P = [];
+    const seg = (x0, z0, x1, z1) => P.push(x0, y, z0, x1, y, z1);
+    const rect = (x0, z0, x1, z1) => { seg(x0, z0, x1, z0); seg(x1, z0, x1, z1); seg(x1, z1, x0, z1); seg(x0, z1, x0, z0); };
+    const z0 = CY.zc - CY.d / 2; const z1 = CY.zc + CY.d / 2;
+    for (let b = 0; b < 4; b++) rect(CY.x0 + CY.bw * b, z0, CY.x0 + CY.bw * (b + 1), z1);
+    rect(CY.x0 - 2.1, CY.zc - 0.25, CY.x0 - 0.4, CY.zc + 1.45);       // the furnace
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
+    const l = new THREE.LineSegments(g, cyPlanMat);
+    l.renderOrder = 6;
+    world.add(l);
+    return l;
+  })();
+  // A soft contact shadow under it (the bake leaves it out, as for the dryer).
+  const cycleShadow = (() => {
+    const c = document.createElement('canvas'); c.width = c.height = 64;
+    const x = c.getContext('2d');
+    const g = x.createRadialGradient(32, 32, 6, 32, 32, 32);
+    g.addColorStop(0, 'rgba(0,0,0,0.55)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    x.fillStyle = g; x.fillRect(0, 0, 64, 64);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(17, 6.4), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false }));
+    m.rotation.x = -Math.PI / 2;
+    m.position.set(CY.x0 + 6.0, 0.025, CY.zc + 0.2);
+    world.add(m);
+    return m;
+  })();
 
   // Nut shadows: the bake cannot know where the nuts are, so the roof's mat,
   // the room's floor and the dryer's tray each get a shadow-only sheet.
@@ -568,6 +742,15 @@ export function createProblem({ sectionEl, ring, run }) {
   const plume = new THREE.Group();
   plume.position.set(FACTORY_AT.x - 17, 9.5, FACTORY_AT.z - 5.5);
   world.add(plume);
+  // Steam from the Drying Cycle's one working exhaust: the pot on bay 3,
+  // where the air's route ends at the last step shown (lead bay 1).
+  const cySteam = [];
+  for (let i = 0; i < 16; i++) {
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: puff, color: '#e2e4e2', transparent: true, depthWrite: false, fog: false, opacity: 0 }));
+    sp.position.set(cyCx(2) + 0.55, 4.6, CY.zc);
+    cycle.add(sp);
+    cySteam.push(sp);
+  }
   const smoke = [];
   for (let i = 0; i < 22; i++) {
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: puff, color: '#9a948d', transparent: true, depthWrite: false, fog: false }));
@@ -808,6 +991,11 @@ export function createProblem({ sectionEl, ring, run }) {
    * village, down to the dryer) pass through a midpoint so they arc instead
    * of lunging. Timings are those of P: change one, check the other.
    */
+  // Keys whose places are solved each frame (see placeCamera).
+  const KILN_TOP = [V(KILN.x, 12, KILN.z + 0.001), V(KILN.x, 12, KILN.z + 0.001)];
+  const CYC_TOP = [V(16, 20, 2.001), V(16, 20, 2.001)];
+  const CYC_TGT = [V(16, 0.5, 2), V(16, 0.5, 2)];
+  let lastW = 1440; let lastH = 900;
   const KEYS = [
     // Framed so the nut sits under the question, a fifth of the screen high.
     [0, V(H.x + 0.02, H.y + 0.62, H.z + 1.95), V(H.x, H.y + 0.44, H.z), 34],
@@ -852,8 +1040,29 @@ export function createProblem({ sectionEl, ring, run }) {
     [1266, V(KILN.x + 2, 26, KILN.z + 15), V(KILN.x, KILN.y, KILN.z), 36],
     // Straight down (the target a hair north, so screen-up is world -Z, as
     // the kiln drawing has it). Its height is solved each frame.
-    [1312, V(KILN.x, 12, KILN.z + 0.001), V(KILN.x, KILN.y, KILN.z), END_FOV],
-    [T6.END, V(KILN.x, 12, KILN.z + 0.001), V(KILN.x, KILN.y, KILN.z), END_FOV],
+    [1312, KILN_TOP[0], V(KILN.x, KILN.y, KILN.z), END_FOV],
+    // 8. Full circle. While the drawing still covers the scene, over to the
+    // Drying Cycle, straight down, framed so its bays lie where the drawing
+    // drew them (solved each frame); hold as it rises; then up and out over
+    // the village in the rain, and down to the door that opens.
+    [T6.TO3D[0] - 14, KILN_TOP[1], V(KILN.x, KILN.y, KILN.z), END_FOV],
+    [T6.TO3D[0] - 2, CYC_TOP[0], CYC_TGT[0], END_FOV],
+    [T6.ROOFS[1], CYC_TOP[1], CYC_TGT[1], END_FOV],
+    // Lift and tilt back first (straight south, so the view does not roll
+    // off the overhead), then turn out over the village.
+    // Three even moves, none over about a metre per vh of story, the last a
+    // long, gentle arc down to the door (arriving as it opens).
+    [T6.SKY[0] + 40, V(16.4, 22, 25), V(16, 1.5, 0.5), 40],
+    [T6.SKY[1] - 10, V(13, 17, 29), V(13, 2, -1), 41],
+    [T6.DOOR[0], V(19.4, 4.3, 13.4), V(14.3, 1.8, 3.4), 40],
+    [T6.AWAY[0], V(19.4, 4.3, 13.4), V(14.3, 1.8, 3.4), 40],
+    // The close: back from the door, then up and out until the whole
+    // village lies under the question, the Drying Cycle among its houses
+    // in the lower half, clear of the words;
+    // then a slow drift while it is read.
+    [T6.AWAY[0] + 26, V(25, 13, 33), V(13, 2, 1), 42],
+    [T6.AWAY[1], V(12, 44, 66), V(6, 0, -30), 45],
+    [T6.END, V(10, 46, 69), V(4, 0, -33), 45],
   ];
   const camPos = new THREE.Vector3(); const camTgt = new THREE.Vector3();
   const _m0 = new THREE.Vector3(); const _m1 = new THREE.Vector3(); const _d = new THREE.Vector3();
@@ -892,7 +1101,20 @@ export function createProblem({ sectionEl, ring, run }) {
     // The last two keys sit at the height where the shed floor shows exactly
     // the ring camera's frame; it changes with the window's shape.
     const kh = KILN.y + kilnHeight();
-    KEYS[KEYS.length - 1][1].y = kh; KEYS[KEYS.length - 2][1].y = kh;
+    KILN_TOP.forEach((p) => { p.y = kh; });
+    // Over the Drying Cycle: at the height where its 12.8 m of bays span the
+    // width the drawing gave its row (transform.js: min(62% of the width,
+    // 1040 px)), and offset so the row sits where the drawing put it (44%
+    // down the screen, not the middle). Screen-up is world -Z, as above.
+    const rowW = Math.min(lastW * 0.62, 1040);
+    const tanH = Math.tan(THREE.MathUtils.degToRad(END_FOV / 2));
+    // (transform.js draws the plan at rowW * 1.04 px for the 12.8 m row, so
+    // the bay centres fall where the diagram's bay centres were.)
+    const pk = (rowW * 1.04) / 12.8;
+    const ch = lastH / (2 * tanH * pk);
+    const dz = (0.06 * lastH) / pk;
+    CYC_TOP.forEach((p) => p.set(16, 0.45 + ch, 2 + dz + 0.001));
+    CYC_TGT.forEach((p) => p.set(16, 0.45, 2 + dz));
     let i = KEYS.findIndex((k) => k[0] > s) - 1;
     if (i < 0) i = s < KEYS[0][0] ? 0 : KEYS.length - 2;
     const b = KEYS[i]; const c = KEYS[i + 1];
@@ -940,6 +1162,8 @@ export function createProblem({ sectionEl, ring, run }) {
     // The village's own rain front is gone: there is one rain, and it is
     // the hero's (P.RAIN). Kept switchable, off.
     const sweepOn = false;
+    // Stage 8's rain: every batch in the village carried in, every roof bare.
+    const bare = s > T6.TO3D[0] - 8;
     for (let i = 0; i < nuts.length; i++) {
       const n = nuts[i];
       let k = 1; let lift = 0; let dry; let spoil = 0;
@@ -978,6 +1202,7 @@ export function createProblem({ sectionEl, ring, run }) {
         k = clamp01(1 - go + back) * clamp01(village);
         lift = (1 - k) * 0.4;
       }
+      if (bare) k = 0;
       pos.y += lift;
       // Drying shrinks a nut a little and darkens it to brown.
       const shrink = 1 - 0.12 * dry;
@@ -1045,6 +1270,7 @@ export function createProblem({ sectionEl, ring, run }) {
   }
 
   let sv = null;            // the scroll, followed through a spring
+  let sw = null;            // ...and as story time, after the nut's pause
   let sVel = 0;             // and its speed, in vh per second
   let last = performance.now();
   let clock = 0;
@@ -1059,21 +1285,26 @@ export function createProblem({ sectionEl, ring, run }) {
     const { scrolled: target } = measure();
     const on = target > -2 && target < total + 1;
     pin.style.visibility = on ? 'visible' : 'hidden';
-    if (!on) { sv = null; return; }
+    if (!on) { sv = null; sw = null; return; }
     // The scroll is followed by a critically damped spring (position and
     // velocity), not a plain ease: a plain ease jumps to full speed the
     // instant the wheel turns, which is the jolt you feel. This one gathers
     // speed and lets it go, so a burst of wheel-notches becomes one glide.
-    if (sv === null || Math.abs(target - sv) > 160) { sv = target; sVel = 0; }
+    // The page already glides (scroll.js); a second spring on top would only
+    // add lag. Kept for touch and for when the page glide is off.
+    if (!followScroll) { sv = target; sVel = 0; }
+    else if (sv === null || Math.abs(target - sv) > 160) { sv = target; sVel = 0; }
     const W = 3.2;                                   // stiffness: ~1 s to settle
-    for (let k = 0, n = Math.ceil(dt / 0.008); k < n; k++) {
+    for (let k = 0, n = followScroll ? Math.ceil(dt / 0.008) : 0; k < n; k++) {
       const h = dt / n;
       sVel += (W * W * (target - sv) - 2 * W * sVel) * h;
       sv += sVel * h;
     }
-    const s = sv;
+    const s = warp(sv);
+    sw = s;
 
     const w = pin.clientWidth; const h = pin.clientHeight;
+    lastW = w; lastH = h;
     if (canvas.width !== Math.round(w * renderer.getPixelRatio()) || canvas.height !== Math.round(h * renderer.getPixelRatio())) {
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
       renderer.setSize(w, h, false);
@@ -1083,8 +1314,9 @@ export function createProblem({ sectionEl, ring, run }) {
     // ---- weather and light
     const cover = smooth(P.COVER[0], P.COVER[1], s);
     const dawn = smooth(P.DAWN[0], P.DAWN[1], s);
-    const cloud = Math.max(bump(P.CLOUD[0], P.CLOUD[1], 800, 830, s));
-    const wet = Math.max(bump(P.RAIN[0], P.RAIN[0] + 12, P.RAIN[1] - 14, P.RAIN[1], s));
+    const rain8 = bump(T6.LIFT[0], T6.LIFT[1], T6.AWAY[0] + 18, T6.AWAY[1], s);   // Stage 8's rain, once the paper lifts; it passes as the camera rises
+    const cloud = Math.max(bump(P.CLOUD[0], P.CLOUD[1], 800, 830, s), rain8);
+    const wet = Math.max(bump(P.RAIN[0], P.RAIN[0] + 12, P.RAIN[1] - 14, P.RAIN[1], s), rain8);
     const dusk = smooth(P.DUSK[0], P.DUSK[1], s);
     world.visible = cover > 0.995;
 
@@ -1103,7 +1335,9 @@ export function createProblem({ sectionEl, ring, run }) {
     sun.color.copy(sunWarm);
 
     // The whole bake, tinted for the hour and the weather.
-    const paper = smooth(P.PAPER[0], P.PAPER[1], s);
+    // The photograph went to paper for the kiln (Stage 5); it comes back out
+    // of the paper, the same way in reverse, for the Drying Cycle (Stage 8).
+    const paper = smooth(P.PAPER[0], P.PAPER[1], s) * (1 - smooth(T6.LIFT[0], T6.LIFT[1], s));
     tint.copy(TINT.day).lerp(TINT.rain, cloud).lerp(TINT.dusk, dusk).lerp(TINT.paper, paper);
     for (const m of baked) m.color.copy(tint);
     // The backdrop is the opening shot's yard clay, out of the purple.
@@ -1133,7 +1367,10 @@ export function createProblem({ sectionEl, ring, run }) {
         const x = cx + (rainSeed[i * 3] - 0.5) * span;
         const z = cz + (rainSeed[i * 3 + 1] - 0.5) * span;
         const y = 30 - ((clock * 22 + rainSeed[i * 3 + 2] * 30) % 30);
-        rainPos.set([x, y, z, x - 0.08, y - 0.55, z], i * 6);
+        // Longer streaks when the camera is high over the village (Stage 8),
+        // or the rain is too fine to see from up there.
+        const len = rain8 > 0 ? 2.2 : 0.55;
+        rainPos.set([x, y, z, x - 0.08 * len / 0.55, y - len, z], i * 6);
       }
       rainGeo.attributes.position.needsUpdate = true;
     }
@@ -1155,7 +1392,7 @@ export function createProblem({ sectionEl, ring, run }) {
 
     // ---- the dryer
     const dryerIn = smooth(P.DRYER_IN[0], P.DRYER_IN[1], s);
-    dryer.visible = dryerIn > 0.001;
+    dryer.visible = dryerIn > 0.001 && s < T6.TO3D[0] - 8;
     contact.visible = dryer.visible;
     if (dryer.visible) {
       // It rises out of the ground into place, piece by piece read as one.
@@ -1183,7 +1420,8 @@ export function createProblem({ sectionEl, ring, run }) {
     placeNuts(s);
     placeCamera(s);
     // ---- 5. the cut, then the hand-over to the kiln drawing underneath
-    cut.constant = lerp(11, 1.2, smooth(P.CUT[0], P.CUT[1], s));
+    // The tile works' roof, cut for the kiln, is whole again for Stage 8.
+    cut.constant = s > T6.TO3D[0] - 8 ? 99 : lerp(11, 1.2, smooth(P.CUT[0], P.CUT[1], s));
     if (s > P.LINES[0] - 10 && !kilnLines) buildKilnLines();
     if (kilnLines) {
       const k = smooth(P.LINES[0], P.LINES[1], s);
@@ -1191,9 +1429,47 @@ export function createProblem({ sectionEl, ring, run }) {
       kilnLines.geometry.setDrawRange(0, Math.round(k * kilnLines.userData.count) * 2);
       inkMat.opacity = Math.min(1, k * 3);
     }
+    if (kilnLines && s > T6.TO3D[0] - 8) kilnLines.visible = false;
     const hand = smooth(P.HAND[0], P.HAND[1], s);
-    canvas.style.opacity = (1 - hand).toFixed(3);
-    if (hand < 1) renderer.render(scene, camera);
+    // ...and back again for Stage 8, to the end of the page.
+    // Up to full strength UNDER the still-opaque plan (transform.js draws over
+    // this canvas), so when the plan fades it reveals the scene, never the
+    // kiln drawing underneath both.
+    const back3d = smooth(T6.PLAN[1] - 8, T6.PLAN[1], s);
+    const shown = Math.max(1 - hand, back3d);
+    canvas.style.opacity = shown.toFixed(3);
+
+    // ---- 8. the Drying Cycle: rises from its plan, roofs on, steam, a door
+    cycle.visible = s > T6.TO3D[0] - 8;
+    // The plan on the ground: there as the diagram's plan crosses into it,
+    // gone once the walls stand on it.
+    cyPlanMat.opacity = smooth(T6.TO3D[0], T6.TO3D[1], s) * (1 - smooth(T6.RISE[1] - 10, T6.RISE[1] + 4, s));
+    cyPlan.visible = cyPlanMat.opacity > 0.001;
+    cycleShadow.visible = cycle.visible;
+    if (cycle.visible) {
+      const rise = smooth(T6.RISE[0], T6.RISE[1], s);
+      cycleBody.scale.y = Math.max(0.01, rise);
+      // Not there at all until it starts to rise (flat, it reads as dark slabs).
+      cycleBody.visible = rise > 0.002;
+      const roofsOn = smooth(T6.ROOFS[0], T6.ROOFS[1], s);
+      cycleRoof.visible = roofsOn > 0.001;
+      cycleRoof.position.y = (1 - roofsOn) * 5;
+      cycleShadow.material.opacity = rise;
+      const flicker = 0.85 + 0.15 * Math.sin(clock * 11) * Math.sin(clock * 7.3);
+      cyFireLight.intensity = 26 * rise * flicker;
+      cyFireMat.color.setRGB(1, 0.45 * flicker, 0.1);
+      const open = smooth(T6.DOOR[0], T6.DOOR[1], s);
+      cycleDoors[1].rotation.y = -1.7 * open;
+      cyBayLight.intensity = 18 * open;
+      cyGlow.material.opacity = 0.9 * open;
+      cySteam.forEach((sp, i) => {
+        const u = ((clock * 0.11 + i / cySteam.length) % 1);
+        sp.position.set(cyCx(2) + 0.55 + u * 1.6 + Math.sin(i * 2.1) * 0.2, 4.7 + u * 4.5, CY.zc - u * 0.6);
+        sp.scale.setScalar(0.5 + u * 2.6);
+        sp.material.opacity = 0.55 * Math.sin(Math.PI * u) * roofsOn;
+      });
+    }
+    if (shown > 0) renderer.render(scene, camera);
 
     // ---- the words and slips
     scrim.style.opacity = (smooth(P.DAWN[0], P.DAWN[1], s) * (1 - 0.7 * paper)).toFixed(3);
@@ -1210,32 +1486,55 @@ export function createProblem({ sectionEl, ring, run }) {
         v.copy(ring.chamberPoint(i)).project(ring.camera);
         const x = (v.x * 0.5 + 0.5) * w; const y = (-v.y * 0.5 + 0.5) * h;
         const k = smooth(P.NUMS[0] + i * 1.6, P.NUMS[0] + i * 1.6 + 8, s);
+        // Gone once the kiln becomes the dryer.
         n.style.opacity = (k * (1 - smooth(T6.JOIN[0], T6.MORPH[0], s))).toFixed(3);
         n.style.transform = `translate(${x.toFixed(1)}px, ${(y + (1 - k) * 10).toFixed(1)}px) translate(-50%, -50%)`;
       });
     } else nums.forEach((n) => { n.style.opacity = '0'; });
     // The tray: the five ideas, in from the left one after another.
-    tray.style.opacity = smooth(P.TRAY[0] - 2, P.TRAY[0] + 6, s).toFixed(3);
+    // ...and out again as the diagram turns into the building's plan, so the
+    // crossing into the 3D scene is made over the drawing and the place alone.
+    tray.style.opacity = (smooth(P.TRAY[0] - 2, P.TRAY[0] + 6, s) * (1 - smooth(T6.PLAN[0] - 4, T6.PLAN[0] + 20, s))).toFixed(3);
     terms.forEach((t, i) => {
       const k = smooth(P.TRAY[0] + i * 5, P.TRAY[0] + i * 5 + 12, s);
       t.style.opacity = k.toFixed(3);
       // In from the right, where the column stands.
       t.style.transform = `translateX(${((1 - k) * 14).toFixed(1)}px)`;
     });
-    transform.update(s, w, h);
-    copy.forEach(({ at: [a0, a1, b0, b1], node, words, srcNode }) => {
+    transform.update(s, w, h, (from, to, pw, ph) => beside(captionBox(from, to), pw, ph, w, h));
+    copy.forEach(({ at: [a0, a1, b0, b1], node, words, srcNode, lit, readBy }) => {
       const out = smooth(b0, b1, s);
       const vis = s > a0 - 2 && out < 1;
       node.style.visibility = vis ? 'visible' : 'hidden';
       if (!vis) return;
       const n = words.length;
-      const span = (a1 - a0) * 0.55;
-      words.forEach((wd, i) => {
-        const k = smooth(a0 + span * i / n, a0 + span * i / n + (a1 - a0) * 0.45, s);
-        wd.style.opacity = (k * (1 - out)).toFixed(3);
-        wd.style.transform = `translateY(${((1 - k) * 0.5 - out * 0.3).toFixed(3)}em)`;
-      });
-      if (srcNode) srcNode.style.opacity = (smooth(a1 - 4, a1 + 4, s) * (1 - out)).toFixed(3);
+      // The explanation's paragraphs read as the brief in the opening does:
+      // the whole passage is there, faint, from the first moment, and its
+      // words light up in order as the scroll goes on, with nothing moving.
+      // The slip below fades the whole passage in and out.
+      // By default the words light across the whole time the slip is up. A
+      // slip over a long animation can say `readBy`: its words are read by
+      // then, at reading pace, and it stays up whole while the animation
+      // carries on, so the reading never has to wait on the drawing, nor the
+      // drawing hurry for the reading. The scroll itself is untouched.
+      const litFrom = a0 + (a1 - a0) * 0.5;
+      const litTo = Math.min(readBy ?? Infinity, b0 - 4);
+      if (lit) {
+        const lp = clamp01((s - litFrom) / (litTo - litFrom)) * n;
+        words.forEach((wd, i) => {
+          wd.style.opacity = (0.18 + 0.82 * clamp01(lp - i)).toFixed(3);
+          wd.style.transform = 'none';
+        });
+        if (srcNode) srcNode.style.opacity = (smooth(litTo - 8, litTo, s) * (1 - out)).toFixed(3);
+      } else {
+        const span = (a1 - a0) * 0.55;
+        words.forEach((wd, i) => {
+          const k = smooth(a0 + span * i / n, a0 + span * i / n + (a1 - a0) * 0.45, s);
+          wd.style.opacity = (k * (1 - out)).toFixed(3);
+          wd.style.transform = `translateY(${((1 - k) * 0.5 - out * 0.3).toFixed(3)}em)`;
+        });
+        if (srcNode) srcNode.style.opacity = (smooth(a1 - 4, a1 + 4, s) * (1 - out)).toFixed(3);
+      }
       // The slip: in just ahead of the first word, out with the last.
       node.style.opacity = (smooth(a0 - 3, a0 + 5, s) * (1 - out)).toFixed(3);
       // A term card rises in whole.
@@ -1255,7 +1554,16 @@ export function createProblem({ sectionEl, ring, run }) {
         : (d1 >= 14 ? 'dry' : 'on the roof');
     }
     const barK = prog(P.BARS, s);
-    barsEl.style.opacity = bump(P.BARS[0] - 4, P.BARS[0] + 6, 586, 600, s).toFixed(3);
+    const barsA = bump(P.BARS[0] - 4, P.BARS[0] + 6, 608, 622, s);
+    barsEl.style.opacity = barsA.toFixed(3);
+    if (barsA > 0) {
+      // Beside the words they belong to, not across the screen from them.
+      const at = beside(captionBox(P.BARS[0] - 4, 622), barsEl.offsetWidth, barsEl.offsetHeight, w, h);
+      barsEl.style.left = at ? `${at.x}px` : '';
+      barsEl.style.top = at ? `${at.y}px` : '';
+      barsEl.style.right = at ? 'auto' : '';
+      barsEl.style.bottom = at ? 'auto' : '';
+    }
     fills.roof.style.transform = `scaleX(${smooth(0, 0.45, barK).toFixed(3)})`;
     fills.in.style.transform = `scaleX(${smooth(0.3, 0.85, barK).toFixed(3)})`;
     fills.range.style.transform = `scaleX(${smooth(0.78, 1, barK).toFixed(3)})`;
@@ -1278,13 +1586,15 @@ export function createProblem({ sectionEl, ring, run }) {
    * scroll (as the tour's fire step does), resting on its last moment.
    */
   function kilnFrame() {
-    if (sv === null || sv < P.CUT[0]) return null;
-    return run.at(Math.min(run.totalHours - 1e-6, run.totalHours * prog(P.LAP, sv)));
+    if (sw === null || sw < P.CUT[0]) return null;
+    const lap = prog(P.LAP, sw);
+    return run.at(Math.min(run.totalHours - 1e-6, run.totalHours * lap));
   }
 
   return {
     update,
     kilnFrame,
+    camera,                       // for window.__problem — inspect the camera's way
     /** True once scrolled to the very end: time for the dashboard. */
     isDone: () => measure().done,
   };

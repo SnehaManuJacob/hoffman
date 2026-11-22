@@ -29,10 +29,12 @@ SAMPLES = int(argv[3])
 DO_EXPORT = len(argv) > 4 and argv[4] == 'export'
 os.makedirs(OUT, exist_ok=True)
 
-RES = {'ground': 4096, 'far': 1024, 'roofs': 4096, 'buildings': 4096, 'mat': 4096,
+RES = {'cycle': 2048, 'croof': 2048, 'cdoor0': 256, 'cdoor1': 256, 'cdoor2': 256, 'cdoor3': 256,
+       'ground': 4096, 'far': 1024, 'roofs': 4096, 'buildings': 4096, 'mat': 4096,
        'front': 2048, 'green': 2048, 'dryer': 2048, 'door': 512}
 ALL_GROUPS = list(RES)
-LIGHT_DIV = {'ground': 2, 'far': 2, 'roofs': 2, 'buildings': 2, 'mat': 2,
+LIGHT_DIV = {'cycle': 1, 'croof': 1, 'cdoor0': 1, 'cdoor1': 1, 'cdoor2': 1, 'cdoor3': 1,
+             'ground': 2, 'far': 2, 'roofs': 2, 'buildings': 2, 'mat': 2,
              'front': 1, 'green': 4, 'dryer': 1, 'door': 1}
 BAKE_SKY = 0.6
 GROUPS = ALL_GROUPS if GROUPS_ARG == 'all' else GROUPS_ARG.split(',')
@@ -58,6 +60,12 @@ def group_of(name):
         return 'mat'
     if name.startswith('HeroFront_'):
         return 'front'
+    if name.startswith('CycleDoor'):
+        return 'cdoor' + name[-1]
+    if name.startswith('CycleRoof_'):
+        return 'croof'
+    if name.startswith('Cycle_'):
+        return 'cycle'
     if name == 'DryerDoor':
         return 'door'
     if name.startswith('Dryer_'):
@@ -326,9 +334,15 @@ def bake_group(g):
         log('skip empty', g); return
     # The dryer only appears late in the story: it must not cast a baked
     # shadow on anything else. The room lamp lights only the hero's house.
+    # Nor the Drying Cycle, which stands in the same place late in the story:
+    # each is baked alone, with the other hidden.
     dry = groups.get('dryer', []) + groups.get('door', [])
     for x in dry:
         x.hide_render = g not in ('dryer', 'door')
+    CYC = ('cycle', 'croof', 'cdoor0', 'cdoor1', 'cdoor2', 'cdoor3')
+    for cg in CYC:
+        for x in groups.get(cg, []):
+            x.hide_render = g not in CYC
     lamp = bpy.data.objects.get('RoomLamp')
     if lamp:
         lamp.hide_render = g not in ('buildings', 'front')

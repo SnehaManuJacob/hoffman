@@ -10,7 +10,9 @@ import {
   C, PALETTE, STAGE_COLOUR, TAGS, OPEN_QUESTIONS, COMPONENTS, EVIDENCE,
 } from './config.js';
 import { createEngine } from './engine.js';
+import { createSmoothScroll } from './scroll.js';
 import { createIntro } from './views/intro.js';
+import { createCharRise } from './views/charRise.js';
 import { createAnatomy } from './views/anatomy.js';
 import { createLogic } from './views/logic.js';
 import { createProblem } from './views/problem.js';
@@ -22,6 +24,10 @@ import { createChart } from './views/chart.js';
 import { createEvidence } from './views/evidence.js';
 import { createClock } from './views/clock.js';
 import './checks.js';                 // exposes window.kilnChecks()
+
+// One glide for the whole page (scroll.js): every section reads the same
+// smoothed scroll position, so the journey has one feel from seam to seam.
+const smooth = createSmoothScroll();
 
 const engine = createEngine();
 
@@ -47,6 +53,14 @@ let intro = null;
 if (reduceMotion) {
   introSection.style.display = 'none';
 } else {
+  // The opening question rises in as the page opens, one character at a time.
+  createCharRise(document.querySelector('.intro-title'), { mode: 'load', delay: 250, stagger: 18 });
+  // The line under it is simpler: the whole of it fades in (it starts hidden, via
+  // .fade-in in the markup, so it never shows before its cue), starting while
+  // the last of the title's characters are still rising.
+  const sub = document.querySelector('.intro-sub');
+  ((document.fonts && document.fonts.ready) || Promise.resolve())
+    .then(() => setTimeout(() => sub.classList.add('is-in'), 1850));
   intro = createIntro({
     sectionEl: introSection,
     canvas: document.getElementById('intro-canvas'),
@@ -71,7 +85,7 @@ const anatomy = createAnatomy({ sectionEl: document.getElementById('anatomy'), r
 // After the tour: the same recorded loop, read as five ideas from computing.
 const logic = createLogic({ sectionEl: document.getElementById('logic'), ring, run });
 // Then the question it ends on, answered: the drying problem the dryer is for.
-const problem = createProblem({ sectionEl: document.getElementById('problem'), ring, run });
+const problem = createProblem({ sectionEl: document.getElementById('problem'), ring, run, followScroll: !smooth.enabled || window.matchMedia('(pointer: coarse)').matches });
 
 const labels = createLabels(document.getElementById('label-layer'), ring);
 
@@ -205,36 +219,13 @@ function revealDashboard() {
   chart.update(engine.state, true);
 }
 
-/** Back to the full-screen kiln, for a visitor scrolling up into the tour. */
-function hideDashboard() {
-  document.body.classList.add('pre-reveal');
-  ring.resize();
-}
-
 /**
- * The hand-off from the tour and the section after it. Scrolling to the end
- * of #problem (which follows #logic, which follows #anatomy) reveals the
- * dashboard and jumps to its top (the top bar), so it arrives as a whole
- * screen. Scrolling back up past a quarter-screen above it returns to the
- * tour — and lands short of the tour's end, or the two would trade places
- * on every frame.
+ * The story ends at the end of #problem, over the village, on a question.
+ * There is no hand-off to the dashboard any more: the page stays in
+ * pre-reveal (the dashboard chrome out of the page), and scrolling simply
+ * stops there. revealDashboard() is kept, reachable from the console, for
+ * working on the model.
  */
-const topbar = document.querySelector('.topbar');
-let revealed = false;
-
-function checkReveal() {
-  if (!revealed && problem.isDone()) {
-    revealed = true;
-    revealDashboard();
-    window.scrollTo({ top: topbar.offsetTop, behavior: 'instant' });
-  } else if (revealed && window.scrollY < topbar.offsetTop - window.innerHeight * 0.25) {
-    revealed = false;
-    hideDashboard();
-    const end = document.documentElement.scrollHeight - window.innerHeight;
-    window.scrollTo({ top: end - window.innerHeight * 0.35, behavior: 'instant' });
-  }
-}
-
 window.__revealDashboard = revealDashboard;
 
 // --- failure reporting ------------------------------------------------------
@@ -282,22 +273,22 @@ function frame(now) {
   last = now;                             // dump a huge dt into the simulation
 
   try {
+    smooth.update(dt);     // first: every view below reads the scroll it writes
     engine.step(dt);
 
     // The ring needs dt to settle chamber colours at a rate tied to the cycle.
     // The tour draws the fired demonstration kiln; everything else, the
     // visitor's own.
-    const touring = !revealed && anatomy.isActive();
+    const touring = anatomy.isActive();
     document.body.classList.toggle('touring', touring);
     // ...and at the end of the drying problem, the recorded loop again, as
     // the kiln comes back (views/problem.js, stage 5).
-    const shownState = touring ? anatomy.frame() : (!revealed && problem.kilnFrame()) || engine.state;
+    const shownState = touring ? anatomy.frame() : problem.kilnFrame() || engine.state;
     ring.update(shownState, dt);
     intro?.update();   // reads scroll position only; no engine state involved
     anatomy.update(shownState);
     logic.update();
     problem.update();
-    checkReveal();
     labels.update(engine.state);     // must follow ring: it reads the camera
     panel.update(engine.state);
     chart.update(engine.state);      // redraws only when the record changes
@@ -321,6 +312,7 @@ requestAnimationFrame(frame);
 window.kiln = engine;
 window.__ring = ring;        // segments[], path — inspect the drawing
 window.__anatomy = anatomy;
+window.__problem = problem;  // camera — inspect the drying story's way
 window.__run = run;         // the recorded loop the tour scrubs through
 window.__intro = intro;      // camera, renderer, scene, getBuilding() — inspect the camera path
 window.__cfg = { C, PALETTE, STAGE_COLOUR, TAGS, OPEN_QUESTIONS, COMPONENTS, EVIDENCE };

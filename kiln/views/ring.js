@@ -1781,6 +1781,19 @@ export function createRing(canvas, options = {}) {
     };
     canvas.addEventListener('pointerup', end);
     canvas.addEventListener('pointercancel', end);
+
+    // Keyboard: arrows step the kiln through what was recorded, as a drag does.
+    canvas.setAttribute('tabindex', '0');
+    canvas.setAttribute('aria-label', 'The kiln. Left and right arrow keys step through recorded time.');
+    canvas.addEventListener('keydown', (ev) => {
+      const state = getState();
+      if (state.phase === 'charging' || state.fork) return;
+      const by = { ArrowLeft: -1, ArrowDown: -1, ArrowRight: 1, ArrowUp: 1 }[ev.key];
+      if (!by) return;
+      ev.preventDefault();
+      const target = Math.max(0, Math.min(history.lastTick, state.tick + by * SCRUB_SIGN));
+      dispatch({ type: 'scrubTo', tick: target });
+    });
   }
 
   function dispose() {

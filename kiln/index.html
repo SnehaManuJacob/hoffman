@@ -7,14 +7,15 @@
   <link rel="preload" href="./vendor/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="./vendor/fonts/orbitron.woff2" as="font" type="font/woff2" crossorigin>
   <!--
-    ASSET VERSION — bump "v=" here AND in the import map below whenever any
-    local file changes (same stamp everywhere). Browsers cache ES modules and
+    ASSET VERSION — one stamp for everything: run `python3 bump-version.py`
+    (or edit every "v=" here and in the import map below to the same value)
+    whenever any local file changes. Browsers cache ES modules and
     CSS aggressively under a plain static server; without a changed URL a
     visitor can run a new views/intro.js against an old config.js (the intro
     backdrop silently went white that way). views/intro.js reuses its own
     stamp for assets/factory.glb, so the model is covered too.
   -->
-  <link rel="stylesheet" href="style.css?v=20261118x">
+  <link rel="stylesheet" href="style.css?v=20261122d">
 
   <!--
     three.js is vendored locally (kiln/vendor/) rather than loaded from a CDN so
@@ -25,26 +26,28 @@
   {
     "imports": {
       "three": "./vendor/three.module.js",
-      "./main.js": "./main.js?v=20261117r",
-      "./config.js": "./config.js?v=20261117d",
-      "./engine.js": "./engine.js?v=20261117d",
-      "./history.js": "./history.js?v=20261117d",
-      "./checks.js": "./checks.js?v=20261117d",
-      "./views/intro.js": "./views/intro.js?v=20261117d",
-      "./views/ring.js": "./views/ring.js?v=20261117d",
-      "./views/panel.js": "./views/panel.js?v=20261117d",
-      "./views/labels.js": "./views/labels.js?v=20261117d",
-      "./views/chart.js": "./views/chart.js?v=20261117d",
-      "./views/evidence.js": "./views/evidence.js?v=20261117d",
-      "./views/clock.js": "./views/clock.js?v=20261117d",
-      "./views/heatRamp.js": "./views/heatRamp.js?v=20261117d",
-      "./views/kilnPath.js": "./views/kilnPath.js?v=20261117d",
-      "./views/anatomy.js": "./views/anatomy.js?v=20261117d",
-      "./views/logic.js": "./views/logic.js?v=20261117d",
-      "./views/problem.js": "./views/problem.js?v=20261118x",
-      "./views/transform.js": "./views/transform.js?v=20261118x",
-      "./views/building.js": "./views/building.js?v=20261117d",
-      "./tourRun.js": "./tourRun.js?v=20261117d"
+      "./scroll.js": "./scroll.js?v=20261122d",
+      "./main.js": "./main.js?v=20261122d",
+      "./config.js": "./config.js?v=20261122d",
+      "./engine.js": "./engine.js?v=20261122d",
+      "./history.js": "./history.js?v=20261122d",
+      "./checks.js": "./checks.js?v=20261122d",
+      "./views/charRise.js": "./views/charRise.js?v=20261122d",
+      "./views/intro.js": "./views/intro.js?v=20261122d",
+      "./views/ring.js": "./views/ring.js?v=20261122d",
+      "./views/panel.js": "./views/panel.js?v=20261122d",
+      "./views/labels.js": "./views/labels.js?v=20261122d",
+      "./views/chart.js": "./views/chart.js?v=20261122d",
+      "./views/evidence.js": "./views/evidence.js?v=20261122d",
+      "./views/clock.js": "./views/clock.js?v=20261122d",
+      "./views/heatRamp.js": "./views/heatRamp.js?v=20261122d",
+      "./views/kilnPath.js": "./views/kilnPath.js?v=20261122d",
+      "./views/anatomy.js": "./views/anatomy.js?v=20261122d",
+      "./views/logic.js": "./views/logic.js?v=20261122d",
+      "./views/problem.js": "./views/problem.js?v=20261122d",
+      "./views/transform.js": "./views/transform.js?v=20261122d",
+      "./views/building.js": "./views/building.js?v=20261122d",
+      "./tourRun.js": "./tourRun.js?v=20261122d"
     }
   }
   </script>
@@ -57,6 +60,7 @@
   <script src="./vendor/d3.min.js"></script>
 </head>
 <body class="pre-reveal">
+  <a class="skip-link" href="#story-end">Skip the scrolling story</a>
 
   <!--
     Intro: a pinned 900vh scroll sequence. views/intro.js owns its own three.js
@@ -77,8 +81,8 @@
         move has the screen to itself. An h2: the page's h1 is the wordmark.
       -->
       <div class="intro-copy">
-        <h2 class="intro-title">What can an old kiln teach us<br> about the future of industry?</h2>
-        <p class="intro-sub">A century-old approach to tile firing holds remarkable ideas about heat recovery, continuous processes and resource efficiency.</p>
+        <h2 class="intro-title cr">What can an old kiln teach us about designing new systems?</h2>
+        <p class="intro-sub fade-in">A century-old approach to tile firing holds remarkable ideas about heat recovery, continuous processes and resource efficiency.</p>
       </div>
 
       <!--
@@ -142,14 +146,16 @@
         </div>
 
         <div class="compute-rail"></div>
-        <p class="compute-next"></p>
 
+        <!-- Comes up with the fire step's second beat (views/anatomy.js). -->
         <div class="compute-table">
           <span class="compute-marker"></span>
           <ol class="compute-rows"></ol>
         </div>
 
-        <p class="compute-note"><span class="anatomy-chip">S</span>Simulated. On the two-hour interval recorded at the factory, chambers are unloaded hotter than anyone could work in: an open question, not a finding.</p>
+        <!-- The open question about how hot chambers are when unloaded is on
+             the evidence sheet (config METHODS, "The fire's loop in the tour"). -->
+        <p class="compute-note"><span class="anatomy-chip">S</span>Simulated: the model's loop, on the two-hour interval recorded at the factory.</p>
       </section>
 
       <!--
@@ -171,7 +177,7 @@
           <b class="rr-num"></b>
         </div>
         <p class="recover-ratio"></p>
-        <p class="compute-note"><span class="anatomy-chip">S</span>Simulated, in the model's own units. The second kiln is a counterfactual: nobody fires it that way.</p>
+        <p class="compute-note"><span class="anatomy-chip">S</span>Simulated, in the model's units. Nobody fires a kiln the second way.</p>
       </section>
 
       <article class="anatomy-card" aria-live="polite">
@@ -224,6 +230,7 @@
       <div class="problem-copy" aria-live="polite"></div>
     </div>
   </section>
+  <div id="story-end" tabindex="-1"></div>
 
   <!--
     Top bar: wordmark left, evidence pill right.
@@ -278,7 +285,7 @@
 
       <div class="transport" id="transport">
         <button id="btn-play" class="ctrl">Play</button>
-        <button id="btn-step" class="ctrl">Step</button>
+        <button id="btn-step" class="ctrl">Step forward</button>
         <label class="speed">
           Speed
           <input type="range" id="speed" min="0.25" max="4" step="0.25" value="1">
@@ -409,7 +416,7 @@
       <!-- The chart is a record of the simulation running, so it is tagged S. -->
       <section class="chart-pane">
         <h2 class="pane-title">Space and time</h2>
-        <div id="chart" class="chart-placeholder" data-ev="S"></div>
+        <div id="chart" class="chart-placeholder" data-ev="S" tabindex="0" role="slider" aria-label="Kiln time" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="Not yet lit"></div>
       </section>
 
       <!--
@@ -438,7 +445,7 @@
   <dialog class="sheet" id="sources">
     <header class="sheet-head">
       <h2>Where all this comes from</h2>
-      <button type="button" class="ctrl" id="btn-sources-close">Close</button>
+      <button type="button" class="ctrl" id="btn-sources-close">Close sources</button>
     </header>
     <div class="sheet-body" id="sources-body"></div>
   </dialog>

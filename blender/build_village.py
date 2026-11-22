@@ -77,6 +77,7 @@ def brick_material(name, c1, c2, mortar, scale, rough=0.85, mortar_size=0.02, no
 MAT_WEAVE = brick_material('weave', (0.46, 0.34, 0.17), (0.33, 0.23, 0.1), (0.16, 0.1, 0.05), 38, 0.9, 0.08, 0.35)
 BRICK = brick_material('brick', (0.3, 0.1, 0.06), (0.25, 0.085, 0.05), (0.42, 0.38, 0.33), 8, 0.9, 0.03, 0.2)
 RIPE, _ = principled('areca_ripe', (0.86, 0.36, 0.04), 0.45)
+TERRACOTTA = brick_material('terracotta', (0.5, 0.2, 0.1), (0.46, 0.18, 0.09), (0.42, 0.17, 0.08), 3, 0.85, 0.0, 0.25)
 SHAFT, _ = principled('crownshaft', (0.14, 0.24, 0.05), 0.45)
 M = lambda n: D.materials[n]
 PLASTER, PLINTH, CONCRETE, WOOD, DARK = M('plaster'), M('plinth'), M('concrete'), M('wood'), M('dark')
@@ -255,6 +256,104 @@ box('Dryer_heater', 1.3, 1.3, 1.3, 9.5, 0.65, DZ, DARK)
 box('Dryer_duct', 1.4, 0.4, 0.5, 10.6, 0.5, DZ, METAL)
 box('DryerDoor', 0.08, 1.0, 2, DX + 1.7, 1.5, DZ, METAL_WALL)
 
+
+# ------------------------------------------------------------------ the Drying Cycle
+# The proposed dryer, built: the "Tiled Row". Four bays in a row on a
+# laterite base, lime-plastered, a wooden door and a jali vent to each bay,
+# each bay under its own small hipped Mangalore-tile roof (the tile works'
+# roof, scaled), a terracotta chimney pot on each (the exhausts), the return
+# duct as a terracotta pipe along the ridges from bay 4 back to bay 1, and
+# a brick husk furnace with a tall slim flue at the west end. It stands
+# where the box dryer stood (the page shows one or the other), so it is
+# baked as its own pieces: Cycle_ (body), CycleRoof_ (roofs, pots, duct),
+# CycleDoor0-3 (one door each, so the page can open one).
+CYX0, CYBW, CYD, CYZC = 9.6, 3.2, 3.8, 2.0          # bay 1's west wall, bay width, depth, centre z
+CYWH, CYPL = 2.6, 0.45                               # wall height, plinth
+CYZ0, CYZ1 = CYZC - CYD / 2, CYZC + CYD / 2
+cy_cx = lambda b: CYX0 + CYBW * (b + 0.5)
+CYX1 = CYX0 + 4 * CYBW
+CYTOP = CYPL + CYWH
+
+
+def pipe(name, a, b, r, mat):
+    """A round pipe from a to b (page coordinates)."""
+    A, Bv = B(*a), B(*b)
+    d = Bv - A
+    bm = bmesh.new()
+    bmesh.ops.create_cone(bm, cap_ends=True, segments=14, radius1=r, radius2=r, depth=d.length)
+    q = Vector((0, 0, 1)).rotation_difference(d.normalized())
+    bmesh.ops.rotate(bm, verts=bm.verts, cent=Vector((0, 0, 0)), matrix=q.to_matrix())
+    bmesh.ops.translate(bm, vec=(A + Bv) / 2, verts=bm.verts)
+    return mesh_obj(name, bm, mat, smooth=True)
+
+
+box('Cycle_plinth', CYX1 - CYX0 + 0.3, CYPL, CYD + 0.3, (CYX0 + CYX1) / 2, CYPL / 2, CYZC, M('laterite'))
+box('Cycle_back', CYX1 - CYX0, CYWH, 0.22, (CYX0 + CYX1) / 2, CYPL + CYWH / 2, CYZ0 + 0.11, PLASTER)
+for i, x in enumerate((CYX0 + 0.11, CYX1 - 0.11)):
+    box(f'Cycle_end{i}', 0.22, CYWH, CYD, x, CYPL + CYWH / 2, CYZC, PLASTER)
+for k in range(1, 4):
+    box(f'Cycle_part{k}', 0.18, CYWH, CYD, CYX0 + CYBW * k, CYPL + CYWH / 2, CYZC, PLASTER)
+DW, DH = 1.0, 1.9
+for b in range(4):
+    cx = cy_cx(b); fz = CYZ1 - 0.11
+    side = (CYBW - DW) / 2
+    box(f'Cycle_frontL{b}', side, CYWH, 0.22, cx - DW / 2 - side / 2, CYPL + CYWH / 2, fz, PLASTER)
+    box(f'Cycle_frontR{b}', side, CYWH, 0.22, cx + DW / 2 + side / 2, CYPL + CYWH / 2, fz, PLASTER)
+    box(f'Cycle_lintel{b}', DW, CYWH - DH, 0.22, cx, CYPL + DH + (CYWH - DH) / 2, fz, PLASTER)
+    for sd in (-1, 1):
+        box(f'Cycle_jamb{b}{sd}', 0.1, DH, 0.26, cx + sd * (DW / 2 + 0.05), CYPL + DH / 2, fz, WOOD)
+    box(f'Cycle_jali{b}', CYBW - 0.9, 0.34, 0.06, cx, CYTOP - 0.32, CYZ1 + 0.01, M('Jali'))
+    box(f'Cycle_band{b}', CYBW, 0.28, 0.24, cx, CYPL + 0.14, fz + 0.01, PLINTH)
+    box(f'CycleDoor{b}', DW - 0.04, DH - 0.04, 0.06, cx, CYPL + DH / 2, CYZ1 + 0.04, WOOD)
+# The husk furnace, its firebox, its flue, and the duct into bay 1's plenum.
+box('Cycle_furnace', 1.7, 1.5, 1.7, CYX0 - 1.25, 0.75, CYZC + 0.6, BRICK)
+box('Cycle_firebox', 0.62, 0.46, 0.04, CYX0 - 1.25, 0.55, CYZC + 0.6 + 0.86, DARK)
+cylinder('Cycle_flue', 0.2, 0.17, 5.6, CYX0 - 1.6, 1.5, CYZC + 0.3, BRICK, 16)
+# The supply: one warm-air channel from the furnace along the front of the
+# row, past every bay, with a branch into each bay's plenum and a damper
+# handle on each branch (S1-S4). The heater feeds all four bays; the
+# dampers choose which one gets the air.
+CHZ = CYZ1 + 0.42                                     # the channel's line, in front of the doors
+box('Cycle_chan_elbow', 0.6, 0.42, CHZ - (CYZC + 0.6) + 0.3, CYX0 - 0.7, 0.21, (CHZ + CYZC + 0.6) / 2 + 0.15, BRICK)
+box('Cycle_channel', CYX1 - (CYX0 - 1.0), 0.42, 0.6, (CYX1 + CYX0 - 1.0) / 2, 0.21, CHZ, BRICK)
+box('Cycle_chan_cap', CYX1 - (CYX0 - 1.0) + 0.04, 0.05, 0.66, (CYX1 + CYX0 - 1.0) / 2, 0.445, CHZ, CONCRETE)
+for b in range(4):
+    hx = cy_cx(b) - 0.95
+    box(f'Cycle_branch{b}', 0.42, 0.34, CHZ - CYZ1 + 0.1, hx, 0.17, (CHZ + CYZ1) / 2, BRICK)
+    # The damper's handle: a short iron rod with a wheel, standing on the channel.
+    cylinder(f'Cycle_handle{b}', 0.025, 0.025, 0.42, hx, 0.47, CHZ, DARK, 8)
+    bmh = bmesh.new()
+    bmesh.ops.create_cone(bmh, cap_ends=True, segments=18, radius1=0.13, radius2=0.13, depth=0.03)
+    bmesh.ops.translate(bmh, vec=B(hx, 0.9, CHZ), verts=bmh.verts)
+    mesh_obj(f'Cycle_wheel{b}', bmh, DARK)
+
+# The roofs: the tile works' hipped roof (house E), scaled to a bay.
+E_roof = [o for n, o in templates.items() if n.startswith('E_roof')]
+E_C = Vector((-23.2, 20.0, 0))
+for b in range(4):
+    M_ = (Matrix.Translation(B(cy_cx(b), 0.82, CYZC)) @ Matrix.Diagonal((0.76, 0.6, 0.72, 1.0))
+          @ Matrix.Translation(-E_C))
+    for o in E_roof:
+        c = o.copy()
+        if o.data:
+            c.data = o.data.copy()
+        coll.objects.link(c)
+        c.matrix_world = M_ @ o.matrix_world
+        c.name = f'CycleRoof_{b}_{o.name}'
+    # The exhaust: a terracotta chimney pot near the ridge.
+    # Rising out of the ridge itself, not perched on the slope.
+    cylinder(f'CycleRoof_pot{b}', 0.18, 0.14, 0.95, cy_cx(b), 3.9, CYZC + 0.45, TERRACOTTA, 14)
+    cylinder(f'CycleRoof_collar{b}', 0.26, 0.24, 0.12, cy_cx(b), 4.06, CYZC + 0.45, TERRACOTTA, 14)
+# The return duct, along the ridges: up out of bay 4, west over the roofs,
+# down behind bay 1 and into its plenum.
+RY = 4.95; RZ = CYZC - 0.55
+pipe('CycleRoof_ret0', (CYX1 - 0.6, 3.7, RZ), (CYX1 - 0.6, RY, RZ), 0.2, TERRACOTTA)
+pipe('CycleRoof_ret1', (CYX1 - 0.6, RY, RZ), (CYX0 + 0.6, RY, RZ), 0.2, TERRACOTTA)
+pipe('CycleRoof_ret2', (CYX0 + 0.6, RY, RZ), (CYX0 + 0.6, RY, CYZ0 - 0.35), 0.2, TERRACOTTA)
+pipe('CycleRoof_ret3', (CYX0 + 0.6, RY, CYZ0 - 0.35), (CYX0 + 0.6, 0.6, CYZ0 - 0.35), 0.2, TERRACOTTA)
+pipe('CycleRoof_ret4', (CYX0 + 0.6, 0.6, CYZ0 - 0.35), (CYX0 + 0.6, 0.6, CYZ0 + 0.2), 0.2, TERRACOTTA)
+for b in range(4):
+    box(f'CycleRoof_post{b}', 0.1, RY - 3.95, 0.1, cy_cx(b), (RY + 3.95) / 2, RZ, WOOD)
 
 # ------------------------------------------------------------------ arecanut palms
 fronds = [o for n, o in templates.items() if n.startswith('Palm0_frond')]

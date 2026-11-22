@@ -17,3 +17,10 @@ saved through AgX, exported unlit), adapted for the village: groups are joined
 before baking, UV layers are unified, the dryer is hidden while everything else
 bakes, and the ground keeps its own village-dense UVs. A quick test bake:
 `... bake_village.py -- "$PWD/test" all 0.25 32 export` (about 30 seconds).
+
+The village also holds **the Drying Cycle** ("the Tiled Row", Stage 8): four
+bays under four small hipped tile roofs, chimney pots, the return duct along
+the ridges and a brick husk furnace, beside the grower's house where the box
+dryer stands. It is baked as its own pieces (`Web_cycle`, `Web_croof`,
+`Web_cdoor0`–`3`), each with the box dryer hidden and vice versa, so the page
+can raise it, settle its roofs and open a door, and show it only in Stage 8.

@@ -113,7 +113,9 @@ const PHASE = {
   descend: [0.64, 0.88],
   paperOut: [0.88, 0.95],
   linesOut: [0.88, 0.95],
-  kilnOut: [0.93, 1.00],
+  // Done before the tour's kiln starts to shrink (anatomy.js, LEAD_VH): the two
+  // kilns are drawn at the same size only while this one is still on screen.
+  kilnOut: [0.90, 0.955],
 };
 
 /**
@@ -565,6 +567,34 @@ export function createIntro({ sectionEl, canvas, ring = null, copyEl = null, bri
 
   let donePainting = false;
 
+  // --- the cursor's nod ---------------------------------------------------------
+  // The model turns a few degrees toward the cursor, as if it had noticed it:
+  // a slight yaw and an even slighter pitch, on the spot, about the middle of
+  // the compound. The camera's scroll choreography is untouched, so the nod
+  // never replaces or fights it; it is eased in, eased back out when the cursor
+  // leaves, and fades away as the visitor starts to scroll (before the
+  // camera's own move begins). Mouse and pen only: a finger has no hover.
+  const NOD = { yaw: 0.05, pitch: 0.022, tauFollow: 0.55, tauReturn: 0.9, scrollFade: 0.04 };
+  // The middle of the compound, on the ground (the rise camera's look-at, at
+  // floor height): the nod turns the model about this point.
+  const NOD_PIVOT = new THREE.Vector3(CAM.lookAtRise.x, 0, CAM.lookAtRise.z);
+  const nodUp = new THREE.Vector3(0, 1, 0);
+  const nodAxis = new THREE.Vector3(); const nodTmp = new THREE.Vector3();
+  const nodQ = new THREE.Quaternion(); const nodQ2 = new THREE.Quaternion();
+  const nodTarget = { x: 0, y: 0 };
+  const nod = { x: 0, y: 0 };
+  let nodLast = performance.now();
+  window.addEventListener('pointermove', (ev) => {
+    if (ev.pointerType === 'touch') return;
+    // -1..1 from the middle of the window, so the edges mean "most"
+    nodTarget.x = (ev.clientX / window.innerWidth) * 2 - 1;
+    nodTarget.y = (ev.clientY / window.innerHeight) * 2 - 1;
+  }, { passive: true });
+  // The cursor leaving the window, or the page losing focus: settle home.
+  const settleHome = () => { nodTarget.x = 0; nodTarget.y = 0; };
+  document.documentElement.addEventListener('pointerleave', settleHome);
+  window.addEventListener('blur', settleHome);
+
   function update() {
     if (!kiln) buildKiln();
     const q = sectionProgress(sectionEl);     // scroll
@@ -595,6 +625,16 @@ export function createIntro({ sectionEl, canvas, ring = null, copyEl = null, bri
     lookAt.lerpVectors(CAM.lookAtStart, CAM.lookAtRise, r);
     lookAt.lerp(endLook, d);
 
+    // The cursor's nod, eased (frame-rate independent) and faded with scroll.
+    const now = performance.now();
+    const dt = Math.min(0.1, (now - nodLast) / 1000);
+    nodLast = now;
+    const home = nodTarget.x === 0 && nodTarget.y === 0;
+    const k = 1 - Math.exp(-dt / (home ? NOD.tauReturn : NOD.tauFollow));
+    nod.x += (nodTarget.x - nod.x) * k;
+    nod.y += (nodTarget.y - nod.y) * k;
+    const nodW = 1 - ease(span(q, [0, NOD.scrollFade]));
+
     camera.fov = fov;
     camera.updateProjectionMatrix();
     camera.position.set(
@@ -611,6 +651,21 @@ export function createIntro({ sectionEl, canvas, ring = null, copyEl = null, bri
       -Math.sin(azimuth) * Math.sin(elevation),
     );
     camera.lookAt(lookAt);
+
+    // The nod itself: the model turns on the spot, about the vertical axis
+    // through the middle of the compound (yaw, toward the cursor) and a
+    // horizontal axis through the same point, across the view (pitch: its
+    // far side lifts when the cursor goes up). The camera does not move.
+    if (building) {
+      const yaw = nod.x * NOD.yaw * nodW;
+      const pitch = -nod.y * NOD.pitch * nodW;      // cursor up: far side lifts, top toward the viewer
+      // Across the view, horizontal: the camera's right on the ground plane.
+      nodAxis.set(Math.sin(azimuth), 0, -Math.cos(azimuth));
+      nodQ.setFromAxisAngle(nodUp, yaw).multiply(nodQ2.setFromAxisAngle(nodAxis, pitch));
+      building.quaternion.copy(nodQ);
+      // Turning about NOD_PIVOT rather than the model's origin: p = c - R c.
+      building.position.copy(NOD_PIVOT).sub(nodTmp.copy(NOD_PIVOT).applyQuaternion(nodQ));
+    }
 
     // scan: photograph -> drawing
     const s = span(p, PHASE.scan);

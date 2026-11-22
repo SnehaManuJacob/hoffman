@@ -31,6 +31,15 @@
  * emptied and refilled, nut by nut; the batch letters stay in their bays,
  * the role tags move.
  *
+ * Then Stage 8, the honest close: rain falls across the drawing again and
+ * the rain stage's two bars come back with a third, dashed, for the
+ * dryer's AIM (not a result); then full circle, the drawing raised into a
+ * building in the village, in the rain, the one thing still drying; the
+ * kiln and the Drying Cycle side by side,
+ * row by row, four kept and two changed (the heat source, and what
+ * starts a step); the questions that are
+ * still open; and back to the kiln, running, for the dashboard.
+ *
  * (b comes before c, not after as first planned: the route is then shown
  * once, on the dryer's real layout, not on the ring and again on the row.)
  *
@@ -88,7 +97,34 @@ export const T6 = {
   C1: [2480, 2560],         // the route steps on: lead bay 2 -> 3
   C2: [2564, 2644],         //                            3 -> 4
   C3: [2648, 2728],         //                            4 -> 1
-  END: 2840,
+  // Stage 8: the honest close.
+  RAIN: [2806, 2826],       // rain across the drawing again
+  BARS: [2826, 2876],       // roof, indoors, and the dryer's aim (dashed)
+  RAIN_OUT: [2884, 2900],
+  // Full circle: the drawing becomes the building, in the village, in the
+  // rain (views/problem.js draws it). It goes in the opening shot's order,
+  // reversed: first the diagram simplifies into the building's plan, at the
+  // building's own proportions; then that plan crosses into the same plan
+  // drawn on the 3D ground, the scene still tinted to the paper; then the
+  // paper lifts into the rainy village, and only then do the walls rise.
+  PLAN: [2896, 2936],       // the diagram becomes a plan
+  TO3D: [2936, 2966],       // the plan on paper -> the plan on the ground
+  LIFT: [2966, 3002],       // the paper tint lifts; the rain comes back
+  RISE: [2984, 3022],       // the Drying Cycle's walls rise from its plan
+  ROOFS: [3016, 3044],      // its roofs settle on
+  SKY: [3044, 3116],        // up and out over the village in the rain
+  DOOR: [3142, 3162],       // down to a door, which opens
+  TABLE: [3186, 3206],      // the kiln and the Drying Cycle, side by side
+  ROWS: [3210, 3274],       // one row at a time
+  TABLE_OUT: [3300, 3316],
+  QS: [3320, 3336],         // the questions still open
+  QROWS: [3338, 3396],
+  QS_OUT: [3422, 3438],
+  // The close: no return to the kiln. Up and out over the whole village as
+  // the rain passes, and a question for the visitor to take away.
+  AWAY: [3442, 3516],       // up from the door, out over the village (not OUT: Stage 6 has that)
+  ASK: [3498, 3516],        // the question
+  END: 3580,
 };
 
 
@@ -106,9 +142,20 @@ export const COPY6 = [
   { at: [2226, 2238, 2274, 2284], text: 'The dry batch is taken out by hand, and fresh nuts go in its place.', srcs: [['A', 'Proposed: unloading and reloading by hand']] },
   { at: [2286, 2298, 2322, 2332], text: 'The condition of the nuts decides when the system moves on: a grower tests the lead batch, as growers already do.', srcs: [['F', 'Observed: growers test their nuts for dryness by hand'], ['A', 'Proposed: using that test to move the airflow on']] },
   { at: [2382, 2394, 2418, 2430], text: 'How often to check, and how well the growers’ test works here, are still to be found out.', srcs: [['F', 'Observed: the growers’ test itself'], ['U', 'Not known: how reliable it is here, and how often to check']] },
-  // Stage 7
-  { at: [2464, 2476, 2726, 2738], text: 'A batch leaves; a fresh one takes its place. The dampers move on, and the cycle continues.', srcs: [['A', 'Proposed: batch replacement and the damper sequence']] },
-  { at: [2744, 2758, 1e9, 1e9], text: 'The kiln’s logic and structure, reworked for a different material, a different process, and a different trigger.', big: true, finale: true },
+  // Stage 7. Two phases in one scroll: the words light at the page's reading
+  // pace (about 3vh a word, as the passages before it) and are read by the
+  // middle of the first step (`readBy`), then stay up, whole, while the cycle
+  // runs on at its own pace through C2 and C3. Read first, then watch.
+  { at: [2464, 2476, 2726, 2738], readBy: T6.C1[0] + 52, text: 'A batch leaves; a fresh one takes its place. The dampers move on, and the cycle continues.', srcs: [['A', 'Proposed: batch replacement and the damper sequence']] },
+  { at: [2744, 2758, 2790, 2804], text: 'The kiln’s logic and structure, reworked for a different material, a different process, and a different trigger.', big: true, finale: true },
+  // Stage 8
+  { at: [2810, 2822, 2884, 2896], text: 'Back to the rain that started this. On the roof, up to two weeks; indoors, a month or more. The Drying Cycle aims for the roof’s time, rain or shine: a claim to test, not a result.', srcs: [['F', 'Observed: the growers’ drying times, on the roof and indoors'], ['U', 'Not known: the dryer’s time is an aim, untested']] },
+  { at: [2996, 3008, 3042, 3054], text: 'One way it could stand, beside the grower’s house: four bays under four tiled roofs. One heater burning husk feeds them all, through a channel along the front with a damper into each bay.', srcs: [['A', 'Illustrative: one way it could be built; the form is not designed']] },
+  { at: [3062, 3074, 3108, 3120], text: 'The same rain, the same village. Every roof is bare; one batch keeps drying.', srcs: [['U', 'Not known: an aim, untested']] },
+  { at: [3124, 3136, 3170, 3182], text: 'Steam rises from one chimney at a time, wherever the air’s route ends. When the lead batch is dry, its door opens and the grower takes it out.', srcs: [['A', 'Proposed: the route, the exhausts and the hand unloading']] },
+  { at: [3190, 3202, 3288, 3300], text: 'Four things carried over from the kiln. Two changed: the heat source, and what starts a step.' },
+  { at: [3324, 3336, 3410, 3422], text: 'This is a proposal. These are the questions it still has to answer.', srcs: [['U', 'Not known: each of these is open']] },
+  { at: [3498, 3516, 1e9, 1e9], text: 'Do you have a problem a system like this could help solve?', big: true, ask: true },
   // After each paragraph that lights an idea in the tray, a card for that
   // idea: what the word means, and what it is here.
   { at: [1632, 1642, 1667, 1677], term: 'Pipeline', def: 'Several jobs in progress at once, each at a different stage.', here: 'the batches stay in their bays; warm air, not fire, moves round them.' },
@@ -122,7 +169,7 @@ export const COPY6 = [
 const INK = '#e4e0da';
 const INK_DIM = '#9a958d';
 const CHAMBER = '#4b4945';
-const WALL = '#6a6762';
+const WALL = '#5c5955';
 const PURPLE = '#B46AFF';
 const AIR = '#a9cdd4';
 const AIR_SPENT = '#a5a39b';
@@ -191,7 +238,7 @@ export function createTransform({ container, before, ring, run, terms }) {
   const join = el(gDucts, 'path', { fill: 'none', stroke: PURPLE, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', opacity: 0 });
 
   // ---- the row's parts (drawn in gDucts, gOutline, gDampers)
-  const bayOutlines = Array.from({ length: 4 }, () => el(gOutline, 'rect', { fill: 'none', stroke: INK, 'stroke-width': 1.5, rx: 4 }));
+  const bayOutlines = Array.from({ length: 4 }, () => el(gOutline, 'rect', { fill: 'none', stroke: INK, 'stroke-width': 1.5, rx: 10 }));
   const bayLabels = Array.from({ length: 4 }, (_, b) => el(gLabels, 'text', { class: 'pb6-label is-mid' }, `bay ${b + 1}`));
   const roleLabels = Array.from({ length: 4 }, () => el(gLabels, 'text', { class: 'pb6-role is-mid' }));
   const heater = {
@@ -291,8 +338,10 @@ export function createTransform({ container, before, ring, run, terms }) {
    */
   const ROLE = [
     { word: 'LEAD', desc: 'nearly dry', fill: PURPLE, stroke: PURPLE, ink: '#1d1030' },
-    { word: 'MIDDLE', desc: 'half dry', fill: '#74461f', stroke: '#b07a45', ink: '#f6efe6' },
-    { word: 'TAIL', desc: 'just in', fill: '#e88622', stroke: '#f3b06a', ink: '#1d1408' },
+    // Only the lead is a filled pill; the rest are quiet outlines in the
+    // colour of their nuts, so the eye goes to the batch being tested.
+    { word: 'MIDDLE', desc: 'half dry', fill: '#2c241d', stroke: '#b07a45', ink: '#f0e6d8' },
+    { word: 'TAIL', desc: 'just in', fill: '#2c241c', stroke: '#e88622', ink: '#f6e3c8' },
     { word: 'OUT', desc: 'refilling', fill: PALETTE.paper, stroke: INK_DIM, ink: INK_DIM },
   ];
   const tags = Array.from({ length: 4 }, () => {
@@ -347,6 +396,86 @@ export function createTransform({ container, before, ring, run, terms }) {
   // How dry each role's batch is: lead, middle, tail, out (just refilled).
   const ROLE_DRY = [0.85, 0.55, 0.25, 0];
   const roleOf = (bay, lead) => (bay - lead + 4) % 4;
+
+  // ---- Stage 8: rain, the bars, the side-by-side, the open questions.
+  // Drawn after (over) everything else; the dim sheet steps the diagram
+  // back while a panel is up.
+  const gRain = el(svg, 'g');
+  const drops = Array.from({ length: 150 }, (_, k) => ({
+    line: el(gRain, 'line', { stroke: 'rgba(205,214,218,0.42)', 'stroke-width': 1.3, 'stroke-linecap': 'round' }),
+    x: (Math.sin(k * 91.7) * 0.5 + 0.5), y: (Math.sin(k * 37.3) * 0.5 + 0.5), v: 0.7 + (Math.sin(k * 13.1) * 0.5 + 0.5) * 0.6,
+  }));
+  const dim = el(svg, 'rect', { x: 0, y: 0, fill: PALETTE.paper, opacity: 0 });
+  const panelBg = (g) => el(g, 'rect', { fill: 'rgba(29,25,21,0.78)', stroke: 'rgba(255,255,255,0.08)', 'stroke-width': 1, rx: 16 });
+
+  // The bars: days to dry a batch.
+  const gBars = el(svg, 'g');
+  const barsBg = panelBg(gBars);
+  const barsTitle = el(gBars, 'text', { class: 'pb8-head' }, 'Days to dry a batch');
+  const BAR_ROWS = [
+    { label: 'On the roof', from: 0, to: 14, note: 'up to 14 days', code: 'F', word: 'observed' },
+    { label: 'Indoors, in rain', from: 0, to: 30, range: 45, note: '30–45 days', code: 'F', word: 'observed' },
+    { label: 'The Drying Cycle', from: 0, to: 14, aim: true, note: 'aim: about the roof’s time, in any weather', code: 'U', word: 'not known: an aim, untested' },
+  ];
+  const bars = BAR_ROWS.map((r) => {
+    const g = el(gBars, 'g');
+    return {
+      ...r, g,
+      label: el(g, 'text', { class: 'pb6-role' }, r.label),
+      track: el(g, 'rect', { height: 10, rx: 5, fill: 'rgba(228,224,218,0.08)' }),
+      fill: el(g, 'rect', { height: 10, rx: 5, fill: r.aim ? 'none' : INK, stroke: r.aim ? INK : 'none', 'stroke-width': r.aim ? 1.6 : 0, 'stroke-dasharray': r.aim ? '5 4' : 'none' }),
+      rangeFill: r.range ? el(g, 'rect', { height: 10, fill: INK, opacity: 0.35 }) : null,
+      note: el(g, 'text', { class: r.aim ? 'pb6-plug' : 'pb6-label' }, r.note),
+      chip: chipRow(g, r.code, r.word),
+    };
+  });
+
+  // The kiln and the Drying Cycle, side by side.
+  const gTable = el(svg, 'g');
+  const tableBg = panelBg(gTable);
+  const tHeads = [el(gTable, 'text', { class: 'pb8-head' }, 'The kiln'), el(gTable, 'text', { class: 'pb8-head' }, 'The Drying Cycle')];
+  // [question, kiln, dryer, term index in the tray (-1: none), changed?]
+  const ROWS8 = [
+    ['Heat source', 'a moving fire, inside the chambers', 'one fixed heater, outside, burning husk', -1, true],
+    ['What moves', 'the fire, chamber to chamber', 'the air’s route, bay to bay', 0],
+    ['What stays put', 'the tiles', 'the nuts', 2],
+    ['What is handed on', 'heat, to the tiles ahead', 'drying power, to the wetter nuts', 3],
+    ['What closes the loop', 'the ring of chambers', 'a duct from the last bay to the first', 1],
+    ['What starts a step', 'a clock: every two hours', 'a grower’s test of the lead batch', 4, true],
+  ];
+  const rows8 = ROWS8.map(([q, k, d, term, changed]) => {
+    const g = el(gTable, 'g');
+    return {
+      g, term, changed,
+      rule: el(g, 'line', { stroke: 'rgba(228,224,218,0.12)', 'stroke-width': 1 }),
+      q: el(g, 'text', { class: 'pb6-label' }, q),
+      k: el(g, 'text', { class: 'pb8-cell' }, k),
+      d: el(g, 'text', { class: changed ? 'pb8-cell is-changed' : 'pb8-cell' }, d),
+      tag: el(g, 'text', { class: changed ? 'pb8-tag is-changed' : 'pb8-tag' }, changed ? 'changed' : 'kept'),
+    };
+  });
+  // The changed row's evidence: the clock observed; the test observed; acting on it proposed.
+  const tChips = [chipRow(gTable, 'F', 'observed'), chipRow(gTable, 'F', 'observed: the test'), chipRow(gTable, 'A', 'proposed: acting on it')];
+
+  // The questions still open.
+  const gQs = el(svg, 'g');
+  const qsBg = panelBg(gQs);
+  const qsTitle = el(gQs, 'text', { class: 'pb8-head' }, 'Not known yet');
+  const qsChip = chipRow(gQs, 'U', 'each of these is open');
+  const QS = [
+    'Does it beat drying indoors in the rain, and by how many days?',
+    'How often must the lead batch be checked, and how long is a step?',
+    'After three bays, is the air still dry enough to dry the last batch?',
+    'How much husk does it burn for each batch?',
+    'Who would run it? Would neighbours share one dryer?',
+  ];
+  const qs = QS.map((t) => {
+    const g = el(gQs, 'g');
+    el(g, 'rect', { x: 0, y: -11, width: 16, height: 16, rx: 3, fill: 'none', stroke: INK_DIM, 'stroke-width': 1.2, 'stroke-dasharray': '3 2' });
+    el(g, 'text', { x: 26, y: 2, class: 'pb8-cell' }, t);
+    return g;
+  });
+  const qsShare = chipRow(gQs, 'F', 'observed: growers already share drying space with neighbours');
 
   // ------------------------------------------------------------------ layout
   const v3 = ring.chamberPoint(0).clone();
@@ -553,16 +682,20 @@ export function createTransform({ container, before, ring, run, terms }) {
   const frameEnd = () => run.at(run.totalHours - 1e-6);
   let clockT = 0; let lastNow = performance.now();
 
-  function update(s, w, h) {
+  function update(s, w, h, beside = () => null) {
     const now = performance.now(); clockT += Math.min(0.1, (now - lastNow) / 1000); lastNow = now;
     const on = s > T6.IN[0] - 1;
+    // display, not visibility: a group set visible on a later frame would show
+    // through a hidden parent if the scroll jumped back past this in one step.
+    svg.style.display = on ? '' : 'none';
     svg.style.visibility = on ? 'visible' : 'hidden';
     terms.forEach((t) => t.classList.remove('is-lit', 'is-now'));
     if (!on) { terms[4].textContent = 'Trigger'; return; }
     const lay = layout(w, h);
     svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
     for (const r of [paper, gridRect]) { r.setAttribute('width', w); r.setAttribute('height', h); }
-    svg.style.opacity = smooth(T6.IN[0], T6.IN[1], s).toFixed(3);
+    // In over the live drawing; out again at the very end, to the kiln.
+    svg.style.opacity = (smooth(T6.IN[0], T6.IN[1], s) * (1 - smooth(T6.AWAY[0], T6.AWAY[0] + 20, s))).toFixed(3);
 
     const nuts = smooth(T6.NUTS[0], T6.NUTS[1], s);
     const morph = smooth(T6.MORPH[0], T6.MORPH[1], s);
@@ -686,10 +819,26 @@ export function createTransform({ container, before, ring, run, terms }) {
       });
     });
 
-    // The heater: in beside the ring as the fire leaves, then with the row.
-    const hx = lerp(lay.ringHeater[0], lay.heaterAt[0], morph);
-    const hy = lerp(lay.ringHeater[1], lay.heaterAt[1], morph);
-    const hw = Math.max(54, lay.bayL * 0.36); const hh = hw * 0.8;
+    // ---- 8. the drawing simplifies into the building's plan (T6.PLAN), at
+    // the building's own proportions, framed as problem.js's overhead camera
+    // will frame the real one: pk px to the metre, centred on the row.
+    const plan = smooth(T6.PLAN[0], T6.PLAN[1], s);
+    const rowPx = lay.bays[3].x1 - lay.bays[0].x0;
+    const pk = (rowPx * 1.04) / 12.8;
+    const PX = (x) => lay.w / 2 + (x - 16) * pk;      // the building's x, in px
+    const PY = (z) => lay.cy + (z - 2) * pk;          // its z (south is down)
+
+    // The heater: in beside the ring as the fire leaves, then with the row,
+    // then (in the plan) where the furnace stands.
+    let hx = lerp(lay.ringHeater[0], lay.heaterAt[0], morph);
+    let hy = lerp(lay.ringHeater[1], lay.heaterAt[1], morph);
+    let hw = Math.max(54, lay.bayL * 0.36); let hh = hw * 0.8;
+    if (plan > 0) {
+      hx = lerp(hx, PX(8.35), plan); hy = lerp(hy, PY(2.6), plan);
+      hw = lerp(hw, 1.7 * pk, plan); hh = lerp(hh, 1.7 * pk, plan);
+    }
+    heater.flame.style.opacity = heater.flue.style.opacity = heater.flueLabel.style.opacity = (1 - plan).toFixed(3);
+    heater.smoke.forEach((c) => { c.style.opacity = (1 - plan).toFixed(3); });
     heater.g.style.opacity = out.toFixed(3);
     heater.box.setAttribute('x', (hx - hw / 2).toFixed(1)); heater.box.setAttribute('y', (hy - hh / 2).toFixed(1));
     heater.box.setAttribute('width', hw.toFixed(1)); heater.box.setAttribute('height', hh.toFixed(1));
@@ -710,7 +859,7 @@ export function createTransform({ container, before, ring, run, terms }) {
     heater.flueLabel.setAttribute('y', (ftop + 4).toFixed(1));
     heater.flueLabel.setAttribute('text-anchor', 'end');
     heater.label.setAttribute('x', hx.toFixed(1)); heater.label.setAttribute('y', (hy + hh / 2 + 18).toFixed(1));
-    heater.label.style.opacity = out.toFixed(3);
+    heater.label.style.opacity = (out * (1 - plan)).toFixed(3);
     // The fire's journey from its chamber to the heater.
     const go = smooth(T6.OUT[0], lerp(T6.OUT[0], T6.OUT[1], 0.7), s);
     const fromP = along(chambers[fireAt].pts, 0.5);
@@ -755,13 +904,24 @@ export function createTransform({ container, before, ring, run, terms }) {
       bayOutlines[i].setAttribute('stroke', isLead ? PURPLE : open > 0.3 ? INK_DIM : INK);
       bayOutlines[i].setAttribute('stroke-width', isLead ? 2.5 : 1.5);
       bayOutlines[i].setAttribute('stroke-dasharray', !isLead && open > 0.3 ? '8 6' : 'none');
+      // In the plan: closed up into one building, at its real proportions.
+      if (plan > 0) {
+        const cur = ['x', 'y', 'width', 'height'].map((k) => Number(bayOutlines[i].getAttribute(k)));
+        const tgt = [PX(9.6 + 3.2 * i), PY(0.1), 3.2 * pk, 3.8 * pk];
+        ['x', 'y', 'width', 'height'].forEach((k, j) => bayOutlines[i].setAttribute(k, lerp(cur[j], tgt[j], plan).toFixed(1)));
+        if (plan > 0.5) {
+          bayOutlines[i].setAttribute('stroke', INK);
+          bayOutlines[i].setAttribute('stroke-width', 1.5);
+          bayOutlines[i].setAttribute('stroke-dasharray', 'none');
+        }
+      }
       bayLabels[i].setAttribute('x', b.cx.toFixed(1));
       bayLabels[i].setAttribute('y', (lay.bottom + lay.D * 0.42 + 30).toFixed(1));
       bayLabels[i].style.opacity = (formed * (1 - 0.5 * ducts)).toFixed(3);
     });
 
     // ---- c. ducts, dampers, the route
-    const ductW = Math.max(8, lay.D * 0.14);
+    const ductW = Math.max(7, lay.D * 0.11);
     const ductA = ducts.toFixed(3);
     supply.setAttribute('d', lay.supplyD);
     stubs.forEach((p, b) => p.setAttribute('d', `M${lay.stubX[b].toFixed(1)} ${lay.ys.toFixed(1)} V${lay.bottom.toFixed(1)}`));
@@ -770,11 +930,11 @@ export function createTransform({ container, before, ring, run, terms }) {
     returnDuct.setAttribute('d', d(lay.ret));
     for (const p of [supply, ...stubs, ...passages, ...exhausts, returnDuct]) {
       p.setAttribute('stroke-width', ductW.toFixed(1));
-      p.style.opacity = ductA;
+      p.style.opacity = (ducts * (1 - plan)).toFixed(3);
     }
     // The return comes first, on its own, as soon as the row has formed: it
     // is what keeps the row a loop.
-    returnDuct.style.opacity = Math.max(ducts, smooth(T6.MORPH[1] - 6, T6.MORPH[1] + 10, s)).toFixed(3);
+    returnDuct.style.opacity = (Math.max(ducts, smooth(T6.MORPH[1] - 6, T6.MORPH[1] + 10, s)) * (1 - plan)).toFixed(3);
     // Damper places.
     S.forEach((m, b) => Object.assign(m, { x: lay.stubX[b], y: lay.ys + (lay.bottom - lay.ys) * 0.5, along: 90 }));
     Pd.forEach((m, b) => Object.assign(m, { x: lay.bays[b].x1 + lay.gap / 2, y: lay.cy, along: 90 }));
@@ -810,7 +970,7 @@ export function createTransform({ container, before, ring, run, terms }) {
     legs.forEach((leg, k) => {
       const p = airLegs[k];
       p.setAttribute('d', d(leg));
-      p.setAttribute('stroke-width', Math.max(3, ductW * 0.45).toFixed(1));
+      p.setAttribute('stroke-width', Math.max(3, ductW * 0.42).toFixed(1));
       // Before the hand-on beat all one tone; after it, fresh to spent.
       const col = mix(hexArr(AIR), hexArr(AIR_SPENT), fwd * (k / 2));
       p.setAttribute('stroke', col);
@@ -993,6 +1153,123 @@ export function createTransform({ container, before, ring, run, terms }) {
     plugU.setAttribute('transform', `translate(${bx.toFixed(1)} ${(by + bh / 2 + 44).toFixed(1)})`);
     plugU.style.opacity = smooth(T6.UNKNOWN[0], T6.UNKNOWN[1], s).toFixed(3);
 
+    // ---- 8. the honest close
+    // While the village is back (problem.js), the drawing steps aside; its
+    // panels (the side-by-side, the questions) stay, over the scene.
+    const in3d = smooth(T6.TO3D[0], T6.TO3D[1], s);
+    const away = (1 - in3d).toFixed(3);
+    // The plan (bay outlines, heater) stays until the scene takes it over;
+    // everything else in the diagram has already gone into the plan.
+    const detail = ((1 - plan) * (1 - in3d)).toFixed(3);
+    for (const g of [paper, gridRect, gDucts, gOutline]) g.style.opacity = away;
+    for (const g of [gAir, gChambers, gNuts, gDampers, gLabels]) g.style.opacity = detail;
+    if (plan > 0) gName.style.opacity = (Number(gName.style.opacity || 1) * (1 - plan)).toFixed(3);
+    // Rain across the drawing again; the dryer runs on underneath it.
+    const rainA = bump(T6.RAIN[0], T6.RAIN[1], T6.RAIN_OUT[0], T6.RAIN_OUT[1], s);
+    gRain.style.visibility = rainA > 0 ? 'visible' : 'hidden';
+    gRain.style.opacity = rainA.toFixed(3);
+    if (rainA > 0) {
+      drops.forEach((dr) => {
+        const y = ((dr.y + clockT * 0.55 * dr.v) % 1) * (lay.h + 40) - 20;
+        const x = ((dr.x + clockT * 0.03) % 1) * lay.w;
+        dr.line.setAttribute('x1', x.toFixed(1)); dr.line.setAttribute('y1', y.toFixed(1));
+        dr.line.setAttribute('x2', (x - 4).toFixed(1)); dr.line.setAttribute('y2', (y + 16).toFixed(1));
+      });
+    }
+    const tableA = bump(T6.TABLE[0], T6.TABLE[1], T6.TABLE_OUT[0], T6.TABLE_OUT[1], s);
+    const qsA = bump(T6.QS[0], T6.QS[1], T6.QS_OUT[0], T6.QS_OUT[1], s);
+    dim.setAttribute('width', lay.w); dim.setAttribute('height', lay.h);
+    // Over the scene, a lighter veil: the village should still show through.
+    dim.setAttribute('opacity', (lerp(0.82, 0.5, in3d) * Math.max(tableA, qsA)).toFixed(3));
+
+    // The bars: beside the words that read them out, on the same baseline
+    // (problem.js places them); across the screen, they read as two things.
+    const barsA = bump(T6.BARS[0] - 6, T6.BARS[0] + 4, T6.RAIN_OUT[0], T6.RAIN_OUT[1], s);
+    gBars.style.visibility = barsA > 0 ? 'visible' : 'hidden';
+    gBars.style.opacity = barsA.toFixed(3);
+    if (barsA > 0) {
+      const pw = Math.min(520, lay.w * 0.42); const RH = 60; const ph = 64 + BAR_ROWS.length * RH;
+      const narrow = lay.w < 760;
+      const at = beside(T6.BARS[0] - 6, T6.RAIN_OUT[1], pw, ph);
+      const bx = at ? at.x : narrow ? 16 : lay.w - pw - Math.max(24, lay.w * 0.04);
+      const byy = at ? at.y : narrow ? 112 : lay.h - ph - Math.max(40, lay.h * 0.08);
+      for (const [k, v] of Object.entries({ x: bx, y: byy, width: pw, height: ph })) barsBg.setAttribute(k, v.toFixed(1));
+      barsTitle.setAttribute('x', (bx + 20).toFixed(1)); barsTitle.setAttribute('y', (byy + 32).toFixed(1));
+      const tx = bx + 150; const tw = pw - 170;
+      const per = tw / 45;                                   // one scale: 45 days is the whole track
+      bars.forEach((b, k) => {
+        const y = byy + 62 + k * RH;
+        const grow = smooth(T6.BARS[0] + k * 14, T6.BARS[0] + k * 14 + 16, s);
+        b.label.setAttribute('x', (bx + 20).toFixed(1)); b.label.setAttribute('y', (y + 9).toFixed(1));
+        b.track.setAttribute('x', tx.toFixed(1)); b.track.setAttribute('y', y.toFixed(1)); b.track.setAttribute('width', tw.toFixed(1));
+        b.fill.setAttribute('x', tx.toFixed(1)); b.fill.setAttribute('y', y.toFixed(1));
+        b.fill.setAttribute('width', Math.max(0.01, b.to * per * grow).toFixed(1));
+        if (b.rangeFill) {
+          const rg = smooth(T6.BARS[0] + k * 14 + 12, T6.BARS[0] + k * 14 + 22, s);
+          b.rangeFill.setAttribute('x', (tx + b.to * per).toFixed(1)); b.rangeFill.setAttribute('y', y.toFixed(1));
+          b.rangeFill.setAttribute('width', Math.max(0.01, (b.range - b.to) * per * rg).toFixed(1));
+        }
+        b.note.setAttribute('x', tx.toFixed(1)); b.note.setAttribute('y', (y + 26).toFixed(1));
+        // Its evidence on a line of its own, under the note.
+        b.chip.setAttribute('transform', `translate(${tx.toFixed(1)} ${(y + 46).toFixed(1)})`);
+        b.g.style.opacity = smooth(T6.BARS[0] + k * 14 - 4, T6.BARS[0] + k * 14 + 6, s).toFixed(3);
+      });
+    }
+
+    // The kiln and the Drying Cycle, side by side, a row at a time.
+    gTable.style.visibility = tableA > 0 ? 'visible' : 'hidden';
+    gTable.style.opacity = tableA.toFixed(3);
+    let rowNow = -1;
+    if (tableA > 0) {
+      const tw = Math.min(900, lay.w - 48); const rh = 44; const th = 74 + ROWS8.length * rh + 40;
+      const tx = (lay.w - tw) / 2; const ty = Math.max(96, lay.h * 0.4 - th / 2);
+      for (const [k, v] of Object.entries({ x: tx, y: ty, width: tw, height: th })) tableBg.setAttribute(k, v.toFixed(1));
+      const cQ = tx + 24; const cK = tx + tw * 0.26; const cD = tx + tw * 0.56; const cT = tx + tw - 24;
+      tHeads[0].setAttribute('x', cK.toFixed(1)); tHeads[1].setAttribute('x', cD.toFixed(1));
+      tHeads.forEach((t) => t.setAttribute('y', (ty + 40).toFixed(1)));
+      const per = (T6.ROWS[1] - T6.ROWS[0]) / ROWS8.length;
+      rows8.forEach((r, k) => {
+        const y = ty + 74 + k * rh;
+        const a = smooth(T6.ROWS[0] + k * per, T6.ROWS[0] + k * per + 8, s);
+        if (s >= T6.ROWS[0] + k * per) rowNow = k;
+        r.g.style.opacity = a.toFixed(3);
+        r.g.setAttribute('transform', `translate(0 ${((1 - a) * 8).toFixed(1)})`);
+        r.rule.setAttribute('x1', cQ.toFixed(1)); r.rule.setAttribute('x2', cT.toFixed(1));
+        r.rule.setAttribute('y1', (y - 18).toFixed(1)); r.rule.setAttribute('y2', (y - 18).toFixed(1));
+        r.q.setAttribute('x', cQ.toFixed(1)); r.q.setAttribute('y', (y + 4).toFixed(1));
+        r.k.setAttribute('x', cK.toFixed(1)); r.k.setAttribute('y', (y + 4).toFixed(1));
+        r.d.setAttribute('x', cD.toFixed(1)); r.d.setAttribute('y', (y + 4).toFixed(1));
+        r.tag.setAttribute('x', cT.toFixed(1)); r.tag.setAttribute('y', (y + 4).toFixed(1));
+      });
+      // The changed row's evidence, under it.
+      const yc = ty + 74 + (ROWS8.length - 1) * rh + 26;
+      const chipA = smooth(T6.ROWS[1] - 6, T6.ROWS[1] + 6, s);
+      tChips[0].setAttribute('transform', `translate(${cK.toFixed(1)} ${yc.toFixed(1)})`);
+      tChips[1].setAttribute('transform', `translate(${cD.toFixed(1)} ${yc.toFixed(1)})`);
+      tChips[2].setAttribute('transform', `translate(${(cD + 170).toFixed(1)} ${yc.toFixed(1)})`);
+      tChips.forEach((c) => { c.style.opacity = chipA.toFixed(3); });
+    }
+
+    // The questions still open, one at a time.
+    gQs.style.visibility = qsA > 0 ? 'visible' : 'hidden';
+    gQs.style.opacity = qsA.toFixed(3);
+    if (qsA > 0) {
+      const qw = Math.min(760, lay.w - 48); const rh = 40; const qh = 80 + QS.length * rh + 40;
+      const qx = (lay.w - qw) / 2; const qy = Math.max(96, lay.h * 0.4 - qh / 2);
+      for (const [k, v] of Object.entries({ x: qx, y: qy, width: qw, height: qh })) qsBg.setAttribute(k, v.toFixed(1));
+      qsTitle.setAttribute('x', (qx + 24).toFixed(1)); qsTitle.setAttribute('y', (qy + 40).toFixed(1));
+      qsChip.setAttribute('transform', `translate(${(qx + 190).toFixed(1)} ${(qy + 37).toFixed(1)})`);
+      const per = (T6.QROWS[1] - T6.QROWS[0]) / QS.length;
+      qs.forEach((g, k) => {
+        const a = smooth(T6.QROWS[0] + k * per, T6.QROWS[0] + k * per + 8, s);
+        g.style.opacity = a.toFixed(3);
+        g.setAttribute('transform', `translate(${(qx + 24).toFixed(1)} ${(qy + 84 + k * rh + (1 - a) * 8).toFixed(1)})`);
+      });
+      const shareA = smooth(T6.QROWS[1] - 4, T6.QROWS[1] + 6, s);
+      qsShare.setAttribute('transform', `translate(${(qx + 50).toFixed(1)} ${(qy + 84 + (QS.length - 1) * rh + 22).toFixed(1)})`);
+      qsShare.style.opacity = shareA.toFixed(3);
+    }
+
     // ---- the tray: each idea lit by the beat that keeps it
     const LIT = [[2, T6.OUT[1] - 6], [1, T6.MORPH[1] - 8], [0, T6.DAMPERS[1] - 10], [3, T6.FWD[1]], [4, T6.PLUG[1] - 4]];
     const NAMES = ['Algorithm', 'Loop', 'Pipeline', 'Forwarding', 'Trigger'];
@@ -1003,6 +1280,11 @@ export function createTransform({ container, before, ring, run, terms }) {
       const until = card ? card.at[3] : Math.min(LIT[n + 1] ? LIT[n + 1][1] : 1e9, at + 70);
       if (s >= at && s < until) terms[i].classList.add('is-now');
     });
+    // In the side-by-side, the row being read picks out its idea.
+    if (tableA > 0.5 && rowNow >= 0) {
+      terms.forEach((t) => t.classList.remove('is-now'));
+      if (rows8[rowNow].term >= 0) terms[rows8[rowNow].term].classList.add('is-now');
+    }
     // Trigger is the one idea that changes: from a clock to a condition.
     terms[4].textContent = s >= T6.PLUG[1] - 4 ? 'Trigger: a grower’s test' : 'Trigger';
   }

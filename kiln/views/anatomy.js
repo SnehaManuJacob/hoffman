@@ -10,24 +10,35 @@
  * the tour is on: a fired demonstration copy, which the tour keeps under
  * wraps until the story reaches the fire.
  *
- * THE STORY, IN TWO ACTS
- * This is the visitor's first meeting with the kiln, so it is told in the
- * order someone would work it, one idea per step, each card ending on the
- * question the next one answers.
+ * THE STORY: FIVE IDEAS, ONE AT A TIME
+ * This is the visitor's first meeting with the kiln. It is not a parts list:
+ * each step carries exactly one of the ideas the rest of the site builds on
+ * (the logic cards, then the dryer), and a part is named only when that idea
+ * needs it. Each card ends on the question the next one answers.
  *
- * THE VOICE is the project brief's: measured and explanatory, saying what
- * each part is and then what organising the kiln that way makes possible.
+ *   COLD  1 A loop of chambers   no first, no last: the firing never stops
+ *         2 Tiles that stay put  ...so what moves?
+ *   LIT   3 The fire moves       it creeps on, fed from the roof; every two
+ *                                hours a chamber, each at a different stage
+ *         4 One way through      one door, one damper: the air's single route
+ *         5 Heat, handed forward the route passes the tiles ahead, so the
+ *                                heat works twice. The point of the project.
  *
- *   COLD  The kiln as an empty ink drawing. Chambers; tiles stacked in (faint,
- *         uncoloured); doors bricked up; fuel holes; then the gas circuit —
- *         chimney, flue, dampers — and the air's route traced as one plain
- *         line. Nothing is hot, so nothing is coloured except the part being
- *         talked about, which takes the accent.
- *   LIT   The fire is lit: only now do the tiles take heat colours and the
- *         line swell into the heat-carrying arrow. The last step is the point
- *         of the whole project, heat used twice, seen on the complete picture.
+ * Colour arrives once, with the fire, and means heat from then on. The air's
+ * route is told AFTER the fire, right before the step it pays off in, so it
+ * is drawn straight away as the heat-carrying arrow rather than as a cold
+ * line the visitor has to hold in mind for several screens.
  *
- * Colour therefore arrives once, with the fire, and means heat from then on.
+ * What the tour leaves out is not lost: the no-fans draught, bricked doors,
+ * how the roof holes are fed, chamber temperatures and the unloading caveat
+ * are all on the evidence sheet (config COMPONENTS and METHODS).
+ *
+ * A step may speak in BEATS: its words change at set points of its scroll,
+ * dipping out and back in at the join, while the drawing carries on. A long
+ * step thus says one thing at a time instead of everything at once.
+ *
+ * THE VOICE is the project brief's, kept short: the drawing explains, and the
+ * card says only what the drawing cannot.
  *
  * The sentence on each card says what the part DOES, in plain words; where
  * that knowledge comes from is the job of the evidence chip beside it, with
@@ -45,70 +56,73 @@ import { heatHex } from './heatRamp.js';
  * One step per idea.
  *
  *   id     what the leader line points at (ring.anchorFor)
- *   focus  the part that takes the accent, or absent for the whole kiln
+ *   focus  the part (or list of parts) that takes the accent, or absent for
+ *          the whole kiln
+ *   release  [from, to]: shares of the step over which the focus lets go
  *   title  defaults to the part's label in config.COMPONENTS
  *   tag    evidence code; defaults to the part's
  *   side   which margin the note takes; defaults to the side the part is on
- *   parts  two parts that share a step: each has its own id, text, note,
- *          leader and evidence tag, and both are shown and animated at once
+ *   text   what the card says; or
+ *   beats  [{ at, text }]: words that change at share `at` of the step
  *
  * Dividing walls, the kiln island, the flue and the partition are not
  * toured. The first two are drawing decisions; the flue is drawn, unnamed,
  * under the path to the chimney; the partition is left out of the tour's
  * drawing altogether (it stays on the evidence sheet).
  */
-/** Scroll length of the fire step, in viewport heights (the others: STEP_VH). */
+/** Scroll length of the longer steps, in viewport heights (the others: STEP_VH). */
 const FIRE_VH = 620;
-const RECOVER_VH = 340;
-/** A step shared by two parts, shown and animated together. */
-const PAIR_VH = 130;
+const AIR_VH = 150;
+const RECOVER_VH = 400;
 
 export const TOUR = [
   {
-    id: 'chambers', focus: 'chambers', side: 'left',
-    text: 'Seen from above with its roof removed, the kiln is one continuous tunnel bent into a loop and worked as eight chambers. With no first chamber and no last, the firing never has to stop.',
+    // The loop: what makes a fire that never stops possible.
+    id: 'chambers', focus: 'chambers', side: 'left', title: 'A loop of chambers',
+    text: 'Seen from above, roof removed: one tunnel bent into a loop and worked as eight chambers. No first, no last, so the firing never has to stop.',
   },
   {
-    id: 'tiles', focus: 'tiles',
-    text: 'Each chamber is stacked with Mangalore tiles, the interlocking clay roof tiles this coast is known for. A load stays where it is stacked until it is unloaded: it is the fire that travels, not the tiles.',
+    // The loads stay put. The card ends on the question the fire answers.
+    id: 'tiles', focus: 'tiles', title: 'Tiles that stay put',
+    text: 'Each chamber is stacked with Mangalore tiles, the clay roof tiles this coast is known for. Once stacked, they stay where they are. So what moves?',
   },
   {
-    // What the fire is given: fuel from above, air by the chimney's pull.
-    id: 'feed', vh: PAIR_VH,
-    parts: [
-      { id: 'stokeHoles', text: 'Cashew-nut shells are dropped onto the fire through holes in the roof, so no chamber has to be opened to feed it.' },
-      { id: 'chimney', text: 'The kiln has no fans. As hot gas rises through the chimney, fresh air is drawn in behind it, and that draught is what moves air through the chambers.' },
-    ],
-  },
-  {
-    // What the crew opens and shuts: one way in, one way out.
-    id: 'openings', vh: PAIR_VH,
-    parts: [
-      { id: 'wicketDoors', text: 'Each chamber is loaded through one doorway, bricked shut once the stack is complete. Only the chamber being unloaded stands open.' },
-      { id: 'dampers', text: 'Each chamber also has a damper leading to the chimney. Only one is open at a time, a few chambers ahead of the fire, so the chimney pulls at that one point.' },
-    ],
-  },
-  {
-    id: 'airPath', focus: 'airPath',
-    text: 'So the air has one route. It enters by the open doorway, passes through the fired tiles, through the fire, over the tiles still waiting, and leaves by the open damper.',
-  },
-  {
-    // The one step that is not a part but a process: see THE FIRE below. It
-    // is several screens long, and its note stays the same throughout: with
-    // the kiln, the clock and the panel all moving, the words must not. What
-    // changes from moment to moment is said by the panel, in figures.
+    // The one step that is not a part but a process: see THE FIRE below.
+    // Two beats. First the creep, watched slowly through one chamber, with
+    // only the clock beside it; then, once the fire has moved on, the rhythm
+    // and the stages, which is when the panel's table comes up.
     // Tagged L: how the fire travels is from writing on other kilns; only the
     // two-hour interval is the factory's.
-    id: 'fire', title: 'The fire', tag: 'L', vh: FIRE_VH,
-    text: 'The fire is never carried forward or relit. Fuel dropped onto tiles that are already red-hot lights by itself, so the crew feeds the next row of holes ahead and stops feeding the last row behind. Row by row the fire creeps round the kiln, and about every two hours its leading edge enters the next chamber.',
+    id: 'fire', title: 'The fire moves', tag: 'L', vh: FIRE_VH,
+    beats: [
+      { at: 0, text: 'The fire does. Fuel dropped through holes in the roof catches on the red-hot tiles ahead, so the fire creeps forward row by row, never relit.' },
+      { at: 0.40, text: 'About every two hours it enters the next chamber. At any moment, each chamber is at a different stage.' },
+    ],
   },
   {
-    // One constant note, as in the fire step: the principle. What the scroll
-    // changes is shown by the kiln and the panel. Tagged L: that the exhaust
-    // warms the tiles ahead is documented for kilns of this kind; how much
-    // heat, and how much fuel, is the model's, and the panel says so.
+    // The air's route, told now because the next step needs it. The doors,
+    // the dampers and the chimney are named only for what they do here: one
+    // way in, one way out. The dampers and chimney are picked out first (the
+    // open damper is the one gap among them), then fall back as the route
+    // draws itself and becomes the subject. Not the doors: lighting all eight
+    // would say "eight doors" when the point is that one stands open, and
+    // the leader already marks that one, where the route begins.
+    id: 'air', anchor: 'airPath', focus: ['dampers', 'chimney'], release: [0.5, 0.75],
+    title: 'One way through', tag: 'L', side: 'left', vh: AIR_VH,
+    text: 'A fire needs air. The chimney draws it in, but only one doorway and one damper stand open, so the air has a single route through the kiln.',
+  },
+  {
+    // The point of the tour, in three beats that follow the drawing: the gas
+    // warms the tiles ahead; the counterfactual sends it up the chimney; the
+    // two kilns' fuel side by side. Tagged L: that the exhaust warms the tiles
+    // ahead is documented for kilns of this kind; how much heat, and how much
+    // fuel, is the model's, and the panel says so.
     id: 'recovery', title: 'Heat, handed forward', tag: 'L', vh: RECOVER_VH,
-    text: 'The chambers open into one another, and the only open way to the chimney is a few chambers past the fire. So the hot gas warms the tiles waiting ahead before it leaves, and the fire needs less fuel when it gets there.',
+    beats: [
+      { at: 0, text: 'On its way out, the hot gas passes the tiles waiting ahead and warms them. The fire arrives at a chamber already hot.' },
+      { at: 0.36, text: 'Open the damper at the fire instead, and the same heat goes straight up the chimney.' },
+      { at: 0.70, text: 'Handed forward, the same heat does its work twice.' },
+    ],
   },
 ];
 
@@ -123,17 +137,23 @@ export const TOUR = [
  * the licence asks for, written as a sentence rather than a string of codes.
  */
 const IMG = './assets/tour/';
+// Only the two cold steps carry a picture: there the drawing is still an
+// abstract outline, and a photograph says "this is a real tunnel, real
+// tiles". Once the kiln is lit, the drawing is the thing to watch, and a
+// picture beside it would compete. (The doorway, stoke-hole and tunnel
+// photographs stay in assets/tour/ and CREDITS.md for the evidence sheet.)
 export const FIGURES = {
-  chambers: { caption: 'Inside the firing tunnel of a Hoffmann kiln, a doorway to each chamber along one side. Huatan, Taiwan.', credit: 'Photo by Kai3952, CC BY-SA 4.0' },
+  chambers: { caption: 'Inside the firing tunnel of a Hoffmann kiln. Huatan, Taiwan.', credit: 'Photo by Kai3952, CC BY-SA 4.0' },
   tiles: { caption: 'Mangalore tiles from the Basel Mission tile works, 1865.', credit: 'Photo by Yadvendu, CC BY-SA 4.0' },
-  wicketDoors: { caption: 'A chamber doorway, standing open. Sehnde brickworks, Germany.', credit: 'Photo by Hamelenser, CC BY-SA 3.0' },
-  stokeHoles: { caption: 'A stoke hole in the roof of a Hoffmann kiln, seen from above. Sehnde brickworks, Germany.', credit: 'Photo by Hamelenser, CC BY-SA 3.0' },
-  airPath: { caption: 'The tunnel the air is drawn along. Sehnde brickworks, Germany.', credit: 'Photo by Hamelenser, CC BY-SA 3.0' },
 };
 
 /** Scroll per step, in viewport heights, and the empty run after the last. */
 export const STEP_VH = 110;
 export const TAIL_VH = 60;
+/** The kiln's move to make room for the cards: it starts LEAD_VH before the
+ *  first step and is done SETTLE_VH into it, one long ease instead of a lurch. */
+const LEAD_VH = 30;       // after the intro's blueprint has cleared (views/intro.js, kilnOut)
+const SETTLE_VH = 55;
 
 /**
  * THE FIRE — the one step where time passes.
@@ -174,14 +194,19 @@ const FIRE_ZOOM = 1.12;
  *   COUNT   the fuel each kiln burns to fire one chamber, and where its heat
  *           ends up
  *
+ * Each beat has its own stretch of scroll and its own words on the card (the
+ * step's `beats`, which change in the gaps between these spans), so the
+ * three never overlap. The fuel panel comes up only once the first bar has
+ * something to show.
+ *
  * Everything is a function of the scroll, so it all runs backwards too.
  */
 const RECOVER = {
-  DRAW: [0.07, 0.30], SWITCH: [0.40, 0.66], COUNT: [0.72, 0.90],
+  DRAW: [0.06, 0.26], SWITCH: [0.40, 0.62], COUNT: [0.72, 0.88],
   // The line said over each kiln, and the stretch of the step it rises through.
   SAY: [
-    { text: 'Heat, handed forward.', kiln: 'on', span: [0.09, 0.38] },
-    { text: 'Heat, lost to the air.', kiln: 'off', span: [0.47, 0.76] },
+    { text: 'Heat, handed forward.', kiln: 'on', span: [0.08, 0.34] },
+    { text: 'Heat, lost to the air.', kiln: 'off', span: [0.42, 0.68] },
   ],
 };
 /**
@@ -246,61 +271,65 @@ export function createAnatomy({ sectionEl, ring, run }) {
   let steps = 0;
   for (const s of TOUR) { starts.push(steps); steps += s.vh ?? STEP_VH; }
   sectionEl.style.height = `${steps + TAIL_VH + 100}vh`;
+  // Pulled up a screen over the intro's end. The intro's pin releases a screen
+  // before its section ends, and below that the kiln just sat still while the
+  // page scrolled: a dead stretch between the two. With the tour starting as
+  // the intro's pin lets go, the camera never stops.
+  sectionEl.style.marginTop = '-100vh';
 
   const card = sectionEl.querySelector('.anatomy-card');
+  const entries = card.querySelector('.anatomy-entries');
+  entries.innerHTML = '<h3 class="anatomy-title"><span class="anatomy-key" aria-hidden="true"></span><span class="anatomy-title-text"></span></h3><p class="anatomy-text"></p>';
+  const titleEl = entries.querySelector('.anatomy-title-text');
+  const textEl = entries.querySelector('.anatomy-text');
   const stepEl = card.querySelector('.anatomy-step');
   const chipEl = card.querySelector('.anatomy-chip');
   const evEl = card.querySelector('.anatomy-ev-label');
   const figure = sectionEl.querySelector('.anatomy-figure');
   const figImg = figure.querySelector('img');
+  // Intrinsic sizes, so the browser reserves the box before the file arrives.
+  const DIMS = { chambers: [960, 720], tiles: [960, 547] };
   const figCap = figure.querySelector('.anatomy-figure-cap');
   const figNote = figure.querySelector('.anatomy-figure-note');
   // Fetched up front, so a step's image is there when its card arrives
   // rather than popping in half-way through the step.
   for (const id of Object.keys(FIGURES)) new Image().src = `${IMG}${id}.jpg`;
-  // A step shared by two parts has a note on each side of the kiln, each
-  // holding its own image where it has one. The second note and image
-  // are copies of the first, used only in those steps.
-  const card2 = card.cloneNode(true);
-  card.after(card2);
-  const figure2 = figure.cloneNode(true);
-  figure.after(figure2);
-  const slotOf = (c, fg) => ({
-    card: c, figure: fg,
-    step: c.querySelector('.anatomy-step'), entries: c.querySelector('.anatomy-entries'),
-    chip: c.querySelector('.anatomy-chip'), ev: c.querySelector('.anatomy-ev-label'),
-    img: fg.querySelector('img'), cap: fg.querySelector('.anatomy-figure-cap'),
-    note: fg.querySelector('.anatomy-figure-note'), has: false,
-  });
-  const slots = [slotOf(card, figure), slotOf(card2, figure2)];
   const svg = sectionEl.querySelector('.anatomy-leader');
   const line = svg.querySelector('line');
   const dot = svg.querySelector('.leader-dot');
   const halo = svg.querySelector('.leader-halo');
-  // A second leader, for the second note of a shared step.
-  const leaders = [{ line, dot, halo }];
-  leaders.push({ line: line.cloneNode(), dot: dot.cloneNode(), halo: halo.cloneNode() });
-  svg.append(leaders[1].line, leaders[1].halo, leaders[1].dot);
 
-  // A step's parts: its own pair, or itself as the only one.
-  const partsOf = (step) => step.parts
-    ? step.parts.map((p) => ({ ...p, focus: p.id }))
-    : [step];
-  // Which step an id belongs to. Both parts of a pair run through the whole
-  // of their step, so their animations (`during`) play together.
-  const stepOf = {}; const spanOf = {};
-  TOUR.forEach((step, n) => {
-    stepOf[step.id] = n;
-    (step.parts ?? []).forEach((p) => { stepOf[p.id] = n; });
-  });
+  const stepOf = {};
+  TOUR.forEach((step, n) => { stepOf[step.id] = n; });
   // The accent the ring draws the part in is the one the card and the leader
   // pick up, so the eye can tie the words to the place.
   sectionEl.style.setProperty('--tour-accent', ring.accent);
   const projected = new THREE.Vector3();
   let shown = -1;
-  let side = 'right';
+  let shownBeat = -1;
   let active = false;
   let done = false;
+
+  /**
+   * Which beat of step i is speaking at share f, and how visible its words
+   * are. At each join the words dip out over a short stretch of scroll
+   * (BEAT_GAP_VH either side, the same distance however long the step) and
+   * the new ones come up in their place, so a change is never missed and
+   * never happens mid-read.
+   */
+  const BEAT_GAP_VH = 7;
+  function beatAt(i, f) {
+    const beats = TOUR[i].beats;
+    if (!beats) return { n: 0, alpha: 1 };
+    let n = 0;
+    while (n + 1 < beats.length && beats[n + 1].at <= f) n++;
+    const gap = BEAT_GAP_VH / (TOUR[i].vh ?? STEP_VH);
+    let alpha = 1;
+    for (let b = 1; b < beats.length; b++) {
+      alpha = Math.min(alpha, smooth(0, gap, Math.abs(f - beats[b].at)));
+    }
+    return { n, alpha };
+  }
 
   // ------------------------------------------------- the computed panel
   const count = run.count;
@@ -312,8 +341,8 @@ export function createAnatomy({ sectionEl, ring, run }) {
   const el = (cls) => compute.querySelector(cls);
   const timeEl = el('.compute-time');
   const ofEl = el('.compute-of');
-  const nextEl = el('.compute-next');
   const railEl = el('.compute-rail');
+  const tableEl = el('.compute-table');
   const rowsEl = el('.compute-rows');
   const markerEl = el('.compute-marker');
   ofEl.textContent = `of ${run.totalHours} h`;
@@ -332,7 +361,9 @@ export function createAnatomy({ sectionEl, ring, run }) {
 
   // One rail cell, one row and one number on the kiln per chamber, all three
   // carrying the same numeral: that shared number is what ties the clock's
-  // schedule, the table and the drawing into one thing.
+  // schedule, the table and the drawing into one thing. A row is a heat bar
+  // and a stage name, nothing more: the colour says how hot, the word says
+  // what the chamber is doing. Degrees are on the dashboard, not here.
   const railCells = []; const rows = []; const kilnNums = [];
   for (let i = 0; i < count; i++) {
     const cell = document.createElement('span');
@@ -342,12 +373,9 @@ export function createAnatomy({ sectionEl, ring, run }) {
     railCells.push({ cell, fill: cell.querySelector('i') });
 
     const row = document.createElement('li');
-    row.innerHTML = `<b class="row-n">${i + 1}</b><span class="row-bar"><i></i></span><span class="row-temp"></span><span class="row-state"></span>`;
+    row.innerHTML = `<b class="row-n">${i + 1}</b><span class="row-bar"><i></i></span><span class="row-state"></span>`;
     rowsEl.append(row);
-    rows.push({
-      row, bar: row.querySelector('.row-bar i'),
-      temp: row.querySelector('.row-temp'), state: row.querySelector('.row-state'),
-    });
+    rows.push({ row, bar: row.querySelector('.row-bar i'), state: row.querySelector('.row-state') });
 
     const n = document.createElement('span');
     n.textContent = String(i + 1);
@@ -539,10 +567,6 @@ export function createAnatomy({ sectionEl, ring, run }) {
     hand.setAttribute('transform', `rotate(${((hours / 12) * 360).toFixed(2)} 50 50)`);
     timeEl.textContent = hm(hours);
 
-    nextEl.textContent = closed
-      ? 'Loop complete. The next one starts now.'
-      : `Next move in ${hm(T - within)}`;
-
     railCells.forEach(({ cell, fill }, k) => {
       const p = k < moves ? 1 : k === moves ? within / T : 0;
       fill.style.transform = `scaleX(${p.toFixed(4)})`;
@@ -554,17 +578,15 @@ export function createAnatomy({ sectionEl, ring, run }) {
       const h = relativeHeat(ch.temp);
       r.bar.style.transform = `scaleX(${Math.max(0.02, h).toFixed(4)})`;
       r.bar.style.background = heatHex(h);
-      const temp = approxC(ch.temp);
-      if (r.temp.textContent !== temp) r.temp.textContent = temp;
-      // The two chambers the zone lies across say so in rows; the rest give
-      // their stage.
+      // While the zone lies across two chambers, both are firing. The
+      // row-by-row count is the kiln drawing's to show, not the table's.
       const row = frame.fireRow ?? ROWS - 1;
       const behind = (frame.firePos - 1 + count) % count;
-      let name = STAGE_NAME[ch.stage] ?? ch.stage;
-      if (i === frame.firePos) name = row >= ROWS - 1 ? 'Firing, all rows' : `Entering, row ${row + 1} of ${ROWS}`;
-      else if (i === behind && row < ROWS - 1 && ch.fired) name = `Leaving, ${ROWS - 1 - row} ${ROWS - 1 - row === 1 ? 'row' : 'rows'} left`;
+      const straddled = i === behind && row < ROWS - 1 && ch.fired;
+      const firing = i === frame.firePos || straddled;
+      const name = firing ? 'Firing' : STAGE_NAME[ch.stage] ?? ch.stage;
       if (r.state.textContent !== name) r.state.textContent = name;
-      r.row.classList.toggle('is-fire', i === frame.firePos || name.startsWith('Leaving'));
+      r.row.classList.toggle('is-fire', firing);
     });
 
     // The marker rides the fire down the rows, so the move is seen as a
@@ -596,39 +618,39 @@ export function createAnatomy({ sectionEl, ring, run }) {
   }
 
   function fill(i) {
-    const parts = partsOf(TOUR[i]);
-    parts.forEach((part, k) => {
-      const slot = slots[k];
-      slot.step.textContent = `${i + 1} of ${TOUR.length}`;
-      slot.entries.innerHTML = '<h3 class="anatomy-title"><span class="anatomy-key" aria-hidden="true"></span><span class="anatomy-title-text"></span></h3><p class="anatomy-text"></p>';
-      slot.entries.querySelector('.anatomy-title-text').textContent = part.title ?? (COMPONENTS[part.id] ?? {}).label;
-      slot.entries.querySelector('.anatomy-text').textContent = part.text;
-      const ev = EVIDENCE[part.tag ?? (COMPONENTS[part.id] ?? {}).tag];
-      slot.chip.textContent = ev.code;
-      slot.ev.textContent = ev.label;
-      slot.card.dataset.ev = ev.code;
-      slot.card.title = ev.blurb;
-      // 'part': one part is picked out in the accent. 'whole': the lit kiln.
-      slot.card.dataset.mode = part.focus ? 'part' : 'whole';
-      slot.card.dataset.pair = slot.figure.dataset.pair = String(parts.length > 1);
-      const fig = FIGURES[part.id];
-      slot.has = !!fig;
-      slot.figure.hidden = !fig;
-      // In a shared step the image is part of the note: one slip, the words
-      // and then the picture. Otherwise it stands alone across the kiln.
-      const inline = parts.length > 1 && !!fig;
-      slot.figure.classList.toggle('is-inline', inline);
-      if (inline) slot.card.querySelector('.anatomy-foot').before(slot.figure);
-      else if (slot.figure.parentElement !== slot.card.parentElement) slot.card.before(slot.figure);
-      if (fig) {
-        slot.img.src = `${IMG}${part.id}.jpg`;
-        slot.img.alt = fig.caption;
-        slot.cap.textContent = fig.caption;
-        slot.note.textContent = `Reference image, not Prabhakar Tile Factory. ${fig.credit}, via Wikimedia Commons.`;
-      }
-    });
-    svg.dataset.mode = parts[0].focus ? 'part' : 'whole';
+    const step = TOUR[i];
+    stepEl.textContent = `${i + 1} of ${TOUR.length}`;
+    titleEl.textContent = step.title ?? (COMPONENTS[step.id] ?? {}).label;
+    const ev = EVIDENCE[step.tag ?? (COMPONENTS[step.id] ?? {}).tag];
+    chipEl.textContent = ev.code;
+    evEl.textContent = ev.label;
+    card.dataset.ev = ev.code;
+    card.title = ev.blurb;
+    // 'part': a part is picked out in the accent. 'whole': the lit kiln.
+    card.dataset.mode = step.focus ? 'part' : 'whole';
+    const fig = FIGURES[step.id];
+    figure.hidden = !fig;
+    if (fig) {
+      figImg.src = `${IMG}${step.id}.jpg`;
+      figImg.decoding = 'async';
+      if (DIMS[step.id]) [figImg.width, figImg.height] = DIMS[step.id];
+      // The figcaption beside it says what the picture is; an alt that
+      // repeated it would be read twice.
+      figImg.alt = '';
+      figCap.textContent = fig.caption;
+      figNote.textContent = `Reference image, not Prabhakar Tile Factory. ${fig.credit}, via Wikimedia Commons.`;
+    }
+    svg.dataset.mode = step.focus ? 'part' : 'whole';
     shown = i;
+    shownBeat = -1;
+  }
+
+  /** The words of beat n of the step on show. */
+  function speak(n) {
+    if (n === shownBeat) return;
+    const step = TOUR[shown];
+    textEl.textContent = step.beats ? step.beats[n].text : step.text;
+    shownBeat = n;
   }
 
   /**
@@ -650,15 +672,18 @@ export function createAnatomy({ sectionEl, ring, run }) {
 
   /**
    * The kiln the ring should draw: the record's first moment until the fire
-   * step, the scrubbed moment during it, and its last moment after.
+   * step, the scrubbed moment during it, and after it the moment the two
+   * kilns are compared at. That moment is the end of the loop's last
+   * interval (tourRun.js), so the air step and the last step show one and
+   * the same kiln, and it follows on from the fire step's closing frame.
    */
   function frame() {
     const { i, f } = measure();
     const n = stepOf.fire;
     if (i < n) return run.frames[0];
-    if (i === stepOf.recovery && pair) return blended(recoverMoment(f));
-    if (i > n) return run.frames[run.frames.length - 1];
-    return fireMoment(f).frame;
+    if (i === n) return fireMoment(f).frame;
+    if (pair) return blended(recoverMoment(i === stepOf.recovery ? f : 0));
+    return run.frames[run.frames.length - 1];
   }
 
   function hide(...els) {
@@ -669,15 +694,31 @@ export function createAnatomy({ sectionEl, ring, run }) {
     e.style.visibility = a > 0.01 ? 'visible' : 'hidden';
   }
 
+  /**
+   * The zoom that clears the kiln of the panels either side, as in update().
+   * Needed before the tour is on screen, while the kiln is already easing
+   * down to it.
+   */
+  function clearFit() {
+    const w = ring.renderer.domElement.clientWidth || 1;
+    const margin = Math.max(24, w * 0.04);
+    const reserve = Math.max(card.offsetWidth, compute.offsetWidth, recover.offsetWidth, figure.offsetWidth) + margin + 28;
+    return Math.min(1, Math.max(0.45, (w - 2 * reserve) / (ring.kilnShare() * w)));
+  }
+
   function update(state) {
     const { scrolled, i, f } = measure();
 
     if (!active) {
-      // setZoom(1) with no pan also puts the kiln back in the centre.
+      // The kiln starts to make room as the intro lets go (LEAD_VH before the
+      // tour's first step), so it is already easing down when the first card
+      // arrives rather than lurching down underneath it. After the tour it is
+      // put back at once. setZoom(1) with no pan also centres the kiln.
       ring.focus(null, 0);
       ring.present(null);
-      ring.setZoom(1);
-      hide(card, figure, card2, figure2, compute, recover, numbers);
+      const lead = scrolled < 0 ? smooth(-LEAD_VH, SETTLE_VH, scrolled) : 0;
+      ring.setZoom(lead > 0 ? 1 + (clearFit() - 1) * lead : 1);
+      hide(card, figure, compute, recover, numbers);
       placeSays(null, 0, 0);
       svg.style.opacity = '0';
       return;
@@ -685,6 +726,7 @@ export function createAnatomy({ sectionEl, ring, run }) {
 
     const isFire = i === stepOf.fire;
     const m = isFire ? fireMoment(f) : null;
+    const isAir = i === stepOf.air;
     const isRecover = i === stepOf.recovery && !!pair;
     const rm = isRecover ? recoverMoment(f) : null;
     // The two steps with a panel in place of a picture.
@@ -698,14 +740,20 @@ export function createAnatomy({ sectionEl, ring, run }) {
     const fadeOut = last ? 1 - smooth(steps + TAIL_VH * 0.6, steps + TAIL_VH, scrolled) : 1 - smooth(1 - 0.14 * k, 1, f);
     const a = smooth(0, 0.14 * k, f) * fadeOut;
     show(card, a);
+    if (i !== shown) fill(i);
+    // The step's words, or this beat's, dipping out and in at each join.
+    const beat = beatAt(i, f);
+    speak(beat.n);
+    textEl.style.opacity = beat.alpha.toFixed(3);
 
     // The part in focus takes the accent and the rest of the kiln falls back;
     // ring.js eases from one part to the next. The lit steps have no part:
     // the whole kiln is the subject, at full strength.
-    // In a shared step both parts take the accent together.
-    const parts = partsOf(TOUR[i]);
-    const part = parts.length > 1 ? parts.map((p) => p.focus) : parts[0].focus ?? null;
-    ring.focus(part, part ? smooth(0, 0.4, scrolled / STEP_VH) * fadeOut : 0);
+    // A step may let its part go part-way through (`release`), handing the
+    // eye on to what the drawing does next.
+    const part = TOUR[i].focus ?? null;
+    const keep = TOUR[i].release ? 1 - smooth(...TOUR[i].release, f) : 1;
+    ring.focus(part, part ? smooth(0, 0.4, scrolled / STEP_VH) * fadeOut * keep : 0);
 
     // How far the kiln has been put together. Each stage belongs to one step:
     // nothing before it, complete after it, and scrubbed by the scroll within
@@ -713,24 +761,25 @@ export function createAnatomy({ sectionEl, ring, run }) {
     // they describe starts to move.
     const during = (id, lo = 0.16, hi = 0.8) => {
       const n = stepOf[id];
-      const [from, to] = spanOf[id] ?? [0, 1];
-      return i < n ? 0 : i > n ? 1 : smooth(from + lo * (to - from), from + hi * (to - from), f);
+      return i < n ? 0 : i > n ? 1 : smooth(lo, hi, f);
     };
     const lit = during('fire', 0.012, FIRE.LIGHT);
     ring.present({
       tiles: during('tiles'),
-      // The roof holes fill in one after another, round from the fire.
-      stoke: during('stokeHoles', 0.2, 0.85),
-      doors: during('wicketDoors', 0.22, 0.8),
-      damper: during('dampers', 0.3, 0.6),
-        air: during('airPath', 0.14, 0.82),
+      // Bricked up as the kiln is lit; from then on `live` shows which
+      // doorway the record has open.
+      doors: lit,
+      // In the air step the one open damper opens, and then the route draws
+      // itself from the open doorway to it, already the heat-carrying arrow
+      // because the kiln is lit.
+      damper: during('air', 0.14, 0.34),
+      air: during('air', 0.32, 0.86),
       // In the last step the path starts at the fire. It is drawn back to
       // the damper there as that one is opened, then out to the chimney
       // again as the second kiln's.
       airFrom: rm ? rm.from : 0,
       airCut: rm ? (rm.second ? 1 - rm.out : rm.cut) : 0,
-      // Fainter in the fire step, so the tiles' heat reads through the path.
-      airAlpha: isFire ? 0.15 : 1,
+      airAlpha: 1,
       heat: lit,
       // From the lighting on, the kiln is drawn as the record has it — one
       // chamber being unloaded, one restacked — rather than as assembled.
@@ -738,7 +787,7 @@ export function createAnatomy({ sectionEl, ring, run }) {
       // The firing zone is picked out by the floor under it, in the accent,
       // shared between the two chambers it lies across, with a bright bar at
       // its leading edge (front).
-      fireAt: m ? m.fireAt : rm ? pair.on.firePos : null,
+      fireAt: m ? m.fireAt : (rm || isAir) && pair ? pair.on.firePos : null,
       front: m ? m.front : null,
       // Not in the tour: with no step to explain it, it is not drawn.
       partition: 0,
@@ -756,7 +805,6 @@ export function createAnatomy({ sectionEl, ring, run }) {
     const w = renderer.domElement.clientWidth;
     const h = renderer.domElement.clientHeight;
     const margin = Math.max(24, w * 0.04);
-    if (i !== shown) fill(i);
 
     // Keep the kiln clear of the panels. The same room is kept on both sides
     // for the whole tour — the widest panel plus a gap — so the kiln stays
@@ -765,7 +813,7 @@ export function createAnatomy({ sectionEl, ring, run }) {
     // kiln as the tour opens, and back up as it closes.
     const reserve = Math.max(card.offsetWidth, compute.offsetWidth, recover.offsetWidth, figure.offsetWidth) + margin + 28;
     const fit = Math.min(1, Math.max(0.45, (w - 2 * reserve) / (ring.kilnShare() * w)));
-    const settle = smooth(0, 45, scrolled) * (1 - smooth(steps + TAIL_VH * 0.5, steps + TAIL_VH, scrolled));
+    const settle = smooth(-LEAD_VH, SETTLE_VH, scrolled) * (1 - smooth(steps + TAIL_VH * 0.5, steps + TAIL_VH, scrolled));
     // The fire step has only the note and the computed panel up, and the note
     // is the narrower of the two. So the kiln moves to the middle of the gap
     // between them and takes the room that frees: a slight step closer for
@@ -777,9 +825,10 @@ export function createAnatomy({ sectionEl, ring, run }) {
     const pw = compute.offsetWidth;
     const fireFit = Math.min(1, fit * FIRE_ZOOM,
       (w - card.offsetWidth - pw - 2 * gap) / (ring.kilnShare() * w));
-    // Held across the two panel steps, so the kiln does not step back and
-    // forward again as one note gives way to the other.
-    const held = isFire ? smooth(0, 0.14 * k, f) : isRecover ? fadeOut : 0;
+    // Held from the fire to the end, through the air step between the two
+    // panel steps, so the kiln does not step back and forward again as one
+    // note gives way to the next.
+    const held = isFire ? smooth(0, 0.14 * k, f) : isAir ? 1 : isRecover ? fadeOut : 0;
     const near = fireFit > fit ? held : 0;
     const zoom = fit + (fireFit - fit) * near;
     ring.setZoom(1 + (zoom - 1) * settle, ((card.offsetWidth - pw) / 2) * near);
@@ -790,8 +839,21 @@ export function createAnatomy({ sectionEl, ring, run }) {
       // pointing. Nothing here follows the fire around the screen.
       if (isFire) drawCompute(m); else drawRecover(rm);
       svg.style.opacity = '0';
-      hide(figure, card2, figure2, isFire ? recover : compute);
-      show(panel, a);
+      hide(figure, isFire ? recover : compute);
+      // Each panel says only what its step has reached. The fire's table of
+      // stages comes up with the second beat, once the fire has moved on and
+      // there are stages to compare; the fuel panel once its first bar has
+      // something in it.
+      const reveal = isFire
+        ? smooth(FIRE.FIRST_END, FIRE.FIRST_END + 0.03, f)
+        : smooth(RECOVER.DRAW[1] - 0.05, RECOVER.DRAW[1], f);
+      if (isFire) {
+        // Grown open rather than faded in over a held gap, so the first beat's
+        // panel is just the clock and the rail, with nothing empty under them.
+        tableEl.style.height = `${(reveal * tableEl.scrollHeight).toFixed(1)}px`;
+        tableEl.style.opacity = smooth(0.4, 1, reveal).toFixed(3);
+        show(panel, a);
+      } else show(panel, a * reveal);
       placeNumbers(m ?? { fireAt: pair.on.firePos }, w, h, a);
       if (isRecover) placeArrive(rm, w, h); else arriveEl.style.opacity = '0';
       placeSays(isRecover ? f : null, h, a, w - 2 * margin - card.offsetWidth - panel.offsetWidth - 72);
@@ -807,54 +869,26 @@ export function createAnatomy({ sectionEl, ring, run }) {
       projected.copy(ring.anchorFor(id, state)).project(camera);
       return [(projected.x * 0.5 + 0.5) * w, (-projected.y * 0.5 + 0.5) * h];
     };
-    const drawLeader = (ax, ay, c, cx, cy, onLeft, n = 0) => {
-      const L = leaders[n];
-      const ex = onLeft ? cx + c.offsetWidth : cx;
-      const ey = Math.min(cy + c.offsetHeight - 12, Math.max(cy + 12, ay));
-      L.line.setAttribute('x1', ax.toFixed(1));
-      L.line.setAttribute('y1', ay.toFixed(1));
-      L.line.setAttribute('x2', ex.toFixed(1));
-      L.line.setAttribute('y2', ey.toFixed(1));
-      for (const c2 of [L.dot, L.halo]) {
+    const drawLeader = (ax, ay, cx, cy, onLeft) => {
+      const ex = onLeft ? cx + card.offsetWidth : cx;
+      const ey = Math.min(cy + card.offsetHeight - 12, Math.max(cy + 12, ay));
+      line.setAttribute('x1', ax.toFixed(1));
+      line.setAttribute('y1', ay.toFixed(1));
+      line.setAttribute('x2', ex.toFixed(1));
+      line.setAttribute('y2', ey.toFixed(1));
+      for (const c2 of [dot, halo]) {
         c2.setAttribute('cx', ax.toFixed(1));
         c2.setAttribute('cy', ay.toFixed(1));
       }
     };
-
-    if (parts.length > 1) {
-      // A note either side of the kiln, each on the side its part is nearer,
-      // with its image inside it, under the words, and each with a leader.
-      const pts = parts.map((p) => at(p.id));
-      const firstLeft = pts[0][0] <= pts[1][0];
-      parts.forEach((p, k) => {
-        const slot = slots[k];
-        const onLeft = k === 0 ? firstLeft : !firstLeft;
-        const c = slot.card; const fg = slot.figure;
-        const cw = c.offsetWidth; const ch = c.offsetHeight;
-        const fh = 0;
-        const x = onLeft ? margin : w - margin - cw;
-        const top = Math.max(20, (h - ch) / 2);
-        const strength = a;
-        c.dataset.side = onLeft ? 'left' : 'right';
-        c.dataset.on = 'true';
-        c.style.transform = `translate(${x.toFixed(1)}px, ${(top + fh).toFixed(1)}px)`;
-        show(c, strength);
-        if (!slot.has) hide(fg);
-        drawLeader(pts[k][0], pts[k][1], c, x, top + fh, onLeft, k);
-      });
-      for (const e of Object.values(leaders[1])) e.style.display = '';
-      return;
-    }
-    hide(card2, figure2);
-    for (const e of Object.values(leaders[1])) e.style.display = 'none';
     card.dataset.on = 'true';
-    show(figure, a);
+    if (figure.hidden) hide(figure); else show(figure, a);
 
     // Leader line: from the part to the near edge of the card, which sits in
     // the margin on the same side of the kiln as the part, so the leader
     // never crosses the kiln.
-    const [ax, ay] = at(parts[0].id);
-    side = parts[0].side ?? (ax < w / 2 ? 'left' : 'right');
+    const [ax, ay] = at(TOUR[i].anchor ?? TOUR[i].id);
+    const side = TOUR[i].side ?? (ax < w / 2 ? 'left' : 'right');
     card.dataset.side = side;
 
     const cw = card.offsetWidth;
@@ -869,7 +903,7 @@ export function createAnatomy({ sectionEl, ring, run }) {
     const fx = side === 'left' ? w - margin - fw : margin;
     const fy = Math.max(24, (h - figure.offsetHeight) / 2);
     figure.style.transform = `translate(${fx.toFixed(1)}px, ${fy.toFixed(1)}px)`;
-    drawLeader(ax, ay, card, cx, cy, side === 'left');
+    drawLeader(ax, ay, cx, cy, side === 'left');
   }
 
   return {

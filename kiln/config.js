@@ -624,6 +624,14 @@ export const METHODS = [
     inputs: ['windows.preheat', 'thermalModel.exchangeRate', 'thermalModel.maxFuelRate', 'thermal.recoveryPrinciple'],
   },
   {
+    title: 'The fire\'s loop in the tour',
+    tag: 'S',
+    what: 'The clock, the eight-cell schedule and the table of stages beside the kiln in "The fire moves". The table gives each chamber\'s stage and a heat bar; the degrees behind the bars are the model\'s.',
+    how: 'One loop of the kiln is worked out in advance from a kiln already in steady running, and the scroll moves through it, so the clock, the table and the drawing all read the same moment. While the firing zone lies across two chambers, both rows say Firing; the drawing shows it moving row by row. One result is an open question, not a finding: on the two-hour interval recorded at the factory, the model has chambers being unloaded hotter than anyone could work in. Whether that says more about the model or about the work at Kundapur is not known. The tour leaves this out to keep to its point; it is kept here.',
+    where: 'tourRun.js — recordLoop; views/anatomy.js — drawCompute',
+    inputs: ['time.tickHours', 'windows.cool', 'thermalModel.ambientLossRate'],
+  },
+  {
     title: 'The airflow arrow',
     tag: 'S',
     what: 'Where the arrow is thick and where it is bright. Both show how much heat the gas is carrying at that point.',

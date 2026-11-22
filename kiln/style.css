@@ -134,11 +134,32 @@
 
   --measure: 60ch;
 
+  /* Spacing: a 4px grid, in rem. Every margin, padding and gap uses one. */
   --space-1: 0.25rem;
   --space-2: 0.5rem;
-  --space-3: 0.875rem;
-  --space-4: 1.25rem;
-  --space-5: 2rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+
+  /* ---- one visual language: shared by every section's panels, chips, type
+     and motion. Change a value here and the whole story follows. ---- */
+  --r-chip: 4px;
+  --r-panel: 16px;
+  --r-pill: 999px;
+  --ink-hi: #f1ede6;                       /* primary text on a dark panel */
+  --ink-mid: #b9b4ab;                      /* secondary text on a dark panel */
+  --panel-bg: rgba(26, 22, 18, 0.84);      /* a panel of words over the scene */
+  --panel-bg-soft: rgba(26, 22, 18, 0.56); /* a slip behind a drawing's labels */
+  --panel-blur: blur(14px) saturate(1.1);
+  --panel-edge: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+  --panel-shadow: 0 18px 40px -22px rgba(0, 0, 0, 0.6);
+  --ease-out: cubic-bezier(0.19, 0.8, 0.22, 1);
+  --title-hero: clamp(2.2rem, 5vw, 4.6rem);    /* the question the page asks */
+  --title-xl: clamp(1.75rem, 3.75vw, 4.25rem); /* a section's opening line */
+  --title-lg: clamp(1.6rem, 3vw, 2.8rem);      /* a card or passage title */
+  --title-md: clamp(1.4rem, 2.4vw, 2.2rem);    /* a figure's heading */
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -227,6 +248,7 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
   position: sticky;
   top: 0;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   z-index: 2;   /* above .stage (below), so the crossfade has something under it */
 }
@@ -256,7 +278,7 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
   position: absolute;
   left: clamp(var(--space-4), 5vw, 6rem);
   right: clamp(var(--space-4), 5vw, 6rem);
-  bottom: clamp(var(--space-5), 8vh, 6rem);
+  bottom: clamp(var(--space-6), 8vh, 6rem);
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -270,7 +292,7 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
   /* Orbitron Bold, 54px on a 1440px-wide screen (the mockup's setting),
      scaling with the width from there. Two lines, broken after "teach us"
      in the markup. */
-  font-size: clamp(1.75rem, 3.75vw, 4.25rem);
+  font-size: var(--title-xl);
   font-weight: 700;
   line-height: 1.15;
 }
@@ -292,19 +314,17 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
  */
 .intro-brief {
   position: absolute;
-  top: clamp(var(--space-5), 8vh, 6rem);
+  top: clamp(var(--space-6), 8vh, 6rem);
   right: clamp(var(--space-4), 5vw, 6rem);
   max-width: min(30em, 44vw);
   margin: 0;
   /* A panel of the paper itself with a hairline, so the drawing's lines
      don't run through the words. */
-  padding: 1.5rem 1.75rem;
+  padding: var(--space-5) var(--space-6);
   background: #3a3733;
-  border-radius: 12px;
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
-    0 22px 44px -22px rgba(0, 0, 0, 0.7);
-  color: #ece8e1;
+  border-radius: var(--r-panel);
+  box-shadow: var(--panel-edge), var(--panel-shadow);
+  color: var(--ink-hi);
   font-family: var(--font-display);
   font-size: clamp(1rem, 1.45vw, 1.6rem);
   font-weight: 400;
@@ -340,6 +360,7 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
   position: sticky;
   top: 0;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   z-index: 2;
   pointer-events: none;
@@ -362,7 +383,7 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
    stays legible on a filled part. No halo: a target ring says "interface",
    and this is an annotation on a drawing. */
 .anatomy-leader .leader-dot {
-  fill: #ece8e1;
+  fill: var(--ink-hi);
   stroke: var(--paper);
   stroke-width: 2;
 }
@@ -383,17 +404,15 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
 .anatomy-card,
 .anatomy-figure {
   --slip: #3a3733;
-  --slip-ink: #ece8e1;
-  --slip-ink-soft: #b9b4ab;
+  --slip-ink: var(--ink-hi);
+  --slip-ink-soft: var(--ink-mid);
   position: absolute;
   top: 0;
   left: 0;
   margin: 0;
   background: var(--slip);
-  border-radius: 12px;
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
-    0 22px 44px -22px rgba(0, 0, 0, 0.7);
+  border-radius: var(--r-panel);
+  box-shadow: var(--panel-edge), var(--panel-shadow);
   color: var(--slip-ink);
   font-family: var(--font-display);
   opacity: 0;
@@ -402,14 +421,14 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
 
 .anatomy-card {
   width: min(23rem, 25vw);
-  padding: 1.5rem 1.6rem 1.25rem;
+  padding: var(--space-5) var(--space-5) var(--space-5);
 }
 
 .anatomy-title {
   display: flex;
   align-items: baseline;
   gap: 0.6em;
-  margin: 0 0 0.75rem;
+  margin: 0 0 var(--space-3);
   color: #ffffff;
   font-family: "Orbitron", var(--font-display);
   font-size: clamp(1.05rem, 1.35vw, 1.4rem);
@@ -428,34 +447,6 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
 }
 .anatomy-card[data-mode="whole"] .anatomy-key { display: none; }
 
-/* A step shared by two parts: a note either side of the kiln. The one not
-   being shown keeps an empty key, and its image is inside the note,
-   under the words. */
-.anatomy-card[data-pair="true"][data-on="false"] .anatomy-key {
-  background: none;
-  box-shadow: inset 0 0 0 1px var(--slip-ink-soft);
-}
-/* The image as part of the note: no slip of its own, set under the words. */
-.anatomy-figure.is-inline {
-  position: static;
-  width: auto;
-  margin: 1.1rem 0 0;
-  background: none;
-  border-radius: 0;
-  box-shadow: none;
-  opacity: 1 !important;
-  visibility: inherit !important;
-  transform: none !important;
-}
-.anatomy-figure.is-inline img {
-  height: min(11rem, 21vh);
-  border-radius: 8px;
-  object-fit: cover;
-}
-.anatomy-figure.is-inline figcaption { padding: 0.65rem 0 0; }
-.anatomy-figure.is-inline .anatomy-figure-cap { font-size: 0.8125rem; color: var(--slip-ink-soft); }
-.anatomy-figure.is-inline .anatomy-figure-note { margin-top: 0.3rem; font-size: 0.6875rem; }
-
 .anatomy-text {
   margin: 0;
   color: var(--slip-ink);
@@ -470,9 +461,9 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  margin: 1.1rem 0 0;
-  padding-top: 0.85rem;
+  gap: var(--space-4);
+  margin: var(--space-4) 0 0;
+  padding-top: var(--space-3);
   border-top: 1px solid rgba(236, 232, 225, 0.14);
   color: var(--slip-ink-soft);
   font-size: 0.8125rem;
@@ -492,10 +483,10 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
   justify-content: center;
   width: 1.5em;
   height: 1.5em;
-  border-radius: 4px;
+  border-radius: var(--r-chip);
   box-shadow: inset 0 0 0 1px rgba(236, 232, 225, 0.45);
   color: var(--slip-ink);
-  font-size: 0.75rem;
+  font-size: var(--fs-micro);
   font-weight: 600;
 }
 
@@ -518,27 +509,28 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
 .anatomy-figure img {
   display: block;
   width: 100%;
+  height: auto;
   max-height: 42vh;
   object-fit: cover;
   background: #1c1b19;
 }
 
 .anatomy-figure figcaption {
-  padding: 0.9rem 1.1rem 1rem;
+  padding: var(--space-4) var(--space-4) var(--space-4);
 }
 
 .anatomy-figure-cap {
   display: block;
-  font-size: 0.875rem;
+  font-size: var(--fs-small);
   line-height: 1.45;
   text-wrap: pretty;
 }
 
 .anatomy-figure-note {
   display: block;
-  margin-top: 0.5rem;
+  margin-top: var(--space-2);
   color: var(--slip-ink-soft);
-  font-size: 0.75rem;
+  font-size: var(--fs-micro);
   line-height: 1.45;
   text-wrap: pretty;
 }
@@ -551,22 +543,20 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
    state that leaves each chamber in. */
 .anatomy-compute {
   --slip: #3a3733;
-  --slip-ink: #ece8e1;
-  --slip-ink-soft: #b9b4ab;
+  --slip-ink: var(--ink-hi);
+  --slip-ink-soft: var(--ink-mid);
   --rule: rgba(236, 232, 225, 0.14);
   position: absolute;
   top: 0;
   left: 0;
-  width: min(27rem, 30vw);
-  padding: 1.2rem 1.5rem 1rem;
+  width: min(23rem, 26vw);
+  padding: var(--space-4) var(--space-5) var(--space-4);
   background: var(--slip);
-  border-radius: 12px;
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
-    0 22px 44px -22px rgba(0, 0, 0, 0.7);
+  border-radius: var(--r-panel);
+  box-shadow: var(--panel-edge), var(--panel-shadow);
   color: var(--slip-ink);
   font-family: var(--font-display);
-  font-size: 0.875rem;
+  font-size: var(--fs-small);
   line-height: 1.3;
   font-variant-numeric: tabular-nums;
   opacity: 0;
@@ -576,7 +566,7 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
 .compute-head {
   display: flex;
   align-items: center;
-  gap: 1.1rem;
+  gap: var(--space-4);
 }
 
 .compute-clock { flex: none; width: 4.6rem; height: 4.6rem; }
@@ -602,12 +592,12 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
   gap: 3px;
-  margin-top: 1.1rem;
+  margin-top: var(--space-4);
 }
 .rail-cell {
   position: relative;
   height: 1.65rem;
-  border-radius: 3px;
+  border-radius: var(--r-chip);
   background: rgba(236, 232, 225, 0.09);
   overflow: hidden;
 }
@@ -624,22 +614,22 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
   inset: 0;
   display: grid;
   place-items: center;
-  font-size: 0.75rem;
+  font-size: var(--fs-micro);
   font-weight: 600;
   color: var(--slip-ink);
 }
 .rail-cell.is-now b { color: #1d1030; }
 
 .compute-next {
-  margin: 0.45rem 0 0;
+  margin: var(--space-2) 0 0;
   color: var(--slip-ink-soft);
   font-size: 0.8125rem;
 }
 
 /* The rule, worked. Label left, this moment's value right. */
 .compute-rule {
-  margin: 0.95rem 0 0;
-  padding: 0.3rem 0;
+  margin: var(--space-4) 0 0;
+  padding: var(--space-1) 0;
   border-top: 1px solid var(--rule);
   border-bottom: 1px solid var(--rule);
 }
@@ -647,43 +637,45 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 0.3rem 0;
+  gap: var(--space-4);
+  padding: var(--space-1) 0;
 }
 .compute-rule dt { color: var(--slip-ink-soft); }
 .compute-rule dd { margin: 0; color: #ffffff; font-weight: 600; text-align: right; }
 
 /* What is set where right now: the four things that step on at each move. */
-.compute-now { margin: 0; padding: 0.3rem 0; border-bottom: 1px solid var(--rule); }
+.compute-now { margin: 0; padding: var(--space-1) 0; border-bottom: 1px solid var(--rule); }
 .compute-now div {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 0.22rem 0;
+  gap: var(--space-4);
+  padding: var(--space-1) 0;
 }
 .compute-now dt { color: var(--slip-ink-soft); }
 .compute-now dd { margin: 0; color: var(--slip-ink); text-align: right; }
 
 /* Eight chambers. The marker behind the firing row slides to the next row
    as the fire crosses, so the move reads as a movement here as well. */
-.compute-table { position: relative; margin-top: 0.7rem; }
+/* Its height is set by views/anatomy.js as it grows open; the clip keeps the
+   rows inside it while it does, but lets the marker reach past its sides. */
+.compute-table { position: relative; margin-top: var(--space-3); clip-path: inset(0 -1rem); }
 .compute-marker {
   position: absolute;
   left: -0.6rem;
   right: -0.6rem;
   top: 0;
-  border-radius: 5px;
+  border-radius: var(--r-chip);
   background: color-mix(in srgb, var(--tour-accent) 22%, transparent);
   box-shadow: inset 3px 0 0 var(--tour-accent);
 }
 .compute-rows { position: relative; margin: 0; padding: 0; list-style: none; }
 .compute-rows li {
   display: grid;
-  grid-template-columns: 1.1rem 1fr 5.4em 10.2em;
+  grid-template-columns: 1.1rem 1fr 6.4em;
   align-items: center;
-  gap: 0.7rem;
-  padding: 0.24rem 0;
+  gap: var(--space-3);
+  padding: var(--space-1) 0;
   color: var(--slip-ink-soft);
 }
 .compute-rows .row-n { font-weight: 600; color: var(--slip-ink); }
@@ -707,9 +699,9 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
   display: grid;
   grid-template-columns: auto 1fr 2.6em;
   align-items: center;
-  gap: 0.7rem;
-  margin: 0.7rem 0 0;
-  padding-top: 0.75rem;
+  gap: var(--space-3);
+  margin: var(--space-3) 0 0;
+  padding-top: var(--space-3);
   border-top: 1px solid var(--rule);
 }
 .compute-fuel-bar {
@@ -731,9 +723,9 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
   display: flex;
   align-items: flex-start;
   gap: 0.55em;
-  margin: 0.8rem 0 0;
+  margin: var(--space-3) 0 0;
   color: var(--slip-ink-soft);
-  font-size: 0.75rem;
+  font-size: var(--fs-micro);
   line-height: 1.4;
 }
 .compute-note .anatomy-chip { flex: none; }
@@ -744,8 +736,8 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
  */
 .anatomy-recover {
   --slip: #3a3733;
-  --slip-ink: #ece8e1;
-  --slip-ink-soft: #b9b4ab;
+  --slip-ink: var(--ink-hi);
+  --slip-ink-soft: var(--ink-mid);
   --rule: rgba(236, 232, 225, 0.14);
   --lost: #d9603f;
   --kept: #cfc6b4;
@@ -754,39 +746,37 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
   top: 0;
   left: 0;
   width: min(22rem, 26vw);
-  padding: 1.1rem 1.5rem 1rem;
+  padding: var(--space-4) var(--space-5) var(--space-4);
   background: var(--slip);
-  border-radius: 12px;
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
-    0 22px 44px -22px rgba(0, 0, 0, 0.7);
+  border-radius: var(--r-panel);
+  box-shadow: var(--panel-edge), var(--panel-shadow);
   color: var(--slip-ink);
   font-family: var(--font-display);
-  font-size: 0.875rem;
+  font-size: var(--fs-small);
   line-height: 1.3;
   font-variant-numeric: tabular-nums;
   opacity: 0;
   visibility: hidden;
 }
-.recover-h { margin: 0 0 0.9rem; font-weight: 600; color: #ffffff; }
+.recover-h { margin: 0 0 var(--space-4); font-weight: 600; color: #ffffff; }
 .recover-row {
   display: grid;
   grid-template-columns: 1fr 3.4rem;
   align-items: center;
-  gap: 0.3rem 0.7rem;
-  margin: 0.8rem 0 0;
+  gap: var(--space-1) var(--space-3);
+  margin: var(--space-3) 0 0;
 }
 .recover-row .rr-name { grid-column: 1 / -1; color: var(--slip-ink); }
 .recover-row .rr-track {
   display: block;
-  border-radius: 4px;
+  border-radius: var(--r-chip);
   background: rgba(236, 232, 225, 0.07);
 }
 .recover-row .rr-bar {
   display: block;
   width: 0;
   height: 1.25rem;
-  border-radius: 4px;
+  border-radius: var(--r-chip);
   background: var(--kept);
 }
 .recover-row[data-k="off"] .rr-bar { background: var(--lost); }
@@ -797,14 +787,14 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
   opacity: var(--shown, 0);
 }
 .recover-ratio {
-  margin: 1rem 0 0;
-  padding-top: 0.8rem;
+  margin: var(--space-4) 0 0;
+  padding-top: var(--space-3);
   border-top: 1px solid var(--rule);
   color: #ffffff;
   line-height: 1.4;
   opacity: var(--told, 0);
 }
-.anatomy-recover .compute-note { margin-top: 1.1rem; }
+.anatomy-recover .compute-note { margin-top: var(--space-4); }
 
 /* The line that rises over the kiln as each kiln is shown. Placed by the
    scroll (anatomy.js, placeSays), never by a timer. */
@@ -813,7 +803,7 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
   top: 50%;
   left: 50%;
   margin: 0;
-  color: #f4f0e9;
+  color: var(--ink-hi);
   /* The page's own face, wide and heavy, rather than the title's display
      face: at this size that one reads as a game's lettering. */
   font-family: var(--font-display);
@@ -848,7 +838,7 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
   font-stretch: 100%;
   font-weight: 600;
   letter-spacing: 0.22em;
-  color: #b9b4ab;
+  color: var(--ink-mid);
 }
 .anatomy-say[data-kiln="off"] .say-rest { color: #f0764f; }
 
@@ -865,9 +855,9 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
   white-space: nowrap;
   opacity: 0;
 }
-.anatomy-arrive b { color: #ffffff; font-size: 1.25rem; font-weight: 600; }
+.anatomy-arrive b { color: #ffffff; font-size: var(--fs-lead); font-weight: 600; }
 .anatomy-arrive[data-kiln="off"] b { color: #d9603f; }
-.anatomy-arrive em { color: #b9b4ab; font-size: 0.75rem; font-style: normal; }
+.anatomy-arrive em { color: var(--ink-mid); font-size: var(--fs-micro); font-style: normal; }
 
 /* The same numerals, on the kiln. */
 .anatomy-numbers { position: absolute; inset: 0; opacity: 0; }
@@ -882,7 +872,7 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
   border-radius: 50%;
   color: #d6d1c8;
   font-family: var(--font-display);
-  font-size: 0.9375rem;
+  font-size: var(--fs-body);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
@@ -917,6 +907,7 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
   position: sticky;
   top: 0;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   z-index: 3;
   visibility: hidden;
@@ -946,7 +937,6 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
   line-height: 1;
 }
 /* The Loop card's lit dot is the accent: its number goes dark on it. */
-.logic-cells span.is-on { color: #1d1030; }
 
 .logic-intro {
   position: absolute;
@@ -957,10 +947,10 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
   opacity: 0;
 }
 .logic-intro h2 {
-  margin: 0 0 1.1rem;
+  margin: 0 0 var(--space-4);
   color: var(--on-ground);
   font-family: "Orbitron", var(--font-display);
-  font-size: clamp(2rem, 4vw, 3.6rem);
+  font-size: var(--title-xl);
   font-weight: 700;
   line-height: 1.1;
 }
@@ -982,7 +972,7 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
   left: 50%;
   width: min(74rem, 88vw);
   height: min(36rem, 74vh);
-  border-radius: 22px;
+  border-radius: var(--r-panel);
   opacity: 0;
 }
 .logic-panel {
@@ -996,22 +986,22 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
   display: grid;
   grid-template-columns: minmax(0, 0.42fr) minmax(0, 1fr);
   align-items: center;
-  gap: clamp(1.5rem, 3vw, 3.5rem);
-  padding: clamp(1.75rem, 3.2vw, 3.25rem);
+  gap: clamp(var(--space-5), 3vw, var(--space-7));
+  padding: clamp(var(--space-6), 3.2vw, var(--space-7));
   visibility: hidden;
 }
 .logic-card-n {
-  margin: 0 0 1.2rem;
+  margin: 0 0 var(--space-4);
   color: var(--ink-soft);
   font-size: 0.8125rem;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.04em;
 }
 .logic-card h3 {
-  margin: 0 0 1rem;
+  margin: 0 0 var(--space-4);
   color: #ffffff;
   font-family: "Orbitron", var(--font-display);
-  font-size: clamp(1.75rem, 3.1vw, 3rem);
+  font-size: var(--title-lg);
   font-weight: 700;
   line-height: 1.05;
 }
@@ -1062,7 +1052,7 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
   margin: 0;
   color: var(--ask-ink);
   font-family: "Orbitron", var(--font-display);
-  font-size: clamp(2.2rem, 5vw, 4.6rem);
+  font-size: var(--title-hero);
   font-weight: 700;
   line-height: 1.12;
   text-wrap: balance;
@@ -1077,7 +1067,7 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
    -------------------------------------------------------------------------- */
 
 .problem {
-  --pb-ink: #f6f1e9;
+  --pb-ink: var(--ink-hi);
   --pb-ink-soft: rgba(246, 241, 233, 0.74);
   position: relative;
   flex: none;
@@ -1088,6 +1078,7 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
   position: sticky;
   top: 0;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   z-index: 4;               /* over the logic section's pin while both hold */
   visibility: hidden;
@@ -1118,12 +1109,12 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
   bottom: 0;
   width: fit-content;
   max-width: 100%;
-  padding: 1.15rem 1.35rem 1.2rem;
-  background: rgba(24, 20, 16, 0.66);
-  -webkit-backdrop-filter: blur(14px) saturate(1.1);
-  backdrop-filter: blur(14px) saturate(1.1);
-  border-radius: 16px;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07), 0 18px 40px -22px rgba(0, 0, 0, 0.55);
+  padding: var(--space-4) var(--space-5) var(--space-4);
+  background: var(--panel-bg);
+  -webkit-backdrop-filter: var(--panel-blur);
+  backdrop-filter: var(--panel-blur);
+  border-radius: var(--r-panel);
+  box-shadow: var(--panel-edge), var(--panel-shadow);
   visibility: hidden;
   opacity: 0;
 }
@@ -1136,18 +1127,21 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
 }
 .pb-big {
   font-family: "Orbitron", var(--font-display);
-  font-size: clamp(1.6rem, 3vw, 2.8rem);
+  font-size: var(--title-lg);
   font-weight: 700;
   line-height: 1.1;
 }
 .pb-word { display: inline-block; white-space: pre; opacity: 0; will-change: transform, opacity; }
+/* The passages that light word by word with the scroll (as .intro-brief does):
+   a short fade so each word comes up rather than flicking on. */
+.pb-copy--lit .pb-word { transition: opacity 120ms linear; }
 .pb-src {
   display: flex;
   align-items: center;
   gap: 0.6em;
-  margin: 1rem 0 0;
+  margin: var(--space-4) 0 0;
   color: var(--pb-ink-soft);
-  font-size: 0.875rem;
+  font-size: var(--fs-small);
   opacity: 0;
 }
 .pb-chip {
@@ -1157,10 +1151,10 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
   justify-content: center;
   width: 1.5em;
   height: 1.5em;
-  border-radius: 4px;
+  border-radius: var(--r-chip);
   box-shadow: inset 0 0 0 1px var(--pb-ink-soft);
   color: var(--pb-ink);
-  font-size: 0.75rem;
+  font-size: var(--fs-micro);
   font-weight: 600;
 }
 /* Field observation is the only one filled in, as on the tour's slips. */
@@ -1170,9 +1164,9 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
 /* A term card: in the words' place, after the paragraph that lights an
    idea in the tray. A purple rule and the idea's name in the title face
    set it apart from a passage; the pill on the right stays lit with it. */
-.pb-copy--term { border-left: 3px solid #B46AFF; padding-left: 1.2rem; max-width: 26rem; }
+.pb-copy--term { border-left: 3px solid #B46AFF; padding-left: var(--space-4); max-width: 26rem; }
 .pb-tc-term {
-  margin: 0 0 0.55rem;
+  margin: 0 0 var(--space-2);
   color: #B46AFF;
   font-family: "Orbitron", var(--font-display);
   font-size: 0.8rem;
@@ -1181,7 +1175,7 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
   text-transform: uppercase;
 }
 .pb-tc-def { margin: 0; color: var(--pb-ink); font-size: clamp(1.1rem, 1.55vw, 1.45rem); line-height: 1.32; text-wrap: pretty; }
-.pb-tc-here { margin: 0.8rem 0 0; color: var(--pb-ink-soft); font-size: 0.95rem; line-height: 1.45; text-wrap: pretty; }
+.pb-tc-here { margin: var(--space-3) 0 0; color: var(--pb-ink-soft); font-size: 0.95rem; line-height: 1.45; text-wrap: pretty; }
 .pb-tc-here b { color: #B46AFF; font-weight: 700; margin-right: 0.15em; }
 
 /* The closing line: out of the corner, centred under the drawing, wide,
@@ -1202,18 +1196,42 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
 }
 .pb-copy--finale .pb-line { text-wrap: balance; }
 
+/* The question the page ends on: in the middle of the screen, at the size
+   of the logic section's question it answers, over the village from high
+   up. A soft dark pool behind it (not a box) keeps it readable over the
+   brighter roofs without hiding the place it is asked over. */
+.pb-copy.pb-copy--ask {
+  top: 50%;
+  bottom: auto;
+  width: min(54rem, 86vw);
+  transform: translate(-50%, -50%);
+}
+.pb-copy--ask::before {
+  content: "";
+  position: absolute;
+  inset: -45% -18%;
+  z-index: -1;
+  background: radial-gradient(closest-side, rgba(20, 16, 12, 0.58), rgba(20, 16, 12, 0.3) 55%, rgba(20, 16, 12, 0));
+  pointer-events: none;
+}
+.pb-copy--ask .pb-big {
+  font-size: clamp(2rem, 4.2vw, 3.9rem);
+  line-height: 1.14;
+  text-shadow: 0 2px 18px rgba(20, 16, 12, 0.45);
+}
+
 /* Several sources under one passage, one to a line. */
-.pb-srcs { margin-top: 1rem; display: grid; gap: 0.4rem; opacity: 0; }
+.pb-srcs { margin-top: var(--space-4); display: grid; gap: var(--space-2); opacity: 0; }
 .pb-srcs .pb-src { margin: 0; opacity: 1; }
 
 /* The slips: the tour's dark cards, made translucent over the world. */
 .pb-slip {
   position: absolute;
   color: var(--pb-ink);
-  background: rgba(29, 25, 21, 0.56);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
-  border-radius: 14px;
+  background: var(--panel-bg-soft);
+  -webkit-backdrop-filter: var(--panel-blur);
+  backdrop-filter: var(--panel-blur);
+  border-radius: var(--r-panel);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
   opacity: 0;
 }
@@ -1222,12 +1240,12 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
   right: clamp(1rem, 4vw, 3rem);
   display: grid;
   gap: 0.15rem;
-  padding: 0.8rem 1.1rem 0.85rem;
+  padding: var(--space-3) var(--space-4) var(--space-3);
   text-align: right;
 }
 .pb-day-n {
   font-family: "Orbitron", var(--font-display);
-  font-size: clamp(1.6rem, 2.6vw, 2.4rem);
+  font-size: var(--title-md);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: 1;
@@ -1238,14 +1256,14 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
   bottom: clamp(2rem, 10vh, 6.5rem);
   width: min(26rem, calc(100vw - 2rem));
   display: grid;
-  gap: 0.7rem;
-  padding: 1rem 1.15rem;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-4);
 }
 .pb-bar-row {
   display: grid;
   grid-template-columns: 5.5rem 1fr auto;
   align-items: center;
-  gap: 0.75rem;
+  gap: var(--space-3);
   font-size: 0.8125rem;
 }
 .pb-bar-row em { font-style: normal; color: var(--pb-ink-soft); font-variant-numeric: tabular-nums; }
@@ -1254,7 +1272,7 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
 .pb-fill {
   position: absolute;
   inset: 0 auto 0 0;
-  border-radius: 99px;
+  border-radius: var(--r-pill);
   background: var(--pb-ink);
   transform-origin: left;
   transform: scaleX(0);
@@ -1268,10 +1286,10 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
   position: absolute;
   top: 0;
   left: 0;
-  padding: 0.3rem 0.6rem;
-  margin-top: -0.6rem;
+  padding: var(--space-1) var(--space-2);
+  margin-top: calc(var(--space-2) * -1);
   color: var(--pb-ink);
-  background: rgba(29, 25, 21, 0.6);
+  background: var(--panel-bg-soft);
   border-radius: 8px;
   font-size: 0.8125rem;
   white-space: nowrap;
@@ -1285,7 +1303,7 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
   position: absolute;
   top: 0;
   left: 0;
-  color: #f6f1e9;
+  color: var(--ink-hi);
   font-family: var(--font-display);
   font-size: clamp(1rem, 1.4vw, 1.3rem);
   font-weight: 600;
@@ -1301,7 +1319,7 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 0.55rem;
+  gap: var(--space-2);
   width: max-content;
   max-width: min(17rem, 30vw);
   opacity: 0;
@@ -1321,12 +1339,12 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
   }
 }
 .pb-term {
-  padding: 0.45rem 0.85rem;
+  padding: var(--space-2) var(--space-3);
   color: var(--pb-ink);
-  background: rgba(29, 25, 21, 0.62);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
-  border-radius: 99px;
+  background: var(--panel-bg-soft);
+  -webkit-backdrop-filter: var(--panel-blur);
+  backdrop-filter: var(--panel-blur);
+  border-radius: var(--r-pill);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
   font-family: "Orbitron", var(--font-display);
   font-size: clamp(0.72rem, 0.95vw, 0.9rem);
@@ -1341,21 +1359,31 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
 .pb-transform { position: absolute; inset: 0; width: 100%; height: 100%; visibility: hidden; opacity: 0; }
 .pb-transform text { font-family: var(--font-display); }
 .pb-transform .is-mid { text-anchor: middle; }
-.pb-transform .pb6-label { font-size: 13px; fill: #9a958d; }
+.pb-transform .pb6-label { font-size: 12px; font-weight: 500; letter-spacing: 0.04em; fill: #a8a39a; }
+/* Labels sit over ducts and dots: a halo of the paper keeps them legible. */
+.pb-transform .pb6-label, .pb-transform .pb6-air {
+  paint-order: stroke; stroke: #2e2c29; stroke-width: 4px; stroke-linejoin: round;
+}
 .pb-transform .pb6-role { font-size: 13px; font-weight: 600; fill: #e4e0da; }
-.pb-transform .pb6-air { font-size: 13px; font-weight: 600; fill: #a9cdd4; }
+.pb-transform .pb6-air { font-size: 12px; font-weight: 600; letter-spacing: 0.03em; fill: #a9cdd4; }
 .pb-transform .pb6-box { font-size: 15px; font-weight: 600; fill: #ffffff; }
 .pb-transform .pb6-plug { font-size: 14px; font-weight: 600; fill: #B46AFF; }
 .pb-transform .pb6-chip { font-size: 10px; font-weight: 700; fill: #e4e0da; }
+/* Stage 8: the panels. */
+.pb-transform .pb8-head { font-family: "Orbitron", var(--font-display); font-size: 15px; font-weight: 700; fill: #ffffff; letter-spacing: 0.02em; }
+.pb-transform .pb8-cell { font-size: 15px; fill: #e4e0da; }
+.pb-transform .pb8-cell.is-changed { fill: #B46AFF; font-weight: 600; }
+.pb-transform .pb8-tag { font-size: 11px; font-weight: 700; fill: #9a958d; text-anchor: end; letter-spacing: 0.08em; text-transform: uppercase; }
+.pb-transform .pb8-tag.is-changed { fill: #B46AFF; }
 .pb-transform .pb6-chip.is-filled { fill: #2e2c29; }
 /* Stage 7: the dryer's name, in the site's title face (its own wordmark is
    "A Kiln on Schedule"), and the batch letters that stay in their bays. */
-.pb-transform .pb7-title { font-family: "Orbitron", var(--font-display); font-size: clamp(1.6rem, 3vw, 2.8rem); font-weight: 700; fill: #ffffff; }
+.pb-transform .pb7-title { font-family: "Orbitron", var(--font-display); font-size: var(--title-md); font-weight: 700; fill: #ffffff; letter-spacing: 0.01em; }
 .pb-transform .pb7-sub { font-size: clamp(0.9rem, 1.2vw, 1.1rem); fill: #e4e0da; }
-.pb-transform .pb7-step { font-size: 13px; font-weight: 600; fill: #B46AFF; letter-spacing: 0.04em; }
-.pb-transform .pb7-tag { font-family: "Orbitron", var(--font-display); font-size: 12px; font-weight: 700; fill: #e4e0da; }
-.pb-transform .pb7-role { font-family: "Orbitron", var(--font-display); font-size: 11.5px; font-weight: 700; letter-spacing: 0.06em; }
-.pb-transform .pb7-desc { font-size: 12.5px; font-weight: 600; }
+.pb-transform .pb7-step { font-size: 11.5px; font-weight: 600; fill: #c99aff; letter-spacing: 0.14em; text-transform: uppercase; }
+.pb-transform .pb7-tag { font-family: var(--font-display); font-size: 12px; font-weight: 700; fill: #e4e0da; }
+.pb-transform .pb7-role { font-family: var(--font-display); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; }
+.pb-transform .pb7-desc { font-size: 12px; font-weight: 500; letter-spacing: 0.02em; }
 /* The tray: an idea lights when the beat that keeps it lands. */
 .pb-term { transition: background-color 400ms ease, color 400ms ease, box-shadow 400ms ease; }
 .pb-term.is-lit { background: rgba(180, 106, 255, 0.28); box-shadow: inset 0 0 0 1px rgba(180, 106, 255, 0.7); }
@@ -1376,41 +1404,32 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
 /* 1. Algorithm */
 .logic-card-art .lc-line { font-size: 21px; }
 .logic-card-art .lc-line { fill: #ffffff; }
-.logic-card-art .lc-line.is-dim { fill: var(--ink-soft); }
 .logic-card-art .lc-bullet { fill: var(--accent); }
 .logic-card-art .lc-box { fill: #332f2b; stroke: var(--line); stroke-width: 2; }
 .logic-card-art .lc-box.is-on { stroke: var(--accent); }
-.logic-card-art .lc-boxtext { font-size: 22px; font-weight: 600; fill: #ffffff; font-variant-numeric: tabular-nums; }
-.logic-card-art .lc-wire { fill: none; stroke: var(--ink-soft); stroke-width: 2; opacity: 0.7; }
-.logic-card-art .lc-wirehead { fill: none; stroke: var(--ink-soft); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.logic-card-art .lc-token { fill: var(--accent); }
-.logic-card-art .lc-sweep { fill: none; stroke: var(--accent); stroke-width: 4; stroke-linecap: round; }
 .logic-card-art .lc-mark { fill: none; stroke: var(--ink-soft); stroke-width: 2; }
-.logic-card-art .lc-tick { fill: none; stroke: var(--ink-soft); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.logic-card-art .lc-mark.is-on,
-.logic-card-art .lc-tick.is-on { stroke: var(--accent); stroke-width: 3; }
+.logic-card-art .lc-mark.is-on { stroke: var(--accent); stroke-width: 3; }
 
 /* 2. Loop */
 .logic-card-art .lc-track { fill: none; stroke: var(--line); stroke-width: 2; }
 .logic-card-art .lc-join { fill: none; stroke: var(--line); stroke-width: 2; }
 .logic-card-art .lc-join.is-on { stroke: var(--accent); stroke-width: 4; }
-.logic-card-art .lc-dot { fill: #3b3733; }
-.logic-card-art .lc-dot.is-on { fill: var(--accent); }
-.logic-card-art .lc-dotnum { text-anchor: middle; font-size: 16px; font-weight: 600; fill: var(--ink); pointer-events: none; }
-.logic-card-art .lc-marker { fill: none; stroke: var(--accent); stroke-width: 3; }
-.logic-card-art .lc-big { text-anchor: middle; font-family: "Orbitron", var(--font-display); font-size: 64px; font-weight: 700; fill: #ffffff; }
 .logic-card-art .lc-soft.is-on { fill: var(--accent); font-weight: 600; }
 
-/* 5. Trigger: the wire lights as the clock comes round; the tiles' input is
-   an empty socket, dashed and unlit. */
-.logic-card-art .lc-wire.is-on,
-.logic-card-art .lc-wirehead.is-on { stroke: var(--accent); opacity: 1; }
-.logic-card-art .lc-socket { fill: none; stroke: var(--ink-soft); stroke-width: 2; stroke-dasharray: 5 5; }
-.logic-card-art .lc-line-soft { font-size: 15px; font-weight: 600; fill: var(--ink); }
+/* 3. Pipeline */
+.logic-card-art .lc-path { fill: none; stroke: var(--accent); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.logic-card-art .lc-rule { fill: none; stroke-width: 3; stroke-linecap: round; }
+.logic-card-art .lc-rule.is-empty { stroke: var(--ink-soft); stroke-width: 1.5; stroke-dasharray: 4 4; }
+
+/* 5. Trigger: a timer that rides over the fire and fills to two hours. */
+.logic-card-art .lc-timer { fill: #3b3733; }
+.logic-card-art .lc-timer.is-on { fill: var(--accent); }
 
 /* 4. Forwarding */
-.logic-card-art .lc-flow { fill: none; stroke: #f0b24a; stroke-width: 3; stroke-linecap: round; }
-.logic-card-art .lc-flowhead { fill: none; stroke: #f0b24a; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.logic-card-art .lc-flow { fill: none; stroke: var(--accent); stroke-width: 3; stroke-linecap: round; }
+.logic-card-art .lc-flowhead { fill: none; stroke: var(--accent); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.logic-card-art .lc-heat { fill: var(--ink-soft); }
+.logic-card-art .lc-heat.is-fed { fill: var(--accent); }
 
 /* The kiln's own labels belong to the dashboard. Until it is revealed the
    kiln is the intro's drawing and then the tour's, and the cards do the
@@ -1447,7 +1466,7 @@ body.touring .label-layer {
  * mistaken for a heading.
  */
 .wordmark {
-  font-size: 1.75rem;
+  font-size: var(--fs-figure);
   font-stretch: 125%;
   font-weight: 800;
   line-height: 1;
@@ -1466,7 +1485,7 @@ body.touring .label-layer {
   color: var(--sand);
   background: transparent;
   border: 1px solid var(--clay-line);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: var(--space-2) var(--space-4);
   cursor: pointer;
   white-space: nowrap;
@@ -1489,7 +1508,7 @@ body.touring .label-layer {
   height: 12px;
   margin: 0;
   border: 1px solid var(--sand-dim);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: transparent;
   cursor: pointer;
 }
@@ -1520,7 +1539,9 @@ body.touring .label-layer {
 .pill:focus-within,
 summary:focus-visible,
 a:focus-visible,
-input:focus-visible {
+input:focus-visible,
+#chart:focus-visible,
+#ring-canvas:focus-visible {
   outline: 2px solid var(--sand-bright);
   outline-offset: 3px;
 }
@@ -1545,7 +1566,7 @@ input:focus-visible {
  * into, same as the original one-screen design, so it gets an explicit
  * floor here instead of relying on flex-grow to hand it one.
  */
-.stage { min-height: 100vh; }
+.stage { min-height: 100vh; min-height: 100dvh; }
 
 /*
  * Storytelling phase (new): the page now opens on the intro sequence, not the
@@ -1706,9 +1727,10 @@ body.pre-reveal .transport {
   padding: var(--space-2) var(--space-4);
   cursor: pointer;
   min-width: 5.5rem;
+  min-height: 2.75rem;          /* a comfortable touch target */
 }
 
-.ctrl:hover { border-color: var(--sand-dim); }
+.ctrl:hover { border-color: var(--sand-bright); color: var(--sand-bright); }
 
 /*
  * Play is the one filled control on the page: the thing a visitor walking up
@@ -1727,7 +1749,7 @@ body.pre-reveal .transport {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  color: var(--sand-faint);
+  color: var(--sand-dim);
 }
 
 .speed input { width: 7rem; accent-color: var(--sand-dim); }
@@ -2091,7 +2113,7 @@ body.pre-reveal .transport {
 
 /* The firing row is the only place heat colour appears outside the ring. */
 .debug-pane tr.is-fire td { color: var(--heat-4); }
-.debug-pane tr.is-empty td { color: var(--sand-faint); }
+.debug-pane tr.is-empty td { color: var(--sand-dim); }
 
 .debug-pane button {
   font-size: var(--fs-micro);
@@ -2240,7 +2262,7 @@ body.pre-reveal .transport {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2) var(--space-5);
+  gap: var(--space-2) var(--space-6);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -2262,6 +2284,7 @@ body.pre-reveal .transport {
   justify-self: end;
   min-width: 0;
   padding: var(--space-1) 0;
+  min-height: 2.75rem;
   border: 0;
   /* A resting underline: in sentence case it is otherwise just a phrase. */
   border-bottom: 1px solid var(--sand-faint);
@@ -2313,10 +2336,10 @@ body.pre-reveal .transport {
 .sheet-body {
   max-height: calc(88vh - 4.5rem);
   overflow-y: auto;
-  padding: 0 var(--space-4) var(--space-5);
+  padding: 0 var(--space-4) var(--space-6);
 }
 
-.src-section { padding-top: var(--space-5); }
+.src-section { padding-top: var(--space-6); }
 
 .src-head {
   display: flex;
@@ -2440,7 +2463,7 @@ body.pre-reveal .transport {
   margin: var(--space-2) 0 0;
   font-family: var(--font-mono);
   font-size: var(--fs-micro);
-  color: var(--sand-faint);
+  color: var(--sand-dim);
   overflow-wrap: anywhere;
 }
 
@@ -2462,3 +2485,55 @@ body.pre-reveal .transport {
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* --------------------------------------------------------------------------
+   skip link, headline wrapping
+   -------------------------------------------------------------------------- */
+
+.skip-link {
+  position: fixed;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 100;
+  padding: var(--space-3) var(--space-4);
+  color: var(--soot);
+  background: var(--sand-bright);
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(-200%);
+}
+.skip-link:focus { transform: none; }
+#story-end { height: 1px; }
+.intro-title, .logic-intro h2, .logic-question h2 { text-wrap: balance; }
+
+/* --------------------------------------------------------------------------
+   character rise (views/charRise.js)
+
+   Each line is a window; each character rises through it from below, so
+   nothing fades: it comes up out of the line's own edge. The padding gives
+   ascenders and descenders room inside the window, and the negative margin
+   hands that room back so line spacing is unchanged.
+   -------------------------------------------------------------------------- */
+
+.cr-line {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  padding: 0.16em 0 0.22em;
+  margin: -0.16em 0 -0.22em;
+}
+.cr-word { display: inline-block; white-space: nowrap; }
+.cr-char { display: inline-block; transform: translateY(120%); will-change: transform; }
+
+/* Hidden until it has been split, so the plain text never flashes; and shown
+   anyway after a few seconds if the script never runs. */
+.cr:not(.cr-ready) { visibility: hidden; animation: cr-fallback 0s linear 2.5s forwards; }
+@keyframes cr-fallback { to { visibility: visible; } }
+@media (prefers-reduced-motion: reduce) { .cr-char { transform: none !important; transition: none !important; } }
+
+/* A whole line that fades in on a cue (main.js adds .is-in). If the script
+   never runs it still arrives, after a few seconds. */
+.fade-in { opacity: 0; transition: opacity 900ms var(--ease-out); animation: fade-fallback 0s linear 4s forwards; }
+.fade-in.is-in { opacity: 1; }
+@keyframes fade-fallback { to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .fade-in { opacity: 1; transition: none; } }
