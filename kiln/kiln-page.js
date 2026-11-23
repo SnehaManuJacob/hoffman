@@ -186,11 +186,11 @@ barChart($('#decline'), [
  * so.
  */
 const PHOTOS = {
-  chambers: { src: 'chambers.jpg', cap: 'Inside the firing tunnel, Huatan Hoffmann kiln, Taiwan.', credit: 'Kai3952, CC BY-SA 4.0' },
-  stokeHoles: { src: 'stokeHoles.jpg', cap: 'A stoke hole, ring kiln at Sehnde, Germany.', credit: 'Hamelenser, CC BY-SA 3.0' },
+  chambers: { src: 'field/tiles-stacked.jpg', cap: 'Tiles stacked in a chamber, seen from the doorway. Prabhakar Tile Factory, Kundapur.', field: true, pos: '50% 60%' },
+  stokeHoles: { src: 'field/fire-hole.jpg', cap: 'The fire, seen down an open hole in the roof. Prabhakar Tile Factory, Kundapur.', field: true, pos: '50% 60%' },
   wicketDoors: { src: 'wicketDoors.jpg', cap: 'A side opening into the ring kiln at Sehnde, Germany.', credit: 'Hamelenser, CC BY-SA 3.0' },
-  walkway: { src: 'fire.jpg', cap: 'The roof and stoking floor of the ring kiln at Lage, Germany.', credit: 'ZornigeAmeise2017, CC BY-SA 4.0' },
-  tiles: { src: 'tiles.jpg', cap: 'Mangalore tiles from the Basel Mission tile works, 1865.', credit: 'Yadvendu, CC BY-SA 4.0' },
+  walkway: { src: 'field/roof-caps.jpg', cap: 'The roof of the kiln: lidded fuel holes in rows, with firewood stacked alongside. Prabhakar Tile Factory, Kundapur.', field: true, pos: '50% 70%' },
+  tiles: { src: 'field/tile.jpg', cap: 'A finished Mangalore tile, stamped with the works’ name. Prabhakar Tile Factory, Kundapur.', field: true, pos: '50% 40%' },
   flueDuct: { src: 'airPath.jpg', cap: 'Inside the ring kiln at Sehnde, Germany.', credit: 'Hamelenser, CC BY-SA 3.0' },
 };
 const PART_ORDER = ['chambers', 'stokeHoles', 'tiles', 'walkway', 'wicketDoors', 'dividingWalls', 'partition', 'dampers', 'flueDuct', 'kilnIsland', 'chimney'];
@@ -226,9 +226,9 @@ function showPart(id) {
     h('h3', {}, c.label),
     h('p', { class: 'kp-part-ev' }, chip(c.tag), h('span', { text: e.label })),
     h('p', { class: 'kp-part-text', text: c.note }),
-    photo ? h('figure', { class: 'kp-part-photo' },
-      h('img', { src: `./assets/tour/${photo.src}`, alt: photo.cap, loading: 'lazy' }),
-      h('figcaption', {}, h('span', { text: photo.cap }), h('em', { text: `Another kiln, not Kundapur. Photo: ${photo.credit}.` })))
+    photo ? h('figure', { class: photo.field ? 'kp-part-photo is-field' : 'kp-part-photo' },
+      h('img', { src: `./assets/${photo.field ? '' : 'tour/'}${photo.src}`, alt: photo.cap, loading: 'lazy', style: photo.pos ? `object-position:${photo.pos}` : null }),
+      h('figcaption', {}, h('span', { text: photo.cap }), h('em', { text: photo.field ? 'Field photograph, seen on the visit.' : `Another kiln, not Kundapur. Photo: ${photo.credit}.` })))
       : null,
   ].filter(Boolean));
 }
@@ -625,7 +625,7 @@ const SOURCES = [
   { kind: 'News', cite: 'Udayavani (2022). Mangalore tile industry in state of decline.', url: 'https://www.udayavani.com/english-news/mangalore-tile-industry-in-state-of-decline', note: 'From about 75 factories to three. The same PTI report ran in ThePrint.' },
   { kind: 'Government report', cite: 'Bureau of Energy Efficiency (2012). Detailed project reports, Mangalore tile cluster.', url: 'https://sameeeksha.org/pdf/dpr/Mangalore_tiles_cluster/', note: 'Exhaust at 350–400 °C, no measurement in the cluster, 32–36 chambers, the heat-recovery fan. Projections, not outcomes.' },
   { kind: 'Manual', cite: 'Centre for Science and Environment. Zigzag Kilns: A Design Manual.', url: 'https://cseindia.org/zigzag-kilns-a-design-manual-8525', note: 'Bull’s trench and zigzag kilns.' },
-  { kind: 'Images', cite: 'Six photographs of other Hoffmann kilns, Wikimedia Commons, CC BY-SA 3.0 / 4.0. Authors: Kai3952, Hamelenser, ZornigeAmeise2017, Yadvendu.', note: 'Each with its source page, listed in assets/tour/CREDITS.md.' },
+  { kind: 'Images', cite: 'Four photographs of other Hoffmann kilns and Mangalore tiles, Wikimedia Commons, CC BY-SA 3.0 / 4.0. Authors: Kai3952, Hamelenser, ZornigeAmeise2017, Yadvendu.', note: 'Each with its source page, listed in assets/tour/CREDITS.md. The photographs of the chamber, roof, fire and tile at Kundapur are the field visit’s own (assets/field/).' },
 ];
 $('#page-sources').replaceChildren(...SOURCES.map((s) => h('li', {},
   h('span', { class: 'kp-src-kind', text: s.kind }),

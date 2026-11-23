@@ -15,8 +15,8 @@
     backdrop silently went white that way). views/intro.js reuses its own
     stamp for assets/factory.glb, so the model is covered too.
   -->
-  <link rel="stylesheet" href="site.css?v=20261123b">
-  <link rel="stylesheet" href="style.css?v=20261123b">
+  <link rel="stylesheet" href="site.css?v=20261123i">
+  <link rel="stylesheet" href="style.css?v=20261123i">
 
   <!--
     three.js is vendored locally (kiln/vendor/) rather than loaded from a CDN so
@@ -27,29 +27,29 @@
   {
     "imports": {
       "three": "./vendor/three.module.js",
-      "./scroll.js": "./scroll.js?v=20261123b",
-      "./nav.js": "./nav.js?v=20261123b",
-      "./main.js": "./main.js?v=20261123b",
-      "./config.js": "./config.js?v=20261123b",
-      "./engine.js": "./engine.js?v=20261123b",
-      "./history.js": "./history.js?v=20261123b",
-      "./checks.js": "./checks.js?v=20261123b",
-      "./views/charRise.js": "./views/charRise.js?v=20261123b",
-      "./views/intro.js": "./views/intro.js?v=20261123b",
-      "./views/ring.js": "./views/ring.js?v=20261123b",
-      "./views/panel.js": "./views/panel.js?v=20261123b",
-      "./views/labels.js": "./views/labels.js?v=20261123b",
-      "./views/chart.js": "./views/chart.js?v=20261123b",
-      "./views/evidence.js": "./views/evidence.js?v=20261123b",
-      "./views/clock.js": "./views/clock.js?v=20261123b",
-      "./views/heatRamp.js": "./views/heatRamp.js?v=20261123b",
-      "./views/kilnPath.js": "./views/kilnPath.js?v=20261123b",
-      "./views/anatomy.js": "./views/anatomy.js?v=20261123b",
-      "./views/logic.js": "./views/logic.js?v=20261123b",
-      "./views/problem.js": "./views/problem.js?v=20261123b",
-      "./views/transform.js": "./views/transform.js?v=20261123b",
-      "./views/building.js": "./views/building.js?v=20261123b",
-      "./tourRun.js": "./tourRun.js?v=20261123b"
+      "./scroll.js": "./scroll.js?v=20261123i",
+      "./nav.js": "./nav.js?v=20261123i",
+      "./main.js": "./main.js?v=20261123i",
+      "./config.js": "./config.js?v=20261123i",
+      "./engine.js": "./engine.js?v=20261123i",
+      "./history.js": "./history.js?v=20261123i",
+      "./checks.js": "./checks.js?v=20261123i",
+      "./views/charRise.js": "./views/charRise.js?v=20261123i",
+      "./views/intro.js": "./views/intro.js?v=20261123i",
+      "./views/ring.js": "./views/ring.js?v=20261123i",
+      "./views/panel.js": "./views/panel.js?v=20261123i",
+      "./views/labels.js": "./views/labels.js?v=20261123i",
+      "./views/chart.js": "./views/chart.js?v=20261123i",
+      "./views/evidence.js": "./views/evidence.js?v=20261123i",
+      "./views/clock.js": "./views/clock.js?v=20261123i",
+      "./views/heatRamp.js": "./views/heatRamp.js?v=20261123i",
+      "./views/kilnPath.js": "./views/kilnPath.js?v=20261123i",
+      "./views/anatomy.js": "./views/anatomy.js?v=20261123i",
+      "./views/logic.js": "./views/logic.js?v=20261123i",
+      "./views/problem.js": "./views/problem.js?v=20261123i",
+      "./views/transform.js": "./views/transform.js?v=20261123i",
+      "./views/building.js": "./views/building.js?v=20261123i",
+      "./tourRun.js": "./tourRun.js?v=20261123i"
     }
   }
   </script>
@@ -85,6 +85,9 @@
       <div class="intro-copy">
         <h2 class="intro-title cr">What can an old kiln teach us about designing new systems?</h2>
         <p class="intro-sub fade-in">A century-old approach to tile firing holds remarkable ideas about heat recovery, continuous processes and resource efficiency.</p>
+        <!-- The one instruction the opening needs: the scroll drives the
+             story. Fades out with the question once the visitor scrolls. -->
+        <p class="intro-cue fade-in" aria-hidden="true"><span>Scroll to begin</span><i></i></p>
       </div>
 
       <!--
@@ -233,6 +236,38 @@
     </div>
   </section>
   <div id="story-end" tabindex="-1"></div>
+
+  <!--
+    The way on. The story ends on its question; this is where the visitor
+    goes next, on the clay the page opened on, so the story closes on the
+    ground it began from. The same three doors every other page ends with,
+    and a way back to the start for the next visitor at the exhibition
+    laptop. It slides up over the last scene (problem.js keeps that scene
+    drawn while it scrolls away). The skip link lands just above it.
+  -->
+  <section class="story-next" aria-labelledby="story-next-h">
+    <div class="story-next-in">
+      <p class="story-next-mark">The story ends here</p>
+      <h2 id="story-next-h">Where next</h2>
+      <nav class="story-doors" aria-label="Where next">
+        <a class="story-door" href="./kiln.html">
+          <span class="story-door-k">The kiln</span>
+          <span class="story-door-t">How the Hoffmann kiln works, and a model you can run.</span>
+        </a>
+        <a class="story-door" href="./proposal.html">
+          <span class="story-door-k">The proposal</span>
+          <span class="story-door-t">The Drying Cycle, and what remains to be tested.</span>
+        </a>
+        <a class="story-door" href="./evidence.html">
+          <span class="story-door-k">The evidence</span>
+          <span class="story-door-t">Where every claim on the site comes from.</span>
+        </a>
+      </nav>
+      <!-- "#top" scrolls to the top of the page even where the intro is
+           hidden (narrow screens and reduced motion skip it). -->
+      <a class="story-restart" href="#top">Back to the start</a>
+    </div>
+  </section>
 
   <!--
     Top bar: wordmark left, evidence pill right.

@@ -424,6 +424,7 @@
 .kp-part-text { margin: var(--space-4) 0 0; color: var(--k-ink); font-size: var(--fs-body); line-height: 1.6; text-wrap: pretty; }
 .kp-part-photo { margin: var(--space-5) 0 0; }
 .kp-part-photo img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 10px; }
+.kp-part-photo.is-field img { aspect-ratio: 4 / 5; max-height: 30rem; }
 .kp-part-photo figcaption { display: grid; gap: var(--space-1); margin-top: var(--space-3); font-size: var(--kp-cap); line-height: 1.45; color: var(--k-ink); }
 .kp-part-photo em { color: var(--k-ink-soft); font-style: normal; }
 

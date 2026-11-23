@@ -136,15 +136,17 @@ export const TOUR = [
  * sources and licences: assets/tour/CREDITS.md. `credit` is the attribution
  * the licence asks for, written as a sentence rather than a string of codes.
  */
-const IMG = './assets/tour/';
+const IMG = './assets/';
 // Only the two cold steps carry a picture: there the drawing is still an
 // abstract outline, and a photograph says "this is a real tunnel, real
 // tiles". Once the kiln is lit, the drawing is the thing to watch, and a
 // picture beside it would compete. (The doorway, stoke-hole and tunnel
 // photographs stay in assets/tour/ and CREDITS.md for the evidence sheet.)
+// The two photographs are the field visit's own (assets/field/), taken at
+// Prabhakar Tile Factory, Kundapur, so they carry no "other kiln" disclaimer.
 export const FIGURES = {
-  chambers: { caption: 'Inside the firing tunnel of a Hoffmann kiln. Huatan, Taiwan.', credit: 'Photo by Kai3952, CC BY-SA 4.0' },
-  tiles: { caption: 'Mangalore tiles from the Basel Mission tile works, 1865.', credit: 'Photo by Yadvendu, CC BY-SA 4.0' },
+  chambers: { src: 'field/tiles-stacked.jpg', dims: [720, 960], pos: '50% 60%', caption: 'Tiles stacked in a chamber, seen from the doorway. Prabhakar Tile Factory, Kundapur.', field: true },
+  tiles: { src: 'field/tile.jpg', dims: [720, 960], pos: '50% 40%', caption: 'A finished Mangalore tile, stamped with the works’ name. Prabhakar Tile Factory, Kundapur.', field: true },
 };
 
 /** Scroll per step, in viewport heights, and the empty run after the last. */
@@ -183,6 +185,9 @@ const FIRE = { LIGHT: 0.07, FIRST_END: 0.40, LOOP_END: 0.94 };
 // How much closer the kiln is drawn during the fire step, at most; less where
 // the window has no room for it.
 const FIRE_ZOOM = 1.12;
+/** Below this width the panels go above and below the kiln, not beside it
+ *  (the same break the drying problem's tray uses, style.css). */
+const NARROW = 720;
 
 /**
  * "Heat, handed forward", as shares of its scroll. Three beats:
@@ -288,12 +293,11 @@ export function createAnatomy({ sectionEl, ring, run }) {
   const figure = sectionEl.querySelector('.anatomy-figure');
   const figImg = figure.querySelector('img');
   // Intrinsic sizes, so the browser reserves the box before the file arrives.
-  const DIMS = { chambers: [960, 720], tiles: [960, 547] };
   const figCap = figure.querySelector('.anatomy-figure-cap');
   const figNote = figure.querySelector('.anatomy-figure-note');
   // Fetched up front, so a step's image is there when its card arrives
   // rather than popping in half-way through the step.
-  for (const id of Object.keys(FIGURES)) new Image().src = `${IMG}${id}.jpg`;
+  for (const id of Object.keys(FIGURES)) new Image().src = `${IMG}${FIGURES[id].src}`;
   const svg = sectionEl.querySelector('.anatomy-leader');
   const line = svg.querySelector('line');
   const dot = svg.querySelector('.leader-dot');
@@ -631,14 +635,17 @@ export function createAnatomy({ sectionEl, ring, run }) {
     const fig = FIGURES[step.id];
     figure.hidden = !fig;
     if (fig) {
-      figImg.src = `${IMG}${step.id}.jpg`;
+      figImg.src = `${IMG}${fig.src}`;
       figImg.decoding = 'async';
-      if (DIMS[step.id]) [figImg.width, figImg.height] = DIMS[step.id];
+      [figImg.width, figImg.height] = fig.dims;
+      figImg.style.objectPosition = fig.pos ?? '50% 50%';
       // The figcaption beside it says what the picture is; an alt that
       // repeated it would be read twice.
       figImg.alt = '';
       figCap.textContent = fig.caption;
-      figNote.textContent = `Reference image, not Prabhakar Tile Factory. ${fig.credit}, via Wikimedia Commons.`;
+      figNote.textContent = fig.field
+        ? 'Field photograph, seen on the visit.'
+        : `Reference image, not Prabhakar Tile Factory. ${fig.credit}, via Wikimedia Commons.`;
     }
     svg.dataset.mode = step.focus ? 'part' : 'whole';
     shown = i;
@@ -701,8 +708,12 @@ export function createAnatomy({ sectionEl, ring, run }) {
    */
   function clearFit() {
     const w = ring.renderer.domElement.clientWidth || 1;
-    const margin = Math.max(24, w * 0.04);
-    const reserve = Math.max(card.offsetWidth, compute.offsetWidth, recover.offsetWidth, figure.offsetWidth) + margin + 28;
+    const narrow = w < NARROW;
+    const margin = narrow ? 16 : Math.max(24, w * 0.04);
+    // On a narrow screen the panels sit above and below the kiln, not beside
+    // it, so the kiln keeps the whole width.
+    const reserve = narrow ? margin
+      : Math.max(card.offsetWidth, compute.offsetWidth, recover.offsetWidth, figure.offsetWidth) + margin + 28;
     return Math.min(1, Math.max(0.45, (w - 2 * reserve) / (ring.kilnShare() * w)));
   }
 
@@ -804,14 +815,20 @@ export function createAnatomy({ sectionEl, ring, run }) {
     const { camera, renderer } = ring;
     const w = renderer.domElement.clientWidth;
     const h = renderer.domElement.clientHeight;
-    const margin = Math.max(24, w * 0.04);
+    // Narrow (a phone held upright): no margins beside the kiln wide enough
+    // for a note. The note docks along the bottom at full width, the
+    // computed panel along the top, the photograph is left out, and the
+    // colour of the part (the key on the note) does the pointing.
+    const narrow = w < NARROW;
+    const margin = narrow ? 16 : Math.max(24, w * 0.04);
 
     // Keep the kiln clear of the panels. The same room is kept on both sides
     // for the whole tour — the widest panel plus a gap — so the kiln stays
     // centred and one size from the first step to the last, and nothing is
     // ever drawn underneath a panel. It eases down from the intro's full-size
     // kiln as the tour opens, and back up as it closes.
-    const reserve = Math.max(card.offsetWidth, compute.offsetWidth, recover.offsetWidth, figure.offsetWidth) + margin + 28;
+    const reserve = narrow ? margin
+      : Math.max(card.offsetWidth, compute.offsetWidth, recover.offsetWidth, figure.offsetWidth) + margin + 28;
     const fit = Math.min(1, Math.max(0.45, (w - 2 * reserve) / (ring.kilnShare() * w)));
     const settle = smooth(-LEAD_VH, SETTLE_VH, scrolled) * (1 - smooth(steps + TAIL_VH * 0.5, steps + TAIL_VH, scrolled));
     // The fire step has only the note and the computed panel up, and the note
@@ -829,9 +846,27 @@ export function createAnatomy({ sectionEl, ring, run }) {
     // panel steps, so the kiln does not step back and forward again as one
     // note gives way to the next.
     const held = isFire ? smooth(0, 0.14 * k, f) : isAir ? 1 : isRecover ? fadeOut : 0;
-    const near = fireFit > fit ? held : 0;
+    const near = !narrow && fireFit > fit ? held : 0;
     const zoom = fit + (fireFit - fit) * near;
-    ring.setZoom(1 + (zoom - 1) * settle, ((card.offsetWidth - pw) / 2) * near);
+    if (narrow) {
+      // On a phone the panels are above and below, not beside: from the fire
+      // on, the kiln eases into the gap between the panel along the top and
+      // the note along the bottom, made small enough to fit it, so the panel
+      // never covers the chamber that is firing.
+      const topY = margin + (panel ?? compute).offsetHeight + 12;
+      // The last step hangs a temperature under the kiln: room for it too.
+      const botY = h - card.offsetHeight - margin - (isRecover ? 56 : 12);
+      const room = Math.max(80, botY - topY);
+      const b = ring.path.bounds;
+      const halfBand = ring.kilnShare() * Math.abs(ring.camera.right) - (b.maxX - b.minX) / 2;
+      const kilnH = ((b.maxZ - b.minZ) / 2 + halfBand) / Math.abs(ring.camera.top) * h;   // px, at zoom 1
+      const gapFit = Math.min(fit, room / Math.max(1, kilnH));
+      const zoomN = fit + (gapFit - fit) * held;
+      const panY = ((topY + botY) / 2 - h / 2) * held;
+      ring.setZoom(1 + (zoomN - 1) * settle, 0, panY * settle);
+    } else {
+      ring.setZoom(1 + (zoom - 1) * settle, ((card.offsetWidth - pw) / 2) * near);
+    }
 
     if (panel) {
       // No leader and no image: the note takes the left margin, the computed
@@ -856,8 +891,13 @@ export function createAnatomy({ sectionEl, ring, run }) {
       } else show(panel, a * reveal);
       placeNumbers(m ?? { fireAt: pair.on.firePos }, w, h, a);
       if (isRecover) placeArrive(rm, w, h); else arriveEl.style.opacity = '0';
-      placeSays(isRecover ? f : null, h, a, w - 2 * margin - card.offsetWidth - panel.offsetWidth - 72);
+      placeSays(isRecover ? f : null, h, a, narrow ? w - 2 * margin : w - 2 * margin - card.offsetWidth - panel.offsetWidth - 72);
       card.dataset.side = 'left';
+      if (narrow) {
+        card.style.transform = `translate(${margin}px, ${(h - card.offsetHeight - margin).toFixed(1)}px)`;
+        panel.style.transform = `translate(${margin}px, ${margin}px)`;
+        return;
+      }
       card.style.transform = `translate(${margin.toFixed(1)}px, ${Math.max(24, (h - card.offsetHeight) / 2).toFixed(1)}px)`;
       panel.style.transform = `translate(${(w - margin - panel.offsetWidth).toFixed(1)}px, ${Math.max(16, (h - panel.offsetHeight) / 2).toFixed(1)}px)`;
       return;
@@ -882,6 +922,13 @@ export function createAnatomy({ sectionEl, ring, run }) {
       }
     };
     card.dataset.on = 'true';
+    if (narrow) {
+      hide(figure);
+      svg.style.opacity = '0';
+      card.dataset.side = 'left';
+      card.style.transform = `translate(${margin}px, ${(h - card.offsetHeight - margin).toFixed(1)}px)`;
+      return;
+    }
     if (figure.hidden) hide(figure); else show(figure, a);
 
     // Leader line: from the part to the near edge of the card, which sits in

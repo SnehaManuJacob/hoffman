@@ -19,6 +19,10 @@
 const STIFFNESS = 6;            // ~0.8 s to settle; the old drying spring was 3.2
 const LINE_PX = 40;             // one "line" of a wheel that reports lines
 const KEY_PX = 48;              // one arrow-key press
+const MAX_WHEEL_PX = 120;       // most one wheel event may add: a trackpad flick fires dozens
+const MAX_LEAD = 0.7;           // how far ahead of the page the target may run, in viewport heights
+                                // (a flick can't queue up several screens of travel and carry
+                                // you past the words)
 
 export function createSmoothScroll() {
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -39,7 +43,9 @@ export function createSmoothScroll() {
     if (Math.abs(ev.deltaX) > Math.abs(ev.deltaY)) return;          // a sideways gesture
     const unit = ev.deltaMode === 1 ? LINE_PX : ev.deltaMode === 2 ? window.innerHeight : 1;
     ev.preventDefault();
-    target = clamp(target + ev.deltaY * unit);
+    const step = Math.max(-MAX_WHEEL_PX, Math.min(MAX_WHEEL_PX, ev.deltaY * unit));
+    const lead = window.innerHeight * MAX_LEAD;
+    target = clamp(Math.max(pos - lead, Math.min(pos + lead, target + step)));
   }
 
   function onKey(ev) {

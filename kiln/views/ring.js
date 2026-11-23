@@ -2033,15 +2033,23 @@ export function createRing(canvas, options = {}) {
    * tour uses it to keep the kiln clear of the panels either side of it.
    * resize() leaves the zoom alone, so it survives a window resize.
    */
-  function setZoom(z, panPx = 0) {
+  function setZoom(z, panPx = 0, panYPx = 0) {
     // panPx slides the drawing sideways on screen (+ is right), for when the
     // room either side of the kiln is not the same. The camera looks straight
     // down with world x along screen x, so it moves the other way.
+    // panYPx does the same up and down (+ is down), for a phone, where the
+    // panels sit above and below the kiln. With `up` at -Z the frustum's top
+    // and bottom are flipped (resize()), so here the camera moves to +z to
+    // carry the drawing down (checked on screen, not just on paper).
     const w = renderer.domElement.clientWidth || 1;
+    const h = renderer.domElement.clientHeight || 1;
     const x = -(2 * panPx / w) * Math.abs(camera.right) / z;
-    if (Math.abs(camera.zoom - z) < 1e-4 && Math.abs(camera.position.x - x) < 1e-4) return;
+    const zz = (2 * panYPx / h) * Math.abs(camera.top) / z;
+    if (Math.abs(camera.zoom - z) < 1e-4 && Math.abs(camera.position.x - x) < 1e-4
+      && Math.abs(camera.position.z - zz) < 1e-4) return;
     camera.zoom = z;
     camera.position.x = x;
+    camera.position.z = zz;
     camera.updateProjectionMatrix();
     camera.updateMatrixWorld();
   }

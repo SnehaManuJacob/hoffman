@@ -386,7 +386,8 @@ export const SOURCES = [
     group: 'Images',
     local: true,
     items: [
-      { cite: 'Six photographs of other Hoffmann kilns and of 1865 Mangalore tiles. Wikimedia Commons, CC BY-SA 3.0 / 4.0. Kai3952, Hamelenser, ZornigeAmeise2017, Yadvendu.', url: null, type: 'Images', supports: 'The kiln page’s parts. Each source page is in kiln/assets/tour/CREDITS.md.' },
+      { cite: 'Photographs of the kiln at Prabhakar Tile Factory, Kundapur: tiles stacked in a chamber, the roof, the fire seen down a fuel hole, a finished tile.', url: null, type: 'Images', supports: 'The kiln tour and the kiln page’s parts. Field photographs, in kiln/assets/field/.' },
+      { cite: 'Photographs of other Hoffmann kilns. Wikimedia Commons, CC BY-SA 3.0 / 4.0. Kai3952, Hamelenser, ZornigeAmeise2017, Yadvendu.', url: null, type: 'Images', supports: 'The kiln page’s parts not photographed at Kundapur. Each source page is in kiln/assets/tour/CREDITS.md.' },
     ],
   },
 ];

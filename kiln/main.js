@@ -64,8 +64,13 @@ if (reduceMotion) {
   // .fade-in in the markup, so it never shows before its cue), starting while
   // the last of the title's characters are still rising.
   const sub = document.querySelector('.intro-sub');
+  const cue = document.querySelector('.intro-cue');
   ((document.fonts && document.fonts.ready) || Promise.resolve())
-    .then(() => setTimeout(() => sub.classList.add('is-in'), 1850));
+    .then(() => {
+      setTimeout(() => sub.classList.add('is-in'), 1850);
+      // The scroll cue last, once there is something to read first.
+      setTimeout(() => cue && cue.classList.add('is-in'), 2900);
+    });
   intro = createIntro({
     sectionEl: introSection,
     canvas: document.getElementById('intro-canvas'),

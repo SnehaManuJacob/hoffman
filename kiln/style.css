@@ -189,6 +189,48 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
   line-height: 1.4;
 }
 
+/* "Scroll to begin", with a short line that runs down and repeats: the
+   only motion on the opening screen that is not the model itself. */
+.intro-cue {
+  /* At the right end of the deck's line, out of the copy's flow: the
+     question has to stay in the clear strip below the yard wall, and a
+     taller block would push it up over the wall. */
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0;
+  color: #3d3731;
+  font-size: var(--fs-micro);
+  font-stretch: 72%;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.intro-cue i {
+  position: relative;
+  width: 1px;
+  height: 1.75rem;
+  overflow: hidden;
+  background: rgba(29, 25, 21, 0.18);
+}
+.intro-cue i::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: -40%;
+  width: 1px;
+  height: 40%;
+  background: #1d1915;
+  animation: intro-cue 1.8s var(--ease-out) infinite;
+}
+@keyframes intro-cue { to { top: 100%; } }
+@media (prefers-reduced-motion: reduce) { .intro-cue i::after { animation: none; top: 30%; } }
+/* Too narrow to share the deck's line: under it, still out of the flow. */
+@media (max-width: 900px) { .intro-cue { right: auto; left: 0; bottom: auto; top: calc(100% + var(--space-3)); } }
+
 /*
  * The project statement, during the blueprint phase. Top right, in the
  * drawing's light ink on its dark-grey paper. Hidden until views/intro.js
@@ -760,6 +802,17 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
 }
 .anatomy-numbers span.is-fire { background: var(--tour-accent); color: #1d1030; }
 
+/* A phone held upright (views/anatomy.js, NARROW): no margin beside the
+   kiln wide enough for a note, so the note docks along the bottom and the
+   computed panels along the top, each the screen's width less 1rem a side.
+   The photograph is left out; the kiln and the note carry the step. */
+@media (max-width: 719.98px) {
+  .anatomy-card,
+  .anatomy-compute,
+  .anatomy-recover { width: calc(100vw - 2rem); }
+  .anatomy-figure { display: none; }
+}
+
 /* --------------------------------------------------------------------------
    "The logic in the kiln" (views/logic.js)
 
@@ -895,6 +948,26 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
   text-wrap: pretty;
 }
 .logic-card-art { display: block; width: 100%; height: 100%; overflow: visible; }
+/* A phone held upright: side by side left a one-word-wide column of text
+   and a drawing at half size. Words above, drawing below, the panel the
+   screen's width less 1rem a side. (logic.js places the cells from the
+   drawing's own box, so they follow it.) */
+@media (max-width: 719.98px) {
+  .logic-panel,
+  .logic-card {
+    width: calc(100vw - 2rem);
+    height: min(40rem, 84vh);
+  }
+  .logic-card {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    align-items: stretch;
+    gap: var(--space-5);
+    padding: var(--space-6) var(--space-5);
+  }
+  .logic-card-n { margin-bottom: var(--space-3); }
+  .logic-card h3 { margin-bottom: var(--space-3); }
+}
 
 /* After the last card: the five terms loose on the clay, then a purple
    ground (the section's accent, so the question reads as the next thing
@@ -1312,6 +1385,111 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
 .logic-card-art .lc-flowhead { fill: none; stroke: var(--accent); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
 .logic-card-art .lc-heat { fill: var(--ink-soft); }
 .logic-card-art .lc-heat.is-fed { fill: var(--accent); }
+
+/* --------------------------------------------------------------------------
+   The way on (index.html, after the drying problem)
+
+   The story's last screen. It slides up over the final scene like a sheet
+   laid on it: the opening's clay, the words dark on it, and the three doors
+   as the logic section's dark slips. The same doors close every other page,
+   so the site ends each page the same way.
+   -------------------------------------------------------------------------- */
+.story-next {
+  --ground: #cab9a7;
+  --on-ground: #1d1915;
+  --on-ground-soft: #5a5047;
+  --card: #2a2724;
+  position: relative;
+  z-index: 5;                 /* over the last scene's pin (4) as it leaves */
+  flex: none;
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: clamp(5rem, 12vh, 8rem) clamp(1rem, 5vw, 5rem);
+  background: var(--ground);
+  color: var(--on-ground);
+  /* A soft edge where the sheet meets the scene it is laid over. */
+  box-shadow: 0 -30px 60px -30px rgba(20, 16, 12, 0.5);
+}
+.story-next-in { width: min(68rem, 100%); }
+.story-next-mark {
+  margin: 0 0 var(--space-4);
+  color: var(--on-ground-soft);
+  font-size: var(--fs-micro);
+  font-stretch: 72%;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.story-next h2 {
+  margin: 0;
+  font-family: "Orbitron", var(--font-display);
+  font-size: var(--title-xl);
+  font-weight: 700;
+  line-height: 1.05;
+}
+.story-doors {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin-top: clamp(2rem, 1.5rem + 2vw, 3.5rem);
+}
+.story-door {
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+  min-height: 10rem;
+  padding: var(--space-6);
+  background: var(--card);
+  border-radius: var(--r-panel);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05), 0 34px 70px -40px rgba(60, 40, 20, 0.55);
+  color: var(--ink-hi);
+  text-decoration: none;
+  transition: background-color 160ms linear, transform 200ms var(--ease-out);
+}
+.story-door:hover { background: #3a3632; transform: translateY(-2px); }
+.story-door:focus-visible { outline: 2px solid var(--on-ground); outline-offset: 3px; }
+.story-door-k {
+  color: var(--ink-mid);
+  font-size: var(--fs-micro);
+  font-stretch: 72%;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.story-door-t {
+  font-family: "Orbitron", var(--font-display);
+  font-size: clamp(1.1rem, 1rem + 0.5vw, 1.4rem);
+  font-weight: 700;
+  line-height: 1.3;
+  text-wrap: balance;
+}
+/* For the next visitor at the exhibition laptop: back to the opening shot. */
+.story-restart {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-6);
+  padding: var(--space-2) 0;
+  color: var(--on-ground);
+  font-size: var(--fs-small);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: rgba(29, 25, 21, 0.35);
+  text-underline-offset: 0.25em;
+}
+.story-restart::before { content: "↑"; text-decoration: none; display: inline-block; }
+.story-restart:hover { text-decoration-color: currentColor; }
+.story-restart:focus-visible { outline: 2px solid var(--on-ground); outline-offset: 3px; border-radius: 2px; }
+@media (max-width: 760px) {
+  .story-doors { grid-template-columns: 1fr; }
+  .story-door { min-height: 0; padding: var(--space-5); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .story-door { transition: none; }
+  .story-door:hover { transform: none; }
+}
 
 /* The kiln's own labels belong to the dashboard. Until it is revealed the
    kiln is the intro's drawing and then the tour's, and the cards do the

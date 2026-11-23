@@ -1282,8 +1282,13 @@ export function createProblem({ sectionEl, ring, run, followScroll = true }) {
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
     clock += dt;
-    const { scrolled: target } = measure();
-    const on = target > -2 && target < total + 1;
+    const { scrolled } = measure();
+    // Drawn until the pin has scrolled fully away (+100vh), not just to its
+    // end: the closing "where next" section (index.html) slides up over it,
+    // and hiding it sooner would flash the fixed kiln drawing underneath.
+    // Past the end the story holds its last frame while it leaves.
+    const on = scrolled > -2 && scrolled < total + 100;
+    const target = Math.min(scrolled, total);
     pin.style.visibility = on ? 'visible' : 'hidden';
     if (!on) { sv = null; sw = null; return; }
     // The scroll is followed by a critically damped spring (position and
