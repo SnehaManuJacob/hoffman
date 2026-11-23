@@ -127,16 +127,20 @@ function show(value, unit) {
   const max = Math.max(...SHAPE.map((p) => ORDER.reduce((a, t) => a + (p.counts[t] || 0), 0)));
   chart.replaceChildren(...SHAPE.map((p) => {
     const total = ORDER.reduce((a, t) => a + (p.counts[t] || 0), 0);
+    // The total sits at the end of its own bar, not in a far column. A
+    // segment is labelled only when it is wide enough on screen to hold the
+    // label, which depends on its share of the longest bar, not of its own.
     return h('div', { class: 'ev-shape-row' },
       h('span', { class: 'ev-shape-name', text: p.part }),
       total
-        ? h('div', { class: 'ev-shape-bar', style: `width:${(total / max) * 100}%` },
-          ...ORDER.filter((t) => p.counts[t]).map((t) => h('span', {
-            class: `ev-seg ev-seg--${t}`, style: `flex:${p.counts[t]}`, tabindex: '0',
-            title: `${p.counts[t]} ${EVIDENCE[t].label}`, 'aria-label': `${p.part}: ${p.counts[t]} ${EVIDENCE[t].label}`,
-          }, p.counts[t] / total > 0.09 ? h('i', { text: `${t} ${p.counts[t]}` }) : null)))
-        : h('span', { class: 'ev-shape-none', text: p.note }),
-      h('span', { class: 'ev-shape-total', text: total ? String(total) : '' }));
+        ? h('div', { class: 'ev-shape-track' },
+          h('div', { class: 'ev-shape-bar', style: `width:${(total / max) * 100}%` },
+            ...ORDER.filter((t) => p.counts[t]).map((t) => h('span', {
+              class: `ev-seg ev-seg--${t}`, style: `flex:${p.counts[t]}`, tabindex: '0',
+              title: `${p.counts[t]} ${EVIDENCE[t].label}`, 'aria-label': `${p.part}: ${p.counts[t]} ${EVIDENCE[t].label}`,
+            }, p.counts[t] / max >= 0.08 ? h('i', { text: `${t} ${p.counts[t]}` }) : null))),
+          h('span', { class: 'ev-shape-total', text: String(total) }))
+        : h('span', { class: 'ev-shape-none', text: p.note }));
   }), h('ul', { class: 'ev-bar-key' }, ...ORDER.map((t) => h('li', {}, chip(t), h('span', { text: EVIDENCE[t].label })))));
   $('#shape-table').replaceChildren(h('table', { class: 'ev-table' },
     h('thead', {}, h('tr', {}, h('th', { scope: 'col', text: 'Part of the site' }), ...ORDER.map((t) => h('th', { scope: 'col', text: EVIDENCE[t].label })))),

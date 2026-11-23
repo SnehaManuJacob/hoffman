@@ -160,6 +160,15 @@
     border-color 300ms linear, color 300ms linear;
 }
 .site-nav.is-hidden { transform: translateY(-110%); }
+
+/* Where the bar's foot is right now: its height while it shows, 0 while it
+   has slid away (nav.js sets .nav-hidden on the root). Anything pinned under
+   the bar uses `top: var(--nav-top)` with --nav-follow, and moves with it. */
+:root {
+  --nav-top: var(--nav-h, 3.5rem);
+  --nav-follow: 420ms var(--ease-out);
+}
+:root.nav-hidden { --nav-top: 0px; }
 /* At the very top of the story the bar sits on the opening's clay, bare. */
 .site-nav[data-tone="light"]:not(.is-over) {
   background: transparent;
@@ -242,6 +251,7 @@ a.site-nav-link:focus-visible {
 
 @media (prefers-reduced-motion: reduce) {
   .site-nav { transition: none; }
+  :root { --nav-follow: 0s; }
 }
 
 /* --------------------------------------------------------------------------

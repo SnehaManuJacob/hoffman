@@ -6,10 +6,14 @@
  * A page that is not built yet is listed but not linked: the visitor can see
  * where the site is going without being sent to a 404.
  *
- * On the scroll story the bar would sit over full-screen scenes, so it gets
- * out of the way: it shows at the top, hides as the visitor scrolls on, and
- * comes back as soon as they scroll up (the gesture of someone looking for a
- * way out) and at the very end of the page.
+ * On every page the bar gets out of the way: it shows at the top, hides as
+ * the visitor scrolls on, and comes back as soon as they scroll up (the
+ * gesture of someone looking for a way out), at the very end of the page,
+ * and whenever the keyboard moves focus into it.
+ *
+ * Anything pinned under the bar follows it through one variable, set on the
+ * root: `--nav-top` is the bar's height while it shows and 0 while it hides
+ * (site.css). The root's `nav-hidden` class says which.
  */
 
 export const PAGES = [
@@ -23,10 +27,10 @@ export const PAGES = [
  * @param {object} o
  * @param {string} o.current   id of this page, from PAGES
  * @param {Element} [o.end]    something for the right end (the evidence pill)
- * @param {boolean} [o.autoHide] hide on scroll down, show on scroll up
+ * @param {boolean} [o.autoHide] hide on scroll down, show on scroll up (on by default)
  * @param {'dark'|'light'} [o.tone] the ground the bar starts over, at the very top
  */
-export function createNav({ current, end = null, autoHide = false, tone = 'dark' }) {
+export function createNav({ current, end = null, autoHide = true, tone = 'dark' }) {
   const bar = document.createElement('header');
   bar.className = 'site-nav';
   bar.dataset.tone = tone;
@@ -76,6 +80,13 @@ export function createNav({ current, end = null, autoHide = false, tone = 'dark'
   if (autoHide) {
     let lastY = window.scrollY;
     let ticking = false;
+    const root = document.documentElement;
+    const setHidden = (hidden) => {
+      bar.classList.toggle('is-hidden', hidden);
+      root.classList.toggle('nav-hidden', hidden);
+    };
+    // Tabbing into a hidden bar brings it back: focus is never off-screen.
+    bar.addEventListener('focusin', () => setHidden(false));
     const apply = () => {
       ticking = false;
       const y = window.scrollY;
@@ -86,7 +97,9 @@ export function createNav({ current, end = null, autoHide = false, tone = 'dark'
       // Small jitters (the smooth scroll settling) must not flicker the bar.
       if (Math.abs(dy) > 6 || atTop || atEnd) {
         const show = atTop || atEnd || dy < 0;
-        bar.classList.toggle('is-hidden', !show);
+        // Keyboard focus in the bar holds it open; a mouse click does not
+        // (after clicking the evidence switch, focus stays on it).
+        setHidden(!show && !bar.querySelector(':focus-visible'));
         bar.classList.toggle('is-over', !atTop);
         lastY = y;
       }

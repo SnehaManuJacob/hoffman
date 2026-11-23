@@ -136,29 +136,56 @@ $('#two-problems').replaceChildren(...PROBLEMS.map((p) => h('article', { class: 
 }
 
 // Benchmark: roof, indoors, and where the dryer must land.
+// Drawn at the card's own width, so its 13px labels stay 13px on a phone;
+// redrawn when that width changes. Too narrow for names beside the bars, it
+// puts each name above its bar.
 {
   const wrap = $('#benchmark');
-  const W = 520; const L = 132; const R = 40; const max = 60;
-  const x = (d) => L + (d / max) * (W - L - R);
-  const svg = s('svg', { viewBox: `0 0 ${W} 170`, class: 'pp-bars', role: 'img', 'aria-label': 'Drying time in days: roof, up to 14; indoors in rainy weather, 30 to 45; the dryer must come in nearer the roof than indoors.' });
-  for (const d of [0, 14, 30, 45]) {
-    s('line', { x1: x(d), y1: 8, x2: x(d), y2: 132, class: 'pp-gridline' }, svg);
-    st(svg, x(d), 150, d === 0 ? '0' : `${d} days`, { class: 'pp-axis', 'text-anchor': 'middle' });
-  }
-  const bar = (y, a, b, cls, label, val) => {
-    st(svg, 0, y + 14, label, { class: 'pp-bar-name' });
-    const w = x(b) - x(a); const r = 4;
-    s('path', { d: `M ${x(a)} ${y} H ${x(a) + w - r} Q ${x(a) + w} ${y} ${x(a) + w} ${y + r} V ${y + 18 - r} Q ${x(a) + w} ${y + 18} ${x(a) + w - r} ${y + 18} H ${x(a)} Z`, class: cls }, svg);
-    st(svg, x(b) + 6, y + 14, val, { class: 'pp-bar-val' });
+  const max = 60;
+  const draw = (W) => {
+    const stacked = W < 440;
+    const L = stacked ? 0 : 132; const R = 40;
+    const pitch = stacked ? 54 : 38; const top = stacked ? 24 : 16;
+    const rowY = (i) => top + i * pitch;               // top of each bar
+    const nameY = (i) => (stacked ? rowY(i) - 7 : rowY(i) + 14);
+    const base = rowY(2) + 40;                         // foot of the grid
+    const H = base + 38;
+    const x = (d) => L + (d / max) * (W - L - R);
+    const svg = s('svg', { viewBox: `0 0 ${W} ${H}`, class: 'pp-bars', role: 'img', 'aria-label': 'Drying time in days: roof, up to 14; indoors in rainy weather, 30 to 45; the dryer must come in nearer the roof than indoors.' });
+    for (const d of [0, 14, 30, 45]) {
+      s('line', { x1: x(d), y1: stacked ? top - 2 : 8, x2: x(d), y2: base, class: 'pp-gridline' }, svg);
+      st(svg, x(d), base + 18, d === 0 ? '0' : `${d} days`, { class: 'pp-axis', 'text-anchor': d === 0 && stacked ? 'start' : 'middle' });
+    }
+    const bar = (i, a, b, cls, label, val) => {
+      const y = rowY(i);
+      st(svg, 0, nameY(i), label, { class: 'pp-bar-name' });
+      const w = x(b) - x(a); const r = 4;
+      s('path', { d: `M ${x(a)} ${y} H ${x(a) + w - r} Q ${x(a) + w} ${y} ${x(a) + w} ${y + r} V ${y + 18 - r} Q ${x(a) + w} ${y + 18} ${x(a) + w - r} ${y + 18} H ${x(a)} Z`, class: cls }, svg);
+      st(svg, x(b) + 6, y + 14, val, { class: 'pp-bar-val' });
+    };
+    bar(0, 0, 14, 'pp-bar', 'On the roof, in sun', '≤ 2 weeks');
+    bar(1, 30, 45, 'pp-bar', 'Indoors, in rain', '1–1.5 months');
+    const y3 = rowY(2);
+    s('rect', { x: x(0), y: y3, width: x(14) - x(0), height: 18, rx: 4, class: 'pp-bar-aim' }, svg);
+    st(svg, 0, nameY(2), 'The dryer, in rain', { class: 'pp-bar-name' });
+    st(svg, x(14) + 6, y3 + 14, 'aim: near here', { class: 'pp-bar-val pp-bar-val--aim' });
+    s('line', { x1: x(30), y1: y3 - 6, x2: x(30), y2: y3 + 26, class: 'pp-fail' }, svg);
+    st(svg, x(30) + 4, y3 + 34, 'fails here', { class: 'pp-axis pp-axis--fail' });
+    return svg;
   };
-  bar(16, 0, 14, 'pp-bar', 'On the roof, in sun', '≤ 2 weeks');
-  bar(54, 30, 45, 'pp-bar', 'Indoors, in rain', '1–1.5 months');
-  s('rect', { x: x(0), y: 92, width: x(14) - x(0), height: 18, rx: 4, class: 'pp-bar-aim' }, svg);
-  st(svg, 0, 106, 'The dryer, in rain', { class: 'pp-bar-name' });
-  st(svg, x(14) + 6, 106, 'aim: near here', { class: 'pp-bar-val pp-bar-val--aim' });
-  s('line', { x1: x(30), y1: 86, x2: x(30), y2: 118, class: 'pp-fail' }, svg);
-  st(svg, x(30) + 4, 126, 'fails here', { class: 'pp-axis pp-axis--fail' });
-  wrap.append(svg, h('p', { class: 'pp-src pp-src--inline' }, chip('F'), ' Both times as growers reported them. The aim is a design decision ', chip('A'), ', and whether it is reachable is the first test.'));
+  const note = h('p', { class: 'pp-src pp-src--inline' }, chip('F'), ' Both times as growers reported them. The aim is a design decision ', chip('A'), ', and whether it is reachable is the first test.');
+  const host = h('div', { class: 'pp-bench-chart' });
+  wrap.append(host, note);
+  let last = 0;
+  const fit = () => {
+    const w = Math.round(host.clientWidth);
+    if (!w || Math.abs(w - last) < 8) return;
+    last = w;
+    host.replaceChildren(draw(w));
+  };
+  fit();
+  if (!last) host.replaceChildren(draw(520));   // not laid out yet: the old fixed width
+  new ResizeObserver(fit).observe(host);
 }
 
 // The options compared.
@@ -411,9 +438,11 @@ show(1, 'none', false);
     const spent = tailIn.cap < MIN_CAP;
     baysEl.replaceChildren(
       stateCard('Outdoors', 'before heating', r.outdoor),
-      h('span', { class: 'pp-air-arrow', 'aria-hidden': 'true', text: 'heated →' }),
+      // The arrow is its own element so it can turn downwards when the
+      // three cards stack on a narrow screen.
+      h('span', { class: 'pp-air-arrow', 'aria-hidden': 'true' }, 'heated ', h('i', { text: '→' })),
       stateCard('Into the lead bay', 'driest nuts', leadIn),
-      h('span', { class: 'pp-air-arrow', 'aria-hidden': 'true', text: `+${(v.pick * 2).toFixed(1)} g/kg →` }),
+      h('span', { class: 'pp-air-arrow', 'aria-hidden': 'true' }, `+${(v.pick * 2).toFixed(1)} g/kg `, h('i', { text: '→' })),
       stateCard('Arriving at the tail bay', `after lead and middle; nuts at ${v.nut} °C`, tailIn, condense || spent ? 'fail' : 'pass'),
     );
     let msg;
@@ -552,7 +581,9 @@ const GROUPS = [
   ['Fieldwork', 'Only the growers can answer these.', (t) => t.by[0] === 'field' && t.n !== 1],
 ];
 $('#test-board').replaceChildren(...GROUPS.map(([g, sub, f]) => h('section', { class: 'pp-test-col' },
-  h('h3', { class: 'pp-test-col-h', text: g }), sub ? h('p', { class: 'pp-test-col-s', text: sub }) : null,
+  // Always a subtitle line, even an empty one, so the four columns' first
+  // cards start level.
+  h('h3', { class: 'pp-test-col-h', text: g }), h('p', { class: 'pp-test-col-s', text: sub, 'aria-hidden': sub ? null : 'true' }),
   ...TESTS.slice(1).filter(f).map((t) => testCard(t)))));
 
 // ---------------------------------------------------------------------------
