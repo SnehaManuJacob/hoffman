@@ -92,6 +92,16 @@ export function createChart(container, history, dispatch) {
     scrubFrom(ev);
   });
   container.addEventListener('pointermove', (ev) => { if (dragging) scrubFrom(ev); });
+  // Keyboard: the same scrubTo action the pointer sends, one tick per press.
+  container.addEventListener('keydown', (ev) => {
+    const last = history.lastTick;
+    const cur = container.getAttribute('aria-valuenow') | 0;
+    const to = { ArrowUp: cur - 1, ArrowLeft: cur - 1, ArrowDown: cur + 1,
+      ArrowRight: cur + 1, Home: 0, End: last }[ev.key];
+    if (to === undefined || !(last > 0)) return;
+    ev.preventDefault();
+    dispatch({ type: 'scrubTo', tick: Math.max(0, Math.min(last, to)) });
+  });
   const stop = (ev) => {
     dragging = false;
     container.releasePointerCapture?.(ev.pointerId);
@@ -106,6 +116,10 @@ export function createChart(container, history, dispatch) {
     const signature = `${all.length}:${state.tick}:${container.clientWidth}`;
     if (!force && signature === lastSignature) return;
     lastSignature = signature;
+    const lastTick = Math.max(0, history.lastTick);
+    container.setAttribute('aria-valuemax', String(lastTick));
+    container.setAttribute('aria-valuenow', String(state.tick | 0));
+    container.setAttribute('aria-valuetext', all.length ? `Tick ${state.tick | 0} of ${lastTick}` : 'Not yet lit');
 
     const width = container.clientWidth || 1;
     const count = C.chambers.count;

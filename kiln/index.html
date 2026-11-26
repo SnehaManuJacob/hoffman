@@ -3,9 +3,23 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>A Kiln on Schedule</title>
+  <title>Decoding Fire with Algorithms</title>
   <link rel="preload" href="./vendor/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="style.css">
+  <link rel="preload" href="./vendor/fonts/orbitron.woff2" as="font" type="font/woff2" crossorigin>
+  <!--
+    ASSET VERSION — one stamp for everything: run `python3 bump-version.py`
+    (or edit every "v=" here and in the import map below to the same value)
+    whenever any local file changes. Browsers cache ES modules and
+    CSS aggressively under a plain static server; without a changed URL a
+    visitor can run a new views/intro.js against an old config.js (the intro
+    backdrop silently went white that way). views/intro.js reuses its own
+    stamp for assets/factory.glb, so the model is covered too.
+  -->
+  <link rel="stylesheet" href="site.css?v=20261126k">
+  <link rel="stylesheet" href="style.css?v=20261126k">
+  <link rel="stylesheet" href="splash.css?v=20261126k">
+  <!-- Without scripts nothing would ever lift the splash. -->
+  <noscript><style>.splash { display: none; }</style></noscript>
 
   <!--
     three.js is vendored locally (kiln/vendor/) rather than loaded from a CDN so
@@ -15,7 +29,31 @@
   <script type="importmap">
   {
     "imports": {
-      "three": "./vendor/three.module.js"
+      "three": "./vendor/three.module.js",
+      "./scroll.js": "./scroll.js?v=20261126k",
+      "./nav.js": "./nav.js?v=20261126k",
+      "./main.js": "./main.js?v=20261126k",
+      "./config.js": "./config.js?v=20261126k",
+      "./engine.js": "./engine.js?v=20261126k",
+      "./history.js": "./history.js?v=20261126k",
+      "./checks.js": "./checks.js?v=20261126k",
+      "./views/charRise.js": "./views/charRise.js?v=20261126k",
+      "./views/intro.js": "./views/intro.js?v=20261126k",
+      "./views/ring.js": "./views/ring.js?v=20261126k",
+      "./views/panel.js": "./views/panel.js?v=20261126k",
+      "./views/labels.js": "./views/labels.js?v=20261126k",
+      "./views/chart.js": "./views/chart.js?v=20261126k",
+      "./views/evidence.js": "./views/evidence.js?v=20261126k",
+      "./views/clock.js": "./views/clock.js?v=20261126k",
+      "./views/heatRamp.js": "./views/heatRamp.js?v=20261126k",
+      "./views/kilnPath.js": "./views/kilnPath.js?v=20261126k",
+      "./views/anatomy.js": "./views/anatomy.js?v=20261126k",
+      "./views/logic.js": "./views/logic.js?v=20261126k",
+      "./views/problem.js": "./views/problem.js?v=20261126k",
+      "./views/transform.js": "./views/transform.js?v=20261126k",
+      "./views/building.js": "./views/building.js?v=20261126k",
+      "./views/models.js": "./views/models.js?v=20261126k",
+      "./tourRun.js": "./tourRun.js?v=20261126k"
     }
   }
   </script>
@@ -27,7 +65,248 @@
   -->
   <script src="./vendor/d3.min.js"></script>
 </head>
-<body>
+<body class="pre-reveal">
+  <!--
+    The splash (splash.js, splash.css): the kiln lighting, one chamber at a
+    time, while the opening shot's model loads; it fades onto the factory
+    yard once the scene is drawn. First in the body and its script straight
+    after it, so it is on the very first frame, before any module has
+    loaded. Its words are for sighted visitors; a screen reader hears the
+    one status line.
+  -->
+  <div class="splash" id="splash" role="status" aria-label="Loading the story">
+    <canvas class="splash-canvas" aria-hidden="true"></canvas>
+    <div class="splash-foot" aria-hidden="true">
+      <p class="splash-title">Decoding Fire with Algorithms</p>
+      <p class="splash-state">Lighting the kiln</p>
+    </div>
+  </div>
+  <script src="splash.js?v=20261126k"></script>
+
+  <a class="skip-link" href="#story-end">Skip the scrolling story</a>
+
+  <!--
+    Intro: a pinned 900vh scroll sequence. views/intro.js owns its own three.js
+    scene on #intro-canvas and reads scroll progress against this section's own
+    bounds to choreograph a camera move around a rough model of the real
+    factory, down into the same top-down pose the kiln's own camera already
+    sits in (views/ring.js), before fading the building out onto the bare kiln
+    underneath. It draws no engine state and sends no actions — see the note
+    in style.css.
+  -->
+  <section class="intro" id="intro">
+    <div class="intro-pin">
+      <canvas id="intro-canvas" aria-hidden="true"></canvas>
+
+      <!--
+        The opening question, over the establishing shot. Fades as soon as the
+        visitor starts to scroll (views/intro.js, PHASE.copyOut), so the camera
+        move has the screen to itself. An h2: the page's h1 is the wordmark.
+      -->
+      <div class="intro-copy">
+        <h2 class="intro-title cr">What can an old kiln teach us about designing new systems?</h2>
+        <p class="intro-sub fade-in">A century-old approach to tile firing holds remarkable ideas about heat recovery, continuous processes and resource efficiency.</p>
+        <!-- The one instruction the opening needs: the scroll drives the
+             story. Fades out with the question once the visitor scrolls. -->
+        <p class="intro-cue fade-in" aria-hidden="true"><span>Scroll to begin</span><i></i></p>
+      </div>
+
+      <!--
+        Where the factory is: the model on screen is a real place, and this
+        says which one. Top right, over the open ground, so
+        the question below keeps its clear strip under the yard wall. Opens
+        in a new tab: following it should not lose the visitor's place in the
+        scroll. Fades in with the deck and out with the question
+        (views/intro.js, placeEl, on the wrapper, so the two fades never
+        fight over one element's opacity).
+      -->
+      <div class="intro-place-wrap">
+      <a class="intro-place fade-in" href="https://maps.app.goo.gl/Y6xPFkiJSVtquL1a8" target="_blank" rel="noopener"
+         aria-label="Prabhakar Tile Works, Kundapur, on Google Maps (opens in a new tab)">
+        <svg class="intro-place-pin" viewBox="0 0 16 20" aria-hidden="true"><path d="M8 0a8 8 0 0 0-8 8c0 6 8 12 8 12s8-6 8-12a8 8 0 0 0-8-8Zm0 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6Z"/></svg>
+        <span class="intro-place-name">Prabhakar Tile Works, Kundapur</span>
+        <span class="intro-place-go">Map <span aria-hidden="true">↗</span></span>
+      </a>
+      </div>
+
+      <!--
+        What the project is, shown while the intro is a blueprint: the moment
+        the factory turns into a drawing is the moment to say the kiln is
+        being read as a system. The camera holds still while it is on screen
+        and its words come in as the visitor scrolls (views/intro.js, HOLD),
+        so it is read rather than scrolled past.
+      -->
+      <p class="intro-brief">By unpacking the Hoffmann kiln as a computational system, this project explores the engineering principles behind its operation, revealing how an ingenious approach to organising heat, time and resources could inspire new ways of thinking about contemporary industrial processes.</p>
+    </div>
+  </section>
+
+  <!--
+    The tour of the kiln's parts (views/anatomy.js), between the intro and
+    the dashboard. One part per step: the rest of the kiln dims, a leader line
+    points at the part, and the card says what it does and where that
+    knowledge comes from. Its height is set from the number of steps in
+    anatomy.js. The kiln underneath is #ring-canvas, still fixed to the
+    viewport by body.pre-reveal.
+  -->
+  <section class="anatomy" id="anatomy" aria-label="The parts of the kiln">
+    <div class="anatomy-pin">
+      <svg class="anatomy-leader" aria-hidden="true">
+        <line></line>
+        <circle class="leader-halo" r="11"></circle>
+        <circle class="leader-dot" r="4"></circle>
+      </svg>
+      <!--
+        A photograph or drawing of the part, in the margin across the kiln
+        from the card. Reference images from other Hoffmann kilns, said so on
+        every one: sources and licences in assets/tour/CREDITS.md.
+      -->
+      <figure class="anatomy-figure">
+        <img alt="">
+        <figcaption>
+          <span class="anatomy-figure-cap"></span>
+          <span class="anatomy-figure-note"></span>
+        </figcaption>
+      </figure>
+      <!-- Chamber numbers on the kiln itself, for "The fire": the same
+           numerals as the panel's rail and rows. Filled by views/anatomy.js. -->
+      <div class="anatomy-numbers" aria-hidden="true"></div>
+
+      <!--
+        The computed panel, for "The fire" only. Everything in it is read
+        from one moment of the recorded loop (tourRun.js), chosen by scroll:
+        the clock, the schedule rail and the eight chambers. The kiln
+        itself shows the damper, the partition and the fuel holes, so the
+        panel does not repeat them.
+      -->
+      <section class="anatomy-compute" aria-label="What the model computes">
+        <div class="compute-head">
+          <svg class="compute-clock" viewBox="0 0 100 100" aria-hidden="true">
+            <circle cx="50" cy="50" r="47"></circle>
+            <g class="compute-marks"></g>
+            <line class="compute-hand" x1="50" y1="50" x2="50" y2="17"></line>
+            <circle class="compute-pin" cx="50" cy="50" r="3"></circle>
+          </svg>
+          <p class="compute-readout"><span class="compute-time"></span><span class="compute-of"></span></p>
+        </div>
+
+        <div class="compute-rail"></div>
+
+        <!-- Comes up with the fire step's second beat (views/anatomy.js). -->
+        <div class="compute-table">
+          <span class="compute-marker"></span>
+          <ol class="compute-rows"></ol>
+        </div>
+
+        <!-- The open question about how hot chambers are when unloaded is on
+             the evidence sheet (config METHODS, "The fire's loop in the tour"). -->
+        <p class="compute-note"><span class="anatomy-chip">S</span>Simulated: the model's loop, on the two-hour interval recorded at the factory.</p>
+      </section>
+
+      <!--
+        "Heat, handed forward": the same kiln read two ways at one moment.
+        Three things are kept apart because they are not the same: how hot the
+        gas is (the line), how hot the tiles are (the bars), and how much heat
+        passed between them (the figure under the chart, and the account).
+      -->
+      <section class="anatomy-recover" aria-label="Fuel to fire one chamber">
+        <p class="recover-h">Fuel to fire one chamber</p>
+        <div class="recover-row" data-k="on">
+          <span class="rr-name">As the kiln runs</span>
+          <span class="rr-track"><span class="rr-bar"></span></span>
+          <b class="rr-num"></b>
+        </div>
+        <div class="recover-row" data-k="off">
+          <span class="rr-name">Heat sent straight to the chimney</span>
+          <span class="rr-track"><span class="rr-bar"></span></span>
+          <b class="rr-num"></b>
+        </div>
+        <p class="recover-ratio"></p>
+        <p class="compute-note"><span class="anatomy-chip">S</span>Simulated, in the model's units. Nobody fires a kiln the second way.</p>
+      </section>
+
+      <article class="anatomy-card" aria-live="polite">
+        <div class="anatomy-entries"></div>
+        <p class="anatomy-foot">
+          <span class="anatomy-ev"><span class="anatomy-chip"></span><span class="anatomy-ev-label"></span></span>
+          <span class="anatomy-step"></span>
+        </p>
+      </article>
+    </div>
+  </section>
+
+  <!--
+    "The logic in the kiln" (views/logic.js), after the tour. The kiln and
+    its grid go under a plain ground, the eight chamber numbers straighten
+    into a row, and five cards follow, one computing idea each. A reading of
+    the kiln, not an observation: the introduction says so. Height, the
+    numbers and the cards are all set by logic.js.
+  -->
+  <section class="logic" id="logic" aria-label="The logic in the kiln">
+    <div class="logic-pin">
+      <div class="logic-shade"></div>
+      <div class="logic-cells" aria-hidden="true"></div>
+      <div class="logic-intro">
+        <h2>The logic in the kiln</h2>
+        <p>Nobody at the tile works calls this computing. But a fire that never stops has to be run by rule, and the rules are ones a programmer would recognise.</p>
+      </div>
+      <div class="logic-deck"></div>
+      <!-- After the last card: the five terms scatter, then the purple
+           ground and the question that opens the dryer. -->
+      <div class="logic-ask"></div>
+      <div class="logic-terms" aria-hidden="true"></div>
+      <div class="logic-question">
+        <h2>What else could this system become?</h2>
+      </div>
+    </div>
+  </section>
+
+  <!--
+    The problem (views/problem.js): the question answered with one arecanut,
+    then the growers' drying problem in four stages, told in one 3D place
+    with one camera, ending on Hoffmann so the kiln can come back. Pulled up over the logic section's last hold.
+  -->
+  <section class="problem" id="problem" aria-label="The drying problem">
+    <div class="problem-pin">
+      <canvas class="problem-canvas" aria-hidden="true"></canvas>
+      <div class="problem-scrim"></div>
+      <div class="problem-labels" aria-hidden="true"></div>
+      <div class="problem-hud" aria-hidden="true"></div>
+      <div class="problem-copy" aria-live="polite"></div>
+    </div>
+  </section>
+  <div id="story-end" tabindex="-1"></div>
+
+  <!--
+    The way on. The story ends on its question; this is where the visitor
+    goes next, on the clay the page opened on, so the story closes on the
+    ground it began from. The same three doors every other page ends with,
+    and a way back to the start for the next visitor at the exhibition
+    laptop. It slides up over the last scene (problem.js keeps that scene
+    drawn while it scrolls away). The skip link lands just above it.
+  -->
+  <section class="story-next" aria-labelledby="story-next-h">
+    <div class="story-next-in">
+      <p class="story-next-mark">The story ends here</p>
+      <h2 id="story-next-h">Where next</h2>
+      <nav class="story-doors" aria-label="Where next">
+        <a class="story-door" href="./kiln.html">
+          <span class="story-door-k">The kiln</span>
+          <span class="story-door-t">How the Hoffmann kiln works, and a model you can run.</span>
+        </a>
+        <a class="story-door" href="./proposal.html">
+          <span class="story-door-k">The proposal</span>
+          <span class="story-door-t">The Drying Cycle, and what remains to be tested.</span>
+        </a>
+        <a class="story-door" href="./evidence.html">
+          <span class="story-door-k">The evidence</span>
+          <span class="story-door-t">Where every claim on the site comes from.</span>
+        </a>
+      </nav>
+      <!-- "#top" scrolls to the top of the page even where the intro is
+           hidden (narrow screens and reduced motion skip it). -->
+      <a class="story-restart" href="#top">Back to the start</a>
+    </div>
+  </section>
 
   <!--
     Top bar: wordmark left, evidence pill right.
@@ -42,7 +321,7 @@
     centred over an empty column.
   -->
   <header class="topbar">
-    <h1 class="wordmark">A Kiln on Schedule</h1>
+    <h1 class="wordmark">Decoding Fire with Algorithms</h1>
 
     <label class="pill">
       <input type="checkbox" id="evidence-mode">
@@ -82,7 +361,7 @@
 
       <div class="transport" id="transport">
         <button id="btn-play" class="ctrl">Play</button>
-        <button id="btn-step" class="ctrl">Step</button>
+        <button id="btn-step" class="ctrl">Step forward</button>
         <label class="speed">
           Speed
           <input type="range" id="speed" min="0.25" max="4" step="0.25" value="1">
@@ -213,7 +492,7 @@
       <!-- The chart is a record of the simulation running, so it is tagged S. -->
       <section class="chart-pane">
         <h2 class="pane-title">Space and time</h2>
-        <div id="chart" class="chart-placeholder" data-ev="S"></div>
+        <div id="chart" class="chart-placeholder" data-ev="S" tabindex="0" role="slider" aria-label="Kiln time" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="Not yet lit"></div>
       </section>
 
       <!--
@@ -242,11 +521,11 @@
   <dialog class="sheet" id="sources">
     <header class="sheet-head">
       <h2>Where all this comes from</h2>
-      <button type="button" class="ctrl" id="btn-sources-close">Close</button>
+      <button type="button" class="ctrl" id="btn-sources-close">Close sources</button>
     </header>
     <div class="sheet-body" id="sources-body"></div>
   </dialog>
 
-  <script type="module" src="./main.js"></script>
+  <script type="module">import './main.js';</script>
 </body>
 </html>

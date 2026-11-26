@@ -1,0 +1,69 @@
+/**
+ * splash.css — the opening screen (splash.js), up while the factory loads.
+ *
+ * Soot, because heat has to glow (style.css: a hot chamber is invisible on
+ * khaki), and it fades onto the yard's clay when the scene is ready. Type is
+ * the site's own: the wordmark's wide sign for the name, the narrow stencil
+ * of the kiln's markings for the readout.
+ *
+ * splash.js sets --ring-cy (the ring's centre, from the top) and --ring-h
+ * (its height), so the words sit under the ring at any size.
+ */
+
+.splash {
+  --ring-cy: 46vh;
+  --ring-h: 190px;
+  position: fixed;
+  inset: 0;
+  z-index: 200;               /* over the site bar (50) and everything else */
+  overflow: hidden;
+  background: var(--soot);
+  color: var(--sand);
+  font-family: var(--font-display);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.splash-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Under the ring: the name, and which chamber is firing. */
+.splash-foot {
+  position: absolute;
+  left: 50%;
+  top: calc(var(--ring-cy) + var(--ring-h) / 2 + clamp(2rem, 6vh, 3rem));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  width: min(36rem, calc(100vw - 2 * var(--space-5)));
+  transform: translateX(-50%);
+  text-align: center;
+  pointer-events: none;
+}
+.splash-title {
+  margin: 0;
+  color: var(--sand-bright);
+  font-size: clamp(0.95rem, 1.5vw, 1.2rem);
+  font-stretch: 125%;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  text-wrap: balance;
+}
+.splash-state {
+  margin: 0;
+  color: var(--sand-dim);
+  font-size: var(--fs-micro);
+  font-stretch: 72%;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}

@@ -123,6 +123,7 @@ const defs = {
     // kiln.
     maxFuelRate: [500, 'A', 'The most fuel the crew can feed at once. High enough to hold the band even when a chamber arrives cold, so switching heat recovery off changes the fuel used, not the peak.'],
     heatRefC: [900, 'A', 'The top of the band. The model\'s temperatures are shown as a share of this, from 0 to 1.'],
+    masonryShare: [0.25, 'A', 'How much of a chamber\'s heat is in its walls rather than its load. When fired tiles are carried out and unfired ones stacked in, the rest of the heat leaves with the old load, so new tiles go in cool.'],
   },
 
   thermal: {
@@ -402,6 +403,7 @@ export const OPEN_QUESTIONS = {
     options: ['fuel feed', 'dampers', 'people'],
     tag: 'U',
     ref: '5.2',
+    note: 'The model takes the factory\'s figure at its word: the fire\'s leading edge enters a new chamber every 2 hours, creeping there one row of fuel holes at a time. But 8 chambers at 2 hours each is a 16-hour loop, where writing on other Hoffmann kilns gives one or two chambers a DAY and a loop of weeks. At 16 hours the model unloads and restacks chambers at around 250 to 450 °C, far too hot to work in. One reading that fits both: 2 hours is how often the fuel feed moves to the next row of holes, not how often the fire clears a chamber. To ask at the factory.',
   },
   ringTopology: {
     question: 'Is the kiln a closed ring, a racetrack, or z-shaped?',
@@ -447,6 +449,19 @@ export const PALETTE = {
   sand: '#c8bb99',
   'sand-dim': '#8a7f66',
   'sand-faint': '#574e3e',
+  // The intro's backdrop: the median sunlit yard colour sampled from the
+  // baked ground texture in assets/factory.glb, so the compound sits on a
+  // field of its own earth rather than floating in the dashboard's soot.
+  // Re-sample if the bake's lighting changes. (It was a sky blue for a
+  // while; this clay tone is also the ground of "The logic in the kiln".)
+  yard: '#CAB9A7',
+  // The floor inside the ring of chambers, round the island: a warm mid grey,
+  // lighter than the soot of the chambers and island so the courtyard reads
+  // as open ground rather than another solid.
+  'kiln-floor': '#2B2622',
+  // The blueprint's paper: the intro's drawing phase and the kiln view both
+  // sit on it, so the drawing hands off onto the same sheet.
+  paper: '#2e2c29',
   // Coolest (0) to hottest (4). Mirrors style.css — see the note there on why
   // this runs yellow -> red rather than the blackbody red -> yellow-white.
   'heat-0': '#ffe9a3',
@@ -502,8 +517,12 @@ export const COMPONENTS = {
     note: '8 connected chambers. Counted at Prabhakar Tile Factory.',
   },
   dividingWalls: {
-    label: 'Dividing walls', tag: 'A',
-    note: 'If there are 8 separate chambers, something separates them. The walls are implied, not observed.',
+    label: 'Chamber divisions', tag: 'A',
+    note: 'Where one chamber ends and the next begins. Writing on other Hoffmann kilns describes one continuous tunnel, with the chambers marked off by their doorways, fuel holes and dampers, and no solid wall between them. They are drawn as lines so the eight chambers can be told apart. What separates them at Kundapur was not seen.',
+  },
+  partition: {
+    label: 'Partition', tag: 'L',
+    note: 'A movable shutter across the tunnel just beyond the open damper: sheet metal in early kilns, later a sheet of paper that burns away as the fire nears. It stops the chimney pulling air the short way round, so all of it goes through the fire. Moved on one chamber at every move. From writing on other kilns. Not seen at Kundapur.',
   },
   stokeHoles: {
     label: 'Stoke holes', tag: 'F',
@@ -539,7 +558,7 @@ export const COMPONENTS = {
   },
   airPath: {
     label: 'Air path', tag: 'L',
-    note: 'Air comes in behind the fire, through the cooling chambers, through the fire, then through the preheating chambers and out. This is the core Hoffmann principle, but it was not seen here. The arrow\'s colour and thickness both show how much heat the gas carries in the model: it is thin at the intake because cold air carries no heat, not because less air goes in.',
+    note: 'Air comes in through the open doorway of the chamber being unloaded, through the cooling chambers, through the fire, then through the preheating chambers and out. This is the core Hoffmann principle, but it was not seen here. The arrow\'s colour and thickness both show how much heat the gas carries in the model: it is thin at the intake because cold air carries no heat, not because less air goes in.',
   },
   zones: {
     label: 'Zones', tag: 'A',
@@ -589,12 +608,44 @@ export const METHODS = [
     inputs: ['thermalModel.targetC', 'thermalModel.fuelGain', 'thermalModel.maxFuelRate', 'thermalModel.heatPerFuel', 'fuel.indexUnit'],
   },
   {
+    title: 'Where the heat goes',
+    tag: 'S',
+    what: 'The account of the fuel: how much of its heat leaves by the chimney, how much is carried out in the fired tiles, how much is lost through the walls, and how much the gas leaves in the tiles ahead of the fire on its way out.',
+    how: 'Every movement of heat in the model is written down as it happens, in the same relative units as the fuel. Fuel burned must equal what went up the chimney, plus what left with the fired tiles, plus what was lost through the walls, plus any change in what the kiln is holding. The model is checked against that sum for both ways of running the kiln, from a cold start onwards. The tour shows only the totals: the fuel each kiln burns, and how hot the tiles of the next chamber are when the fire reaches them. The rest of the account is kept here. For each chamber fired, the kiln as it runs burns about 560: about 220 leaves by the chimney, 300 with the fired tiles and 40 through the walls, and on the way the gas leaves about 360 in the tiles ahead. With the heat sent straight to the chimney it burns about 830: about 440, 300 and 80, with nothing left in the tiles ahead. Three things are kept apart in the model because they are not the same: how hot the gas is, how hot the tiles are, and how much heat passed from one to the other. A fall in gas temperature is not a measure of heat recovered. None of it was measured at Kundapur; no fuel was weighed and no temperature taken there for this project.',
+    where: 'engine.js — newLedger, stepWorld; checks.js',
+    inputs: ['thermalModel.heatPerFuel', 'thermalModel.gasMass', 'thermalModel.chamberMass', 'thermalModel.masonryShare', 'thermalModel.ambientLossRate'],
+  },
+  {
+    title: 'The kiln with its heat sent to the chimney',
+    tag: 'S',
+    what: 'The second kiln in "Heat, handed forward": the same kiln with the damper opened at the fire, so the gas leaves at once. A counterfactual, run only inside the model. It is not another kind of kiln and nobody fires this one that way.',
+    how: 'Both kilns are worked out together, moment by moment: same eight chambers, same two-hour schedule, same loading and unloading, same target temperature, same rule for feeding fuel, same constants. One thing differs, which is where the gas leaves. In both, the incoming air is still warmed by the fired tiles behind the fire; only the second use of the heat, warming the tiles ahead, is switched off. So the comparison isolates that one use, and says nothing about a kiln fired one chamber at a time. Two cautions. First, the size of the difference depends on values I assumed. With the kiln as set, the second kiln burns about 1.5 times the fuel. Halving or doubling how readily gas and tiles trade heat moves that between about 1.2 and 1.9; letting the gas run through one, two or four chambers ahead in place of three gives about 1.2, 1.3 and 1.6. The direction never changed in any run where both kilns reached the firing band. Second, the fuel feed has a limit, and the second kiln runs into it; with the limit lifted the figure is about 1.6. So the screen gives the comparison in words and bars, and no percentage saved. On screen the change from one kiln to the other is a cross-fade between the two finished runs at the same moment; opening the damper part-way through a firing is not something the model was asked to work out.',
+    where: 'engine.js — flowPath, stepWorld (worlds.on, worlds.off)',
+    inputs: ['windows.preheat', 'thermalModel.exchangeRate', 'thermalModel.maxFuelRate', 'thermal.recoveryPrinciple'],
+  },
+  {
+    title: 'The fire\'s loop in the tour',
+    tag: 'S',
+    what: 'The clock, the eight-cell schedule and the table of stages beside the kiln in "The fire moves". The table gives each chamber\'s stage and a heat bar; the degrees behind the bars are the model\'s.',
+    how: 'One loop of the kiln is worked out in advance from a kiln already in steady running, and the scroll moves through it, so the clock, the table and the drawing all read the same moment. While the firing zone lies across two chambers, both rows say Firing; the drawing shows it moving row by row. One result is an open question, not a finding: on the two-hour interval recorded at the factory, the model has chambers being unloaded hotter than anyone could work in. Whether that says more about the model or about the work at Kundapur is not known. The tour leaves this out to keep to its point; it is kept here.',
+    where: 'tourRun.js — recordLoop; views/anatomy.js — drawCompute',
+    inputs: ['time.tickHours', 'windows.cool', 'thermalModel.ambientLossRate'],
+  },
+  {
     title: 'The airflow arrow',
     tag: 'S',
     what: 'Where the arrow is thick and where it is bright. Both show how much heat the gas is carrying at that point.',
     how: 'Nothing is invented for the drawing. The arrow uses the model\'s own gas temperature, noted at each chamber boundary as the model follows the air, and joins those values with a curve that never rises above or dips below them. That matters: an ordinary smooth curve would overshoot on the climb to the fire and show gas hotter than anything in the kiln. So the arrow and the fuel figures are two readings of one model, not two separate claims.',
     where: 'engine.js — gasCurve, gasAt',
     inputs: ['thermalModel.subStepHours', 'parts.airWidthMax', 'parts.airWidthMin'],
+  },
+  {
+    title: 'The logic in the kiln',
+    tag: 'A',
+    what: 'The five cards after the tour: algorithm, loop, pipeline, forwarding and trigger. They describe the way the kiln is run in the language of algorithms.',
+    how: 'A reading of mine, not something observed and not a claim made in the writing on these kilns. Nobody at the factory described the work this way. The comparison rests on things shown earlier: the two-hour step was recorded at the factory, and the order of work, the loop and the path of the heat are documented for kilns of this kind. The three steps on the algorithm card are the model\'s own, in the order it runs them: the fire moves on, then the crew empties a cooled chamber and stacks an empty one. The crew\'s rhythm is my assumption; what exactly is done at Kundapur each step is not known. The stages and temperatures the cards draw are the model\'s, from the same recorded loop as the tour. Three words were chosen with care. The cards say pipeline and not parallel, because the eight loads are one sequence staggered in time, not eight independent jobs; and the kiln runs it the other way round from a production line, where work passes fixed stations: here the stages pass loads that stay put. They say forwarding and not feedback, because heat handed forward does not steer the process that made it. And they say the trigger is the clock: the recorded rule is time-triggered, moving the fire on when two hours are up, not condition-triggered by the state of the tiles. Whether the stokers adjust anything within a slot is not known.',
+    where: 'views/logic.js',
+    inputs: ['time.tickHours', 'windows.preheat'],
   },
   {
     title: 'Which chambers are involved at all',
@@ -699,6 +750,7 @@ export const UNITS = {
   'thermalModel.fuelGain': 'rel.',
   'thermalModel.maxFuelRate': 'rel. per h',
   'thermalModel.heatRefC': '°C',
+  'thermalModel.masonryShare': '%',
 
   'thermal.activeChambers': 'chambers',
 

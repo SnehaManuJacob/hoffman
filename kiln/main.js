@@ -10,6 +10,14 @@ import {
   C, PALETTE, STAGE_COLOUR, TAGS, OPEN_QUESTIONS, COMPONENTS, EVIDENCE,
 } from './config.js';
 import { createEngine } from './engine.js';
+import { createSmoothScroll } from './scroll.js';
+import { createNav, installEvidenceTips } from './nav.js';
+import { createIntro } from './views/intro.js';
+import { createCharRise } from './views/charRise.js';
+import { createAnatomy } from './views/anatomy.js';
+import { createLogic } from './views/logic.js';
+import { createProblem } from './views/problem.js';
+import { recordLoop } from './tourRun.js';
 import { createRing, SIMULATED_COLOUR } from './views/ring.js';
 import { createPanel } from './views/panel.js';
 import { createLabels, LABELLED_COMPONENTS } from './views/labels.js';
@@ -18,11 +26,95 @@ import { createEvidence } from './views/evidence.js';
 import { createClock } from './views/clock.js';
 import './checks.js';                 // exposes window.kilnChecks()
 
+// The splash (splash.js) is already up and firing its kiln. It hears how far
+// the opening model has loaded, and opens once the scene is drawn.
+const splash = window.kilnSplash || { progress() {}, ready() {}, revealed: Promise.resolve() };
+splash.progress(0.06);   // the modules are in: three.js is parsed
+const fontsReady = (document.fonts && document.fonts.ready) || Promise.resolve();
+
+// One glide for the whole page (scroll.js): every section reads the same
+// smoothed scroll position, so the journey has one feel from seam to seam.
+const smooth = createSmoothScroll();
+
 const engine = createEngine();
 
 const ring = createRing(document.getElementById('ring-canvas'), {
   count: C.chambers.count,
 });
+
+/**
+ * The intro (views/intro.js). Skipped for prefers-reduced-motion and for
+ * viewports too small to read an orbiting establishing shot comfortably —
+ * both land straight on the same end state the animated version settles
+ * into (the bare kiln, dashboard chrome still hidden by body.pre-reveal),
+ * just without the camera move. Collapsing #intro to nothing rather than
+ * merely not animating it: a visitor who has asked for reduced motion
+ * should not also have to scroll through 900vh of a frozen opening shot to
+ * get to the kiln.
+ */
+const introSection = document.getElementById('intro');
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  || window.innerWidth < 560;
+
+// The site bar: the four pages. It opens on the intro's clay unless the
+// intro is skipped, and steps aside while the story scrolls (nav.js).
+createNav({ current: 'story', autoHide: true, tone: reduceMotion ? 'dark' : 'light' });
+installEvidenceTips(EVIDENCE);
+
+let intro = null;
+if (reduceMotion) {
+  introSection.style.display = 'none';
+} else {
+  // The opening question rises in as the kiln opens onto the yard, one
+  // character at a time: held until then, so it is never spent under the splash.
+  const title = createCharRise(document.querySelector('.intro-title'), { mode: 'load', delay: 120, stagger: 18, autoplay: false });
+  // The line under it is simpler: the whole of it fades in (it starts hidden, via
+  // .fade-in in the markup, so it never shows before its cue), starting while
+  // the last of the title's characters are still rising.
+  const sub = document.querySelector('.intro-sub');
+  const cue = document.querySelector('.intro-cue');
+  const place = document.querySelector('.intro-place');
+  Promise.all([fontsReady, splash.revealed])
+    .then(() => {
+      title.play();
+      setTimeout(() => sub.classList.add('is-in'), 1700);
+      // Where it is, with the deck: context for the picture, not a first read.
+      setTimeout(() => place && place.classList.add('is-in'), 1700);
+      // The scroll cue last, once there is something to read first.
+      setTimeout(() => cue && cue.classList.add('is-in'), 2750);
+    });
+  intro = createIntro({
+    sectionEl: introSection,
+    canvas: document.getElementById('intro-canvas'),
+    ring,                                              // the blueprint kiln is drawn from it
+    copyEl: document.querySelector('.intro-copy'),
+    placeEl: document.querySelector('.intro-place-wrap'),
+    briefEl: document.querySelector('.intro-brief'),
+    // The factory's bytes fill the splash's kiln; the rest is decoding.
+    onProgress: (f) => splash.progress(0.06 + f * 0.84),
+  });
+}
+// The kiln opens once the opening scene is drawn: the factory where the
+// intro runs, the fonts alone where it is skipped (the page then opens on
+// the kiln's own drawing, which needs no download).
+splash.ready(Promise.all([fontsReady, intro ? intro.ready : Promise.resolve()]));
+
+/**
+ * The tour of the kiln's parts (views/anatomy.js), after the intro.
+ *
+ * It points at a RUNNING kiln: one full loop of the real engine, recorded
+ * ahead of time (tourRun.js) from a kiln in steady running. The tour shows
+ * the record's first moment while it introduces the parts, scrubs through
+ * the whole loop in "The fire", and rests on its last moment after. The
+ * visitor's own kiln (`engine`) stays cold and empty until they light it;
+ * the ring draws the record only while the tour is on screen.
+ */
+const run = recordLoop();
+const anatomy = createAnatomy({ sectionEl: document.getElementById('anatomy'), ring, run });
+// After the tour: the same recorded loop, read as five ideas from computing.
+const logic = createLogic({ sectionEl: document.getElementById('logic'), ring, run });
+// Then the question it ends on, answered: the drying problem the dryer is for.
+const problem = createProblem({ sectionEl: document.getElementById('problem'), ring, run, followScroll: !smooth.enabled || window.matchMedia('(pointer: coarse)').matches });
 
 const labels = createLabels(document.getElementById('label-layer'), ring);
 
@@ -132,8 +224,38 @@ document.getElementById('btn-sources-close').addEventListener('click', () => {
 
 window.addEventListener('resize', () => {
   ring.resize();
+  intro?.resize();
   chart.update(engine.state, true);   // width changed: force a rebuild
 });
+
+// --- dashboard reveal --------------------------------------------------------
+
+/**
+ * The page now opens on the intro sequence (style.css: `body.pre-reveal`
+ * hides the topbar, side column and transport bar, leaving only the bare
+ * kiln). This is the hand-off: it drops `pre-reveal` and re-measures the ring
+ * exactly as the evidence-mode toggle already does above, for the same
+ * reason — the ring-pane's box changes size the moment the side column and
+ * transport bar come back, and the canvas only resizes on a window resize
+ * event otherwise.
+ *
+ * Not called anywhere yet. The intro sequence (views/intro.js) will call this
+ * once it has a defined moment to hand off at.
+ */
+function revealDashboard() {
+  document.body.classList.remove('pre-reveal');
+  ring.resize();
+  chart.update(engine.state, true);
+}
+
+/**
+ * The story ends at the end of #problem, over the village, on a question.
+ * There is no hand-off to the dashboard any more: the page stays in
+ * pre-reveal (the dashboard chrome out of the page), and scrolling simply
+ * stops there. revealDashboard() is kept, reachable from the console, for
+ * working on the model.
+ */
+window.__revealDashboard = revealDashboard;
 
 // --- failure reporting ------------------------------------------------------
 
@@ -180,10 +302,22 @@ function frame(now) {
   last = now;                             // dump a huge dt into the simulation
 
   try {
+    smooth.update(dt);     // first: every view below reads the scroll it writes
     engine.step(dt);
 
     // The ring needs dt to settle chamber colours at a rate tied to the cycle.
-    ring.update(engine.state, dt);
+    // The tour draws the fired demonstration kiln; everything else, the
+    // visitor's own.
+    const touring = anatomy.isActive();
+    document.body.classList.toggle('touring', touring);
+    // ...and at the end of the drying problem, the recorded loop again, as
+    // the kiln comes back (views/problem.js, stage 5).
+    const shownState = touring ? anatomy.frame() : problem.kilnFrame() || engine.state;
+    ring.update(shownState, dt);
+    intro?.update();   // reads scroll position only; no engine state involved
+    anatomy.update(shownState);
+    logic.update();
+    problem.update();
     labels.update(engine.state);     // must follow ring: it reads the camera
     panel.update(engine.state);
     chart.update(engine.state);      // redraws only when the record changes
@@ -206,6 +340,10 @@ requestAnimationFrame(frame);
 // Brief rule 14.10: debugging starts in the console.
 window.kiln = engine;
 window.__ring = ring;        // segments[], path — inspect the drawing
+window.__anatomy = anatomy;
+window.__problem = problem;  // camera — inspect the drying story's way
+window.__run = run;         // the recorded loop the tour scrubs through
+window.__intro = intro;      // camera, renderer, scene, getBuilding() — inspect the camera path
 window.__cfg = { C, PALETTE, STAGE_COLOUR, TAGS, OPEN_QUESTIONS, COMPONENTS, EVIDENCE };
 window.__chart = chart;
 // What the legend was built from: the scene's own parts, the ones only the

@@ -158,6 +158,18 @@ export function createPanel({ contextEl, debugEl, clockEl, recoveryEl }, dispatc
    * runs the kiln both ways at once over one schedule — so this reads two live
    * numbers and computes nothing (rule 14.2).
    */
+  /**
+   * Write text only when it changes. These run every frame, and a tagged
+   * element carries a real evidence tag after its text (views/evidence.js):
+   * rewriting it every frame would pull the tag out from under the pointer.
+   */
+  const written = new WeakMap();
+  function put(node, text) {
+    if (written.get(node) === text) return;
+    written.set(node, text);
+    node.textContent = text;
+  }
+
   function updateRecovery(state) {
     if (!recoveryEl) return;
     const { on, off, firings } = state.fuelCompare;
@@ -195,8 +207,8 @@ export function createPanel({ contextEl, debugEl, clockEl, recoveryEl }, dispatc
      * there would be describing air that is not moving.
      */
     const lit = state.phase !== 'charging';
-    recoveryEl.whyOn.textContent = lit && reusing ? WHY.on : '';
-    recoveryEl.whyOff.textContent = lit && !reusing ? WHY.off : '';
+    put(recoveryEl.whyOn, lit && reusing ? WHY.on : '');
+    put(recoveryEl.whyOff, lit && !reusing ? WHY.off : '');
 
     /**
      * One message, and only while there is nothing to compare — it is there to
@@ -204,9 +216,9 @@ export function createPanel({ contextEl, debugEl, clockEl, recoveryEl }, dispatc
      * speak for themselves and the mechanism is up in the rows, so this empties
      * rather than finding something else to say.
      */
-    recoveryEl.note.textContent = firings
+    put(recoveryEl.note, firings
       ? ''
-      : 'Nothing has finished firing yet, so there is nothing to compare.';
+      : 'Nothing has finished firing yet, so there is nothing to compare.');
   }
 
   function update(state) {
@@ -246,6 +258,8 @@ export function createPanel({ contextEl, debugEl, clockEl, recoveryEl }, dispatc
     updateRecovery(state);
 
     const { line, qualifier } = contextFor(state);
+    if (written.get(contextEl) === `${line}\n${qualifier}`) return;
+    written.set(contextEl, `${line}\n${qualifier}`);
     contextEl.innerHTML = '';
     const p = document.createElement('p');
     p.textContent = line;

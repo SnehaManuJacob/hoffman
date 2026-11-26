@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The proposal · Decoding Fire with Algorithms</title>
+  <meta name="description" content="A design hypothesis: a drying system for arecanut in wet spells, organised like the Hoffmann kiln but deciding by the condition of the nuts. How it would work, and what remains to be tested.">
+  <link rel="preload" href="./vendor/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="./vendor/fonts/orbitron.woff2" as="font" type="font/woff2" crossorigin>
+  <!-- One stamp for every local file: run `python3 bump-version.py` after any change. -->
+  <link rel="stylesheet" href="site.css?v=20261126k">
+  <link rel="stylesheet" href="proposal-page.css?v=20261126k">
+  <script type="importmap">
+  {
+    "imports": {
+      "./scroll.js": "./scroll.js?v=20261126k",
+      "./nav.js": "./nav.js?v=20261126k",
+      "./proposal-page.js": "./proposal-page.js?v=20261126k",
+      "./psychro.js": "./psychro.js?v=20261126k",
+      "./views/dryerDiagram.js": "./views/dryerDiagram.js?v=20261126k",
+      "./config.js": "./config.js?v=20261126k",
+      "./engine.js": "./engine.js?v=20261126k",
+      "./history.js": "./history.js?v=20261126k",
+      "./tourRun.js": "./tourRun.js?v=20261126k",
+      "./views/heatRamp.js": "./views/heatRamp.js?v=20261126k"
+    }
+  }
+  </script>
+</head>
+<body class="page-proposal" data-page="proposal">
+  <a class="skip-link" href="#how">Skip to how it would work</a>
+
+  <!-- Under the site bar for the whole page: what kind of thing this is. -->
+  <p class="pp-status" role="note"><b>Design hypothesis</b><span>Not built. Not tested. Every claim marked by how it is known.</span></p>
+
+  <main class="pp">
+
+    <!-- ===================================================================
+         Opening
+         =================================================================== -->
+    <header class="pp-hero" id="top">
+      <p class="pp-mark">The proposal</p>
+      <h1 class="pp-title">The Drying Cycle</h1>
+      <p class="pp-lede">Keep the kiln's organisation; change how it decides. The nuts stay where they are loaded and the heated air's route moves, but the system moves on when the nuts are ready, not when a clock says so.</p>
+      <p class="pp-back">In the <a href="./index.html">story</a>, the kiln is rebuilt into this dryer one change at a time. Here: how it would work, why, and what would prove it wrong. In the research it is drafted as <em>A Dryer on Schedule</em> (draft 5).</p>
+
+      <div class="pp-isnot">
+        <div>
+          <h2>What this is</h2>
+          <p>A drying system for arecanut in wet spells, informed by the operating logic of the tile kiln at Kundapur, for a group of neighbouring growers to share.</p>
+        </div>
+        <div>
+          <h2>What it is not</h2>
+          <p>A Hoffmann kiln for farms. No ring of masonry, no fire in contact with the nuts, no fixed two-hour clock. It does not claim the dryer works.</p>
+        </div>
+      </div>
+
+      <div class="pp-key" aria-label="How each claim on this page is marked">
+        <p class="pp-key-h">Each claim is marked by how it is known</p>
+        <ul id="key"></ul>
+      </div>
+    </header>
+
+    <nav class="pp-rail" aria-label="On this page">
+      <ol>
+        <li><a href="#problem"><b>01</b>The problem</a></li>
+        <li><a href="#transfer"><b>02</b>What carries over</a></li>
+        <li><a href="#how"><b>03</b>How it would work</a></li>
+        <li><a href="#air"><b>04</b>Is the air fit?</a></li>
+        <li><a href="#decide"><b>05</b>Two clocks</a></li>
+        <li><a href="#effects"><b>06</b>What it might do</a></li>
+        <li><a href="#tests"><b>07</b>To be tested</a></li>
+      </ol>
+    </nav>
+
+    <!-- ===================================================================
+         01 The problem
+         =================================================================== -->
+    <section class="pp-sec" id="problem" aria-labelledby="problem-h">
+      <header class="pp-sec-head">
+        <p class="pp-num">01 · The problem</p>
+        <h2 id="problem-h">Two problems, not one</h2>
+        <p class="pp-sec-lede">When rain arrives while arecanut is drying, two different things go wrong. Growers already solve the first. The second is what this proposal is for.</p>
+      </header>
+
+      <div class="pp-two" id="two-problems"></div>
+
+      <div class="pp-pair">
+        <figure class="pp-card pp-cal">
+          <figcaption class="pp-card-h">Wet spells, not the monsoon itself</figcaption>
+          <div class="pp-cal-art" id="calendar"></div>
+          <p class="pp-note" id="calendar-note"></p>
+        </figure>
+
+        <figure class="pp-card pp-bench">
+          <figcaption class="pp-card-h">The benchmark, set before the design</figcaption>
+          <p class="pp-note">In a rainy spell, a batch in the dryer should take closer to the two weeks of roof drying than to the month or more of indoor drying. <strong>A prototype that only matches indoor drying has failed.</strong></p>
+          <div id="benchmark"></div>
+          <details class="pp-more">
+            <summary>The published figure disagrees</summary>
+            <p>Regional guidance gives 40–45 days of sun-drying for ripe nuts (CPCRI; TSS), and other guides 35–40 or up to 45–60. Growers report up to two weeks on the roof. Possible reasons: the outer layer is combed off before drying; the guidance may count both drying stages, or describe other regions. This page uses the growers' figures and keeps the guidance as context. <span class="chip" data-ev="U">U</span></p>
+          </details>
+        </figure>
+      </div>
+
+      <figure class="pp-card pp-options">
+        <figcaption class="pp-card-h">Why the existing options fall short</figcaption>
+        <div class="pp-matrix" id="options" role="table" aria-label="Drying options compared"></div>
+        <p class="pp-note">The first two rows are what growers reported. The middle two are established in principle. The last row is what the proposal aims for, not a result.</p>
+      </figure>
+    </section>
+
+    <!-- ===================================================================
+         02 What carries over
+         =================================================================== -->
+    <section class="pp-sec" id="transfer" aria-labelledby="transfer-h">
+      <header class="pp-sec-head">
+        <p class="pp-num">02 · What carries over</p>
+        <h2 id="transfer-h">Five principles kept, three left behind</h2>
+        <p class="pp-sec-lede">"Like a kiln" is too loose a test. The kiln was taken apart into separate principles, and each was asked: does it work without tiles and fire?</p>
+      </header>
+
+      <div class="pp-sort">
+        <div class="pp-sort-col">
+          <h3>Carried into the dryer</h3>
+          <ol class="pp-principles" id="kept"></ol>
+        </div>
+        <div class="pp-sort-col pp-sort-col--left">
+          <h3>Left with the kiln</h3>
+          <ol class="pp-principles" id="dropped"></ol>
+        </div>
+      </div>
+
+      <div class="pp-prec">
+        <h3 class="pp-prec-h">Each kept principle already works somewhere else</h3>
+        <ul class="pp-prec-list" id="precedents"></ul>
+        <p class="pp-note">None of these combines all five. That combination, for this crop and this coast, is the untested part.</p>
+      </div>
+    </section>
+
+    <!-- ===================================================================
+         03 How it would work: the damper diagram
+         =================================================================== -->
+    <section class="pp-sec" id="how" aria-labelledby="how-h">
+      <header class="pp-sec-head">
+        <p class="pp-num">03 · How it would work</p>
+        <h2 id="how-h">The nuts stay put; the air's route moves</h2>
+        <p class="pp-sec-lede">Four bays in a row, one fixed heater and fan, twelve dampers. Four dampers are open at a time. To move on, three close and three open, and the route shifts one bay along. Step through it.</p>
+      </header>
+
+      <div class="pp-machine">
+        <div class="pp-machine-top">
+          <div class="pp-steps" role="radiogroup" aria-label="Step" id="step-buttons"></div>
+          <div class="pp-exc" role="radiogroup" aria-label="Exceptions, at step 2" id="exc-buttons"></div>
+        </div>
+        <!-- Only the drawing scrolls sideways on a phone; the controls above
+             and the words below stay at the screen's width. -->
+        <div class="pp-diagram-scroll">
+          <svg class="pp-diagram" id="dryer" viewBox="0 0 960 470" role="img" aria-labelledby="dryer-say"></svg>
+        </div>
+        <div class="pp-machine-say">
+          <p id="dryer-say" aria-live="polite"></p>
+          <p class="pp-machine-ev" id="dryer-ev"></p>
+        </div>
+        <div class="pp-legend" id="dryer-legend" aria-hidden="true"></div>
+      </div>
+
+      <details class="pp-more pp-more--wide">
+        <summary>The full damper table</summary>
+        <div class="pp-table-wrap"><table class="pp-table" id="damper-table"></table></div>
+        <p class="pp-note">Make before break: on every step the new dampers open before the old ones shut, so the fan never pushes against a closed system. The row is straight; the return duct R41 closes it into a loop, so any bay can come first. A U-shaped row would keep that duct short.</p>
+      </details>
+
+      <div class="pp-pair pp-pair--diag">
+        <figure class="pp-card">
+          <figcaption class="pp-card-h">Each batch moves through the roles without moving</figcaption>
+          <div id="batches"></div>
+          <p class="pp-note">Air always flows lead → middle → tail. Each batch enters as the tail, becomes the middle, then the lead, then is unloaded: the opposite way to the air. That is staged counter-current flow. <span class="chip" data-ev="L" data-note="Here: the principle.">L</span> <span class="chip" data-ev="A" data-note="Here: this configuration.">A</span></p>
+        </figure>
+        <figure class="pp-card">
+          <figcaption class="pp-card-h">The same diagonal as the kiln</figcaption>
+          <div id="kiln-diagonal"></div>
+          <p class="pp-note">The kiln's chambers over one loop, from the same model as the <a href="./kiln.html#readings">kiln page</a>. In both, the loads hold still and the work moves across them, so the active stage runs diagonally. The kiln's step is two hours; the dryer's would be days.</p>
+        </figure>
+      </div>
+    </section>
+
+    <!-- ===================================================================
+         04 Is the air fit for the next bay?
+         =================================================================== -->
+    <section class="pp-sec" id="air" aria-labelledby="air-h">
+      <header class="pp-sec-head">
+        <p class="pp-num">04 · Is the air fit for the next bay?</p>
+        <h2 id="air-h">Passing air on is only useful until it isn't</h2>
+        <p class="pp-sec-lede">As air dries nuts it cools and fills with water. Passed to fresh, cold nuts too late, it would condense on them. So before each bay the system checks two things: can the air still take up water, and is its dew point below the nuts' temperature?</p>
+      </header>
+
+      <div class="pp-calc">
+        <form class="pp-calc-in" id="calc" aria-label="Air going in">
+          <h3>Air going in</h3>
+          <label><span>Outdoor air</span><output id="o-out"></output><input type="range" id="i-out" min="20" max="34" step="1" value="27"></label>
+          <label><span>Outdoor humidity</span><output id="o-rh"></output><input type="range" id="i-rh" min="50" max="100" step="5" value="90"></label>
+          <label><span>Heated to</span><output id="o-heat"></output><input type="range" id="i-heat" min="35" max="70" step="1" value="47"></label>
+          <label><span>Water picked up in each bay</span><output id="o-pick"></output><input type="range" id="i-pick" min="0.5" max="4" step="0.5" value="2"></label>
+          <label><span>Fresh nuts in the tail bay</span><output id="o-nut"></output><input type="range" id="i-nut" min="20" max="40" step="1" value="27"></label>
+          <button type="button" class="pp-reset" id="calc-reset">The proposal's worked example</button>
+        </form>
+
+        <div class="pp-calc-out">
+          <div class="pp-calc-bays" id="calc-bays"></div>
+          <p class="pp-calc-verdict" id="calc-verdict" aria-live="polite"></p>
+          <details class="pp-more">
+            <summary>Why relative humidity alone misleads</summary>
+            <p>Relative humidity says how close air is to saturation at its present temperature. Two streams at the same relative humidity can differ a great deal: at 60%, air at 30 °C holds about 16 g of water per kg and has a dew point near 21 °C; at 45 °C it holds about 37 g/kg and its dew point is near 35 °C. What matters is the humidity ratio, the dew point, and how much more the air could take up as it cools by evaporation.</p>
+          </details>
+        </div>
+      </div>
+      <p class="pp-src pp-src--inline"><span class="chip" data-ev="S">S</span> Calculated with standard psychrometric formulas at sea-level pressure, assuming no heat is lost through walls or ducts, so the air cools only by evaporation. An illustration of the physics, not a prediction of how a real dryer performs. The thresholds the real route check would use are open. <span class="chip" data-ev="U">U</span></p>
+    </section>
+
+    <!-- ===================================================================
+         05 Two clocks
+         =================================================================== -->
+    <section class="pp-sec" id="decide" aria-labelledby="decide-h">
+      <header class="pp-sec-head">
+        <p class="pp-num">05 · Two clocks</p>
+        <h2 id="decide-h">Same organisation, different decisions</h2>
+        <p class="pp-sec-lede">The kiln is time-triggered: every two hours the fire moves on, without fail. The dryer would be condition-triggered: it reads the air, decides where the air may go, and moves on when the nuts are ready. Copying the kiln's clock would be copying a rule without its reason.</p>
+      </header>
+
+      <div class="pp-clocks">
+        <figure class="pp-clock">
+          <svg viewBox="-60 -60 120 120" id="clock-kiln" aria-hidden="true"></svg>
+          <figcaption>
+            <b>The kiln: a clock</b>
+            <span>Every 2 hours, whatever the tiles are doing. <span class="chip" data-ev="F">F</span></span>
+          </figcaption>
+        </figure>
+        <figure class="pp-clock">
+          <svg viewBox="-60 -60 120 120" id="clock-dryer" aria-hidden="true"></svg>
+          <figcaption>
+            <b>The dryer: a condition</b>
+            <span>When the lead batch is dry, roughly every 4–5 days in the author's estimate. <span class="chip" data-ev="A">A</span></span>
+          </figcaption>
+        </figure>
+      </div>
+
+      <ol class="pp-flow" id="flow"></ol>
+      <p class="pp-note pp-flow-note">A person stays in the loop at step 5: the sensors suggest, the operator's samples confirm, using the test growers already use. The kiln has no judgement in its timing; the dryer places judgement in its timing on purpose. Every threshold is open. <span class="chip" data-ev="U">U</span></p>
+
+      <details class="pp-more pp-more--wide">
+        <summary>The decision logic, written out</summary>
+        <pre class="pp-code" id="pseudo"></pre>
+      </details>
+    </section>
+
+    <!-- ===================================================================
+         06 What it might do
+         =================================================================== -->
+    <section class="pp-sec" id="effects" aria-labelledby="effects-h">
+      <header class="pp-sec-head">
+        <p class="pp-num">06 · What it might do</p>
+        <h2 id="effects-h">Potential effects, none measured</h2>
+        <p class="pp-sec-lede">These follow from the design. <strong>No fuel, cost or labour saving is claimed.</strong> Each says what it rests on.</p>
+      </header>
+      <ul class="pp-effects" id="effect-list"></ul>
+      <p class="pp-note">Labour: loading, unloading and turning the nuts remain. What might change is the weather-driven work, carrying nuts up to the roof and back indoors when rain comes. How much that saves is open.</p>
+    </section>
+
+    <!-- ===================================================================
+         07 To be tested
+         =================================================================== -->
+    <section class="pp-sec" id="tests" aria-labelledby="tests-h">
+      <header class="pp-sec-head">
+        <p class="pp-num">07 · To be tested</p>
+        <h2 id="tests-h">What would have to be true</h2>
+        <p class="pp-sec-lede">Each of these is a condition for the system to work. Most could be studied with the kiln simulation adapted for drying, or a bench rig of small boxes, a fan, a heater and sensors. The last needs fieldwork. Test 1 is the one the others serve.</p>
+      </header>
+
+      <article class="pp-test-one" id="test-one"></article>
+      <div class="pp-tests" id="test-board"></div>
+    </section>
+
+    <section class="pp-sec pp-sec--end" aria-labelledby="sources-h">
+      <details class="pp-sources">
+        <summary><h2 id="sources-h">Sources for this page</h2></summary>
+        <ul id="page-sources"></ul>
+      </details>
+
+      <nav class="pp-doors" aria-label="Where next">
+        <a class="pp-door" href="./kiln.html">
+          <span class="pp-door-k">Back to the original</span>
+          <span class="pp-door-t">How the Hoffmann kiln works, and a model you can run.</span>
+        </a>
+        <a class="pp-door" href="./evidence.html">
+          <span class="pp-door-k">Next: the evidence</span>
+          <span class="pp-door-t">Where every claim on the site comes from.</span>
+        </a>
+      </nav>
+    </section>
+  </main>
+
+  <script type="module">import './proposal-page.js';</script>
+</body>
+</html>
