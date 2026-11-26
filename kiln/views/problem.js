@@ -125,14 +125,10 @@ function unstretch(u) {
 const CUTS = [
   [846, 1026, 100],     // the box dryer: three captions made one
   [1500, 1630, 100],    // the kiln can't hold the nuts; the heater moves out
-  [1630, 1680, 0],      //   the Pipeline card
   [1680, 1784, 85],     // four bays, in a row, with a return duct
-  [1784, 1834, 0],      //   the Loop card
   [1836, 1944, 65],     // the heater stays put; the dampers move the route
-  [1944, 1992, 0],      //   the Algorithm card
-  [2084, 2134, 0],      //   the Forwarding card
   [2136, 2284, 85],     // the lead batch shut off, emptied, refilled
-  [2332, 2430, 0],      //   the Trigger card and "how often to check"
+  [2380, 2430, 0],      //   "how often to check"
   [2990, 3056, 40],     // the Drying Cycle rises (its caption cut)
 ].map(([a, b, len]) => [stretchOf(a), stretchOf(b), len]);
 const CUT_SAVED = CUTS.reduce((t, [a, b, len]) => t + (b - a - len), 0);

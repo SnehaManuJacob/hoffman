@@ -148,8 +148,13 @@ export const COPY6 = [
   { at: [3190, 3202, 3288, 3300], text: 'Four things carried over from the kiln. Two changed: the heat source, and what starts a step.' },
   { at: [3324, 3336, 3410, 3422], text: 'This is a proposal. These are the questions it still has to answer.', srcs: [['U', 'Not known: each of these is open']] },
   { at: [3498, 3516, 1e9, 1e9], text: 'What system around you is worth a closer look?', big: true, ask: true },
-  // The term cards that followed each idea were cut for Impulse India: the
-  // logic section has already defined the words, and the tray still lights.
+  // After each paragraph that lights an idea in the tray, a card for that
+  // idea: what the word means, and what it is here.
+  { at: [1632, 1642, 1667, 1677], term: 'Pipeline', def: 'Several jobs in progress at once, each at a different stage.', here: 'the batches stay in their bays; warm air, not fire, moves round them.' },
+  { at: [1786, 1796, 1821, 1831], term: 'Loop', def: 'When the last step is done, it starts again from the first, so it never has to stop.', here: 'the return duct takes the air from the last bay back to the first.' },
+  { at: [1946, 1956, 1981, 1991], term: 'Algorithm', def: 'A fixed procedure: the same steps, in the same order, every time.', here: 'open the next dampers, then close the last.' },
+  { at: [2086, 2096, 2121, 2131], term: 'Forwarding', def: 'Passing one stage’s result straight on to the next stage that can use it.', here: 'air leaving the driest nuts still has drying power, so it goes on to the wetter ones.' },
+  { at: [2334, 2344, 2369, 2379], term: 'Trigger', def: 'The event that sets a procedure running.', here: 'in the kiln, a clock: every two hours. In the dryer, a grower’s judgement of the nuts.' },
 ];
 
 
