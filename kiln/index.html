@@ -15,9 +15,9 @@
     backdrop silently went white that way). views/intro.js reuses its own
     stamp for assets/factory.glb, so the model is covered too.
   -->
-  <link rel="stylesheet" href="site.css?v=20261126k">
-  <link rel="stylesheet" href="style.css?v=20261126k">
-  <link rel="stylesheet" href="splash.css?v=20261126k">
+  <link rel="stylesheet" href="site.css?v=20261126p">
+  <link rel="stylesheet" href="style.css?v=20261126p">
+  <link rel="stylesheet" href="splash.css?v=20261126p">
   <!-- Without scripts nothing would ever lift the splash. -->
   <noscript><style>.splash { display: none; }</style></noscript>
 
@@ -30,30 +30,30 @@
   {
     "imports": {
       "three": "./vendor/three.module.js",
-      "./scroll.js": "./scroll.js?v=20261126k",
-      "./nav.js": "./nav.js?v=20261126k",
-      "./main.js": "./main.js?v=20261126k",
-      "./config.js": "./config.js?v=20261126k",
-      "./engine.js": "./engine.js?v=20261126k",
-      "./history.js": "./history.js?v=20261126k",
-      "./checks.js": "./checks.js?v=20261126k",
-      "./views/charRise.js": "./views/charRise.js?v=20261126k",
-      "./views/intro.js": "./views/intro.js?v=20261126k",
-      "./views/ring.js": "./views/ring.js?v=20261126k",
-      "./views/panel.js": "./views/panel.js?v=20261126k",
-      "./views/labels.js": "./views/labels.js?v=20261126k",
-      "./views/chart.js": "./views/chart.js?v=20261126k",
-      "./views/evidence.js": "./views/evidence.js?v=20261126k",
-      "./views/clock.js": "./views/clock.js?v=20261126k",
-      "./views/heatRamp.js": "./views/heatRamp.js?v=20261126k",
-      "./views/kilnPath.js": "./views/kilnPath.js?v=20261126k",
-      "./views/anatomy.js": "./views/anatomy.js?v=20261126k",
-      "./views/logic.js": "./views/logic.js?v=20261126k",
-      "./views/problem.js": "./views/problem.js?v=20261126k",
-      "./views/transform.js": "./views/transform.js?v=20261126k",
-      "./views/building.js": "./views/building.js?v=20261126k",
-      "./views/models.js": "./views/models.js?v=20261126k",
-      "./tourRun.js": "./tourRun.js?v=20261126k"
+      "./scroll.js": "./scroll.js?v=20261126p",
+      "./nav.js": "./nav.js?v=20261126p",
+      "./main.js": "./main.js?v=20261126p",
+      "./config.js": "./config.js?v=20261126p",
+      "./engine.js": "./engine.js?v=20261126p",
+      "./history.js": "./history.js?v=20261126p",
+      "./checks.js": "./checks.js?v=20261126p",
+      "./views/charRise.js": "./views/charRise.js?v=20261126p",
+      "./views/intro.js": "./views/intro.js?v=20261126p",
+      "./views/ring.js": "./views/ring.js?v=20261126p",
+      "./views/panel.js": "./views/panel.js?v=20261126p",
+      "./views/labels.js": "./views/labels.js?v=20261126p",
+      "./views/chart.js": "./views/chart.js?v=20261126p",
+      "./views/evidence.js": "./views/evidence.js?v=20261126p",
+      "./views/clock.js": "./views/clock.js?v=20261126p",
+      "./views/heatRamp.js": "./views/heatRamp.js?v=20261126p",
+      "./views/kilnPath.js": "./views/kilnPath.js?v=20261126p",
+      "./views/anatomy.js": "./views/anatomy.js?v=20261126p",
+      "./views/logic.js": "./views/logic.js?v=20261126p",
+      "./views/problem.js": "./views/problem.js?v=20261126p",
+      "./views/transform.js": "./views/transform.js?v=20261126p",
+      "./views/building.js": "./views/building.js?v=20261126p",
+      "./views/models.js": "./views/models.js?v=20261126p",
+      "./tourRun.js": "./tourRun.js?v=20261126p"
     }
   }
   </script>
@@ -81,7 +81,7 @@
       <p class="splash-state">Lighting the kiln</p>
     </div>
   </div>
-  <script src="splash.js?v=20261126k"></script>
+  <script src="splash.js?v=20261126p"></script>
 
   <a class="skip-link" href="#story-end">Skip the scrolling story</a>
 
@@ -104,8 +104,8 @@
         move has the screen to itself. An h2: the page's h1 is the wordmark.
       -->
       <div class="intro-copy">
-        <h2 class="intro-title cr">What can an old kiln teach us about designing new systems?</h2>
-        <p class="intro-sub fade-in">A century-old approach to tile firing holds remarkable ideas about heat recovery, continuous processes and resource efficiency.</p>
+        <h2 class="intro-title cr">What can a kiln teach us about designing new systems?</h2>
+        <p class="intro-sub fade-in">Inside a Hoffmann kiln, heat, time and work are arranged with remarkable care. What can we learn by looking closely?</p>
         <!-- The one instruction the opening needs: the scroll drives the
              story. Fades out with the question once the visitor scrolls. -->
         <p class="intro-cue fade-in" aria-hidden="true"><span>Scroll to begin</span><i></i></p>
@@ -136,7 +136,7 @@
         and its words come in as the visitor scrolls (views/intro.js, HOLD),
         so it is read rather than scrolled past.
       -->
-      <p class="intro-brief">By unpacking the Hoffmann kiln as a computational system, this project explores the engineering principles behind its operation, revealing how an ingenious approach to organising heat, time and resources could inspire new ways of thinking about contemporary industrial processes.</p>
+      <p class="intro-brief">Behind this kiln is the knowledge of the people who work it. This project uses ideas from computing to understand how the kiln is organised, and to ask where that understanding might lead.</p>
     </div>
   </section>
 
@@ -247,7 +247,7 @@
       <div class="logic-cells" aria-hidden="true"></div>
       <div class="logic-intro">
         <h2>The logic in the kiln</h2>
-        <p>Nobody at the tile works calls this computing. But a fire that never stops has to be run by rule, and the rules are ones a programmer would recognise.</p>
+        <p>Nobody at the tile works calls this computing, and they don’t need to. Borrowing a few of its words is one way to see how carefully the work is arranged.</p>
       </div>
       <div class="logic-deck"></div>
       <!-- After the last card: the five terms scatter, then the purple
@@ -255,7 +255,7 @@
       <div class="logic-ask"></div>
       <div class="logic-terms" aria-hidden="true"></div>
       <div class="logic-question">
-        <h2>What else could this system become?</h2>
+        <h2>Where else could these principles be useful?</h2>
       </div>
     </div>
   </section>

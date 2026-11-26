@@ -87,7 +87,7 @@ export const T6 = {
   // The first step, told in two passages: the lead batch dry, its bay shut
   // off and the lead moved on; then that bay emptied and refilled by hand.
   SWITCH: [2138, 2284],
-  CLOCK: [2288, 2304],      // "The condition of the nuts decides…": the box
+  CLOCK: [2288, 2304],      // "The grower decides…": the box
   UNPLUG: [2292, 2302],     // (no clock is drawn)
   PLUG: [2304, 2326],       // the grower's wire into it
   UNKNOWN: [2386, 2402],    // "How often to check…": not known
@@ -130,39 +130,26 @@ export const T6 = {
 
 /** What is said, [in from, in to, out from, out to], and its source. */
 export const COPY6 = [
-  { at: [1498, 1510, 1528, 1538], text: 'What if the kiln’s chambers held arecanut instead of tiles?' },
-  { at: [1540, 1552, 1568, 1578], text: 'But the fire cannot pass through them: its heat is far too fierce, and its smoke must never touch the nuts.' },
-  { at: [1580, 1592, 1620, 1630], text: 'So the fire moves outside. A separate heater burns husk and warms a clean stream of air; the smoke leaves by its own flue, and only warm air reaches the nuts.', srcs: [['A', 'Proposed: indirect heating, a design decision in the dryer proposal']] },
-  { at: [1680, 1692, 1718, 1728], text: 'Unlike tiles, arecanut takes days to dry. Four bays are enough: three drying at different stages while the fourth is emptied and refilled.', srcs: [['A', 'Proposed: four bays, a design decision']] },
-  { at: [1732, 1744, 1774, 1784], text: 'The ring straightens into a row, to fit a farm building. A duct runs from the last bay back to the first, so the air still has a way round.', srcs: [['A', 'Proposed: the row and the return duct, design decisions']] },
-  { at: [1836, 1848, 1880, 1890], text: 'The heater stays in one place. If the air always took the same route, the bay nearest it would always get the warmest air, and the others would lag behind.', srcs: [['A', 'Proposed: a movable airflow route']] },
-  { at: [1890, 1902, 1934, 1944], text: 'So dampers move the air’s route on, one bay at a time. The heater stays put; the path of the air changes.', srcs: [['A', 'Proposed: the damper sequence, a design decision']] },
+  { at: [1498, 1510, 1618, 1630], text: 'Arecanut can’t go into the fire: its heat is too fierce, and its smoke would spoil the nuts. So a separate heater burns husk and sends only clean, warm air.', srcs: [['A', 'Proposed: indirect heating, a design decision in the dryer proposal']] },
+  { at: [1680, 1692, 1774, 1784], text: 'Arecanut takes days, not hours, so four bays are enough: set in a row, with a duct from the last back to the first.', srcs: [['A', 'Proposed: four bays, the row and the return duct, design decisions']] },
+  { at: [1836, 1848, 1934, 1944], text: 'The heater stays put. Dampers move the air’s route on, one bay at a time.', srcs: [['A', 'Proposed: a movable airflow route, set by dampers']] },
   { at: [1994, 2006, 2074, 2084], text: 'The warmest, driest air meets the nearly dry nuts first. As it travels it cools and takes up water, reaching the wetter batches later: one stream of air does the work of several.', srcs: [['A', 'Proposed: counter-current airflow, driest nuts first']] },
-  { at: [2138, 2150, 2212, 2222], text: 'When the lead batch is dry, its bay is shut off from the air, and the next bay becomes the lead.', srcs: [['A', 'Proposed: shutting off the dry bay and moving the lead on']] },
-  { at: [2226, 2238, 2274, 2284], text: 'The dry batch is taken out by hand, and fresh nuts go in its place.', srcs: [['A', 'Proposed: unloading and reloading by hand']] },
-  { at: [2286, 2298, 2322, 2332], text: 'The condition of the nuts decides when the system moves on: a grower tests the lead batch, as growers already do.', srcs: [['F', 'Observed: growers test their nuts for dryness by hand'], ['A', 'Proposed: using that test to move the airflow on']] },
-  { at: [2382, 2394, 2418, 2430], text: 'How often to check, and how well the growers’ test works here, are still to be found out.', srcs: [['F', 'Observed: the growers’ test itself'], ['U', 'Not known: how reliable it is here, and how often to check']] },
+  { at: [2138, 2150, 2274, 2284], text: 'When the lead batch is dry, its bay is shut off, emptied by hand and refilled, and the next bay leads.', srcs: [['A', 'Proposed: shutting off the dry bay, unloading by hand, moving the lead on']] },
+  { at: [2286, 2298, 2322, 2332], text: 'The grower decides when the system moves on, by testing the lead batch, as growers already do.', srcs: [['F', 'Observed: growers test their nuts for dryness by hand'], ['A', 'Proposed: using that test to move the airflow on']] },
   // Stage 7. Two phases in one scroll: the words light at the page's reading
   // pace (about 3vh a word, as the passages before it) and are read by the
   // middle of the first step (`readBy`), then stay up, whole, while the cycle
   // runs on at its own pace through C2 and C3. Read first, then watch.
   { at: [2464, 2476, 2726, 2738], readBy: T6.C1[0] + 52, text: 'A batch leaves; a fresh one takes its place. The dampers move on, and the cycle continues.', srcs: [['A', 'Proposed: batch replacement and the damper sequence']] },
-  { at: [2744, 2758, 2790, 2804], text: 'The kiln’s logic and structure, reworked for a different material, a different process, and a different trigger.', big: true, finale: true },
+  { at: [2744, 2758, 2790, 2804], text: 'Not a copy of the kiln. Its way of working, rethought for arecanut, drawing on research and conversations with growers.', big: true, finale: true },
   // Stage 8
   { at: [2810, 2822, 2884, 2896], text: 'Back to the rain that started this. On the roof, up to two weeks; indoors, a month or more. The Drying Cycle aims for the roof’s time, rain or shine: a claim to test, not a result.', srcs: [['F', 'Observed: the growers’ drying times, on the roof and indoors'], ['U', 'Not known: the dryer’s time is an aim, untested']] },
-  { at: [2996, 3008, 3042, 3054], text: 'One way it could stand, beside the grower’s house: four bays under four tiled roofs. One heater burning husk feeds them all, through a channel along the front with a damper into each bay.', srcs: [['A', 'Illustrative: one way it could be built; the form is not designed']] },
-  { at: [3062, 3074, 3108, 3120], text: 'The same rain, the same village. Every roof is bare; one batch keeps drying.', srcs: [['U', 'Not known: an aim, untested']] },
-  { at: [3124, 3136, 3170, 3182], text: 'Steam rises from one chimney at a time, wherever the air’s route ends. When the lead batch is dry, its door opens and the grower takes it out.', srcs: [['A', 'Proposed: the route, the exhausts and the hand unloading']] },
+  { at: [3062, 3074, 3170, 3182], text: 'The same rain, the same village. Every roof is bare; one batch keeps drying.', srcs: [['U', 'Not known: an aim, untested']] },
   { at: [3190, 3202, 3288, 3300], text: 'Four things carried over from the kiln. Two changed: the heat source, and what starts a step.' },
   { at: [3324, 3336, 3410, 3422], text: 'This is a proposal. These are the questions it still has to answer.', srcs: [['U', 'Not known: each of these is open']] },
-  { at: [3498, 3516, 1e9, 1e9], text: 'Do you have a problem a system like this could help solve?', big: true, ask: true },
-  // After each paragraph that lights an idea in the tray, a card for that
-  // idea: what the word means, and what it is here.
-  { at: [1632, 1642, 1667, 1677], term: 'Pipeline', def: 'Several jobs in progress at once, each at a different stage.', here: 'the batches stay in their bays; warm air, not fire, moves round them.' },
-  { at: [1786, 1796, 1821, 1831], term: 'Loop', def: 'When the last step is done, it starts again from the first, so it never has to stop.', here: 'the return duct takes the air from the last bay back to the first.' },
-  { at: [1946, 1956, 1981, 1991], term: 'Algorithm', def: 'A fixed procedure: the same steps, in the same order, every time.', here: 'open the next dampers, then close the last.' },
-  { at: [2086, 2096, 2121, 2131], term: 'Forwarding', def: 'Passing one stage’s result straight on to the next stage that can use it.', here: 'air leaving the driest nuts still has drying power, so it goes on to the wetter ones.' },
-  { at: [2334, 2344, 2369, 2379], term: 'Trigger', def: 'The event that sets a procedure running.', here: 'in the kiln, a clock: every two hours. In the dryer, the nuts themselves, judged by a grower.' },
+  { at: [3498, 3516, 1e9, 1e9], text: 'What system around you is worth a closer look?', big: true, ask: true },
+  // The term cards that followed each idea were cut for Impulse India: the
+  // logic section has already defined the words, and the tray still lights.
 ];
 
 

@@ -1,5 +1,5 @@
 /**
- * "What else could this system become?": the problem, before the dryer.
+ * "Where else could these principles be useful?": the problem, before the dryer.
  *
  * ONE WORLD, ONE CAMERA, NOTHING SWAPPED
  * The earlier version was a run of separate diagrams. This is a single 3D
@@ -113,7 +113,41 @@ function unstretch(u) {
   }
   return (lo + hi) / 2;
 }
-const warp = (x) => unstretch(holdWarp(x));
+/**
+ * Shortened for the Impulse India showing. The beats below keep their
+ * original times; these spans of story are played in less scroll instead of
+ * being retimed one by one. [from, to, scroll]: the story from `from` to
+ * `to` takes `scroll` vh. A scroll of 0 jumps straight over it, so it is used
+ * only where the picture looks the same at both ends (a caption or a card
+ * read over a still scene). The others are played faster, so nothing jumps.
+ * Delete a row to put that stretch back as it was.
+ */
+const CUTS = [
+  [846, 1026, 100],     // the box dryer: three captions made one
+  [1500, 1630, 100],    // the kiln can't hold the nuts; the heater moves out
+  [1630, 1680, 0],      //   the Pipeline card
+  [1680, 1784, 85],     // four bays, in a row, with a return duct
+  [1784, 1834, 0],      //   the Loop card
+  [1836, 1944, 65],     // the heater stays put; the dampers move the route
+  [1944, 1992, 0],      //   the Algorithm card
+  [2084, 2134, 0],      //   the Forwarding card
+  [2136, 2284, 85],     // the lead batch shut off, emptied, refilled
+  [2332, 2430, 0],      //   the Trigger card and "how often to check"
+  [2990, 3056, 40],     // the Drying Cycle rises (its caption cut)
+].map(([a, b, len]) => [stretchOf(a), stretchOf(b), len]);
+const CUT_SAVED = CUTS.reduce((t, [a, b, len]) => t + (b - a - len), 0);
+/** Scroll (after the nut's pause) to the uncut story's stretched time. */
+function uncut(x) {
+  let shift = 0;
+  for (const [a, b, len] of CUTS) {
+    const at = a - shift;
+    if (x <= at) return x + shift;
+    if (x < at + len) return a + (x - at) * (b - a) / len;
+    shift += b - a - len;
+  }
+  return x + shift;
+}
+const warp = (x) => unstretch(uncut(holdWarp(x)));
 
 /** The story, in viewport heights of (smoothed) scroll from the pin. */
 const P = {
@@ -198,18 +232,16 @@ const src = (code, text) => `<p class="pb-src"><span class="pb-chip" data-ev="${
 const COPY = [
   { at: [106, 120, 178, 190], text: 'Across coastal villages, rooftops are covered with arecanut, spread out to dry in the sun.', src: src('F', 'Growers dry their nuts on their roofs') },
   { at: [226, 240, 298, 310], text: 'In the sun, drying takes up to two weeks.', src: src('F', 'Growers, asked for this project') },
-  { at: [314, 326, 352, 364], text: 'It is ready when it is hard and the husk peels away.', src: src('F', 'Growers test their nuts by hand') },
+  { at: [314, 326, 352, 364], text: 'Growers know it is ready when it is hard and the husk peels away.', src: src('F', 'Growers test their nuts by hand') },
   { at: [372, 386, 426, 440], text: 'Unless it rains.', big: true, src: src('F', 'Growers: rain on the nuts spoils them') },
   { at: [442, 456, 522, 536], text: 'So the drying moves indoors, and waits.', src: src('F', 'Growers: indoors, in damp air, a month to a month and a half') },
   { at: [540, 552, 608, 620], text: 'The same nuts, two to three times as long.', big: true },
   { at: [646, 660, 716, 728], text: 'Across the village, every batch waits on the rain.' },
   { at: [776, 788, 826, 838], text: 'Growers already have a fuel, though: arecanut husk.', src: src('F', 'Growers: husk is burned as fuel in other work') },
-  { at: [840, 852, 898, 910], text: 'The obvious fix: one box, one heater.' },
-  { at: [910, 922, 952, 964], text: 'But the air leaves while it could still dry more…' },
-  { at: [964, 976, 1014, 1026], text: '…and everything stops to empty and refill, then heats up again from cold.' },
+  { at: [840, 852, 1014, 1026], text: 'The obvious fix, one box and one heater, wastes warm air and stops for every batch.' },
   { at: [1030, 1042, 1070, 1082], text: 'Brick-makers had the same problem.', big: true },
   { at: [1084, 1096, 1150, 1162], text: 'In 1858, Friedrich Hoffmann patented a kiln that never let its fire go out, and never let its heat leave unused.', src: src('L', 'History of the Hoffmann kiln') },
-  { at: [1378, 1392, 1482, 1494], text: "Let's take a look at the Hoffmann Kiln again.", big: true },
+  { at: [1378, 1392, 1482, 1494], text: 'So we go back to the kiln, with a different question.', big: true },
 ];
 // Stage 6's words, in the same slips (views/transform.js).
 COPY.push(...COPY6.map((c) => (c.term ? c : { ...c, lit: !(c.big || c.finale || c.ask), src: c.srcs ? `<div class="pb-srcs">${c.srcs.map(([k, t]) => src(k, t)).join('')}</div>` : undefined })));
@@ -270,7 +302,7 @@ function rng(seed) {
 }
 
 export function createProblem({ sectionEl, ring, run, followScroll = true }) {
-  const total = P.END + NUT_HOLD_VH + STRETCH.EXTRA;
+  const total = P.END + NUT_HOLD_VH + STRETCH.EXTRA - CUT_SAVED;
   sectionEl.style.height = `${total + 100}vh`;
   sectionEl.style.marginTop = `-${100 + LOGIC_TAIL_VH}vh`;
 

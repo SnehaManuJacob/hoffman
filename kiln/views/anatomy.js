@@ -95,7 +95,7 @@ export const TOUR = [
     // two-hour interval is the factory's.
     id: 'fire', title: 'The fire moves', tag: 'L', vh: FIRE_VH,
     beats: [
-      { at: 0, text: 'The fire does. Fuel dropped through holes in the roof catches on the red-hot tiles ahead, so the fire creeps forward row by row, never relit.' },
+      { at: 0, text: 'The fire does. Cashew-nut shells, fed through holes in the roof, catch on the red-hot tiles ahead, so the fire creeps forward row by row, never relit.' },
       { at: 0.40, text: 'About every two hours it enters the next chamber. At any moment, each chamber is at a different stage.' },
     ],
   },
