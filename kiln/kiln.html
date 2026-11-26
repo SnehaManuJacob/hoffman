@@ -3,43 +3,45 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>The kiln · A Kiln on Schedule</title>
+  <title>The kiln · Decoding Fire with Algorithms</title>
   <meta name="description" content="How the Hoffmann kiln works: its lineage, its parts, the route its air takes, a model you can run, and what is still not known about the kiln at Kundapur.">
   <link rel="preload" href="./vendor/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="./vendor/fonts/orbitron.woff2" as="font" type="font/woff2" crossorigin>
   <!-- One stamp for every local file: run `python3 bump-version.py` after any change. -->
-  <link rel="stylesheet" href="site.css?v=20261123i">
+  <link rel="stylesheet" href="site.css?v=20261126k">
   <!-- style.css carries the runnable kiln's own styles (ring, side panel,
        transport, evidence strip, sheet); everything else on this page is in
        kiln-page.css. Its story sections are all class-scoped and absent here. -->
-  <link rel="stylesheet" href="style.css?v=20261123i">
-  <link rel="stylesheet" href="kiln-page.css?v=20261123i">
+  <link rel="stylesheet" href="style.css?v=20261126k">
+  <link rel="stylesheet" href="kiln-page.css?v=20261126k">
   <script type="importmap">
   {
     "imports": {
       "three": "./vendor/three.module.js",
-      "./scroll.js": "./scroll.js?v=20261123i",
-      "./nav.js": "./nav.js?v=20261123i",
-      "./kiln-page.js": "./kiln-page.js?v=20261123i",
-      "./config.js": "./config.js?v=20261123i",
-      "./engine.js": "./engine.js?v=20261123i",
-      "./history.js": "./history.js?v=20261123i",
-      "./tourRun.js": "./tourRun.js?v=20261123i",
-      "./views/ring.js": "./views/ring.js?v=20261123i",
-      "./views/panel.js": "./views/panel.js?v=20261123i",
-      "./views/labels.js": "./views/labels.js?v=20261123i",
-      "./views/chart.js": "./views/chart.js?v=20261123i",
-      "./views/evidence.js": "./views/evidence.js?v=20261123i",
-      "./views/clock.js": "./views/clock.js?v=20261123i",
-      "./views/heatRamp.js": "./views/heatRamp.js?v=20261123i",
-      "./views/kilnPath.js": "./views/kilnPath.js?v=20261123i",
-      "./views/kilnDrawings.js": "./views/kilnDrawings.js?v=20261123i"
+      "./scroll.js": "./scroll.js?v=20261126k",
+      "./nav.js": "./nav.js?v=20261126k",
+      "./kiln-page.js": "./kiln-page.js?v=20261126k",
+      "./config.js": "./config.js?v=20261126k",
+      "./engine.js": "./engine.js?v=20261126k",
+      "./history.js": "./history.js?v=20261126k",
+      "./tourRun.js": "./tourRun.js?v=20261126k",
+      "./views/ring.js": "./views/ring.js?v=20261126k",
+      "./views/panel.js": "./views/panel.js?v=20261126k",
+      "./views/labels.js": "./views/labels.js?v=20261126k",
+      "./views/chart.js": "./views/chart.js?v=20261126k",
+      "./views/evidence.js": "./views/evidence.js?v=20261126k",
+      "./views/clock.js": "./views/clock.js?v=20261126k",
+      "./views/heatRamp.js": "./views/heatRamp.js?v=20261126k",
+      "./views/kilnPath.js": "./views/kilnPath.js?v=20261126k",
+      "./views/kilnDrawings.js": "./views/kilnDrawings.js?v=20261126k"
     }
   }
   </script>
   <script src="./vendor/d3.min.js"></script>
 </head>
-<body class="page-kiln" data-page="kiln">
+<!-- Evidence is always shown on this page, so there is no switch: the
+     run section's chips, legend and sources button are on from the start. -->
+<body class="page-kiln evidence-mode" data-page="kiln">
   <a class="skip-link" href="#run">Skip to the kiln you can run</a>
 
   <main class="kp">
@@ -84,13 +86,13 @@
 
       <div class="kp-split">
         <figure class="kp-figure">
-          <figcaption class="kp-figure-h">Plans changed as the kiln spread <span class="chip" data-ev="L" title="Literature: from published writing on other Hoffmann kilns">L</span></figcaption>
+          <figcaption class="kp-figure-h">Plans changed as the kiln spread <span class="chip" data-ev="L">L</span></figcaption>
           <div class="kp-shapes" id="shapes"></div>
           <p class="kp-note">Circular first, then elliptical, then the rectangular "racetrack", which was cheaper to build and drew air more evenly. A kiln at the Albuquerque factory in Mangalore is described as z-shaped. Which shape the Kundapur kiln has is not known.</p>
         </figure>
 
         <figure class="kp-figure">
-          <figcaption class="kp-figure-h">Tile factories in Mangalore <span class="chip" data-ev="L" title="Literature: from published reports">L</span></figcaption>
+          <figcaption class="kp-figure-h">Tile factories in Mangalore <span class="chip" data-ev="L">L</span></figcaption>
           <div class="kp-decline" id="decline"></div>
           <p class="kp-note">Reasons given in the reports: a shift to concrete roofs, clay running short, rising labour and transport costs. The count is for Mangalore only; it says nothing about how many remain around Kundapur.</p>
         </figure>
@@ -112,7 +114,7 @@
 
         <div class="kp-drawings">
           <figure class="kp-drawing">
-            <figcaption><span>Plan</span><em><span class="chip" data-ev="U" title="Unknown">U</span> Drawn as a racetrack. The real shape is not known.</em></figcaption>
+            <figcaption><span>Plan</span><em><span class="chip" data-ev="U">U</span> Drawn as a racetrack. The real shape is not known.</em></figcaption>
             <svg id="plan" viewBox="0 0 640 420" role="img" aria-label="Plan of the kiln: eight chambers in a loop around a central island and chimney"></svg>
           </figure>
           <figure class="kp-drawing">
@@ -157,7 +159,7 @@
         <div>
           <p>Between 2008 and 2012, India's Bureau of Energy Efficiency audited tile kilns in the Mangalore–Kundapura cluster. Its reports found exhaust leaving the kilns at about 350–400 °C, and no temperature measurement anywhere in the cluster: firing was held by the stokers' skill. Its first proposal was a movable fan that pulls the exhaust through <em>more</em> chambers of unfired tiles before it leaves.</p>
           <p>In this page's terms: let the air cross more tiles ahead before the open damper. The savings in the reports are projections. No evidence was found that any of them were carried out.</p>
-          <p class="kp-src"><span class="chip" data-ev="L" title="Literature">L</span> BEE (2012), detailed project reports for the Mangalore tile cluster: <a href="https://sameeeksha.org/pdf/dpr/Mangalore_tiles_cluster/" rel="noopener">SAMEEEKSHA directory</a>.</p>
+          <p class="kp-src"><span class="chip" data-ev="L">L</span> BEE (2012), detailed project reports for the Mangalore tile cluster: <a href="https://sameeeksha.org/pdf/dpr/Mangalore_tiles_cluster/" rel="noopener">SAMEEEKSHA directory</a>.</p>
         </div>
       </details>
     </section>
@@ -185,7 +187,7 @@
           <h3 id="read-h"></h3>
           <svg class="kp-read-chart" id="read-chart" viewBox="0 0 420 260" role="img"></svg>
           <p class="kp-read-text" id="read-text"></p>
-          <p class="kp-src"><span class="chip" data-ev="S" title="Simulated">S</span> Simulated: one loop of the model, on the two-hour interval recorded at the factory. Heat is on the model's own 0–1 scale, not a temperature. The only temperature from the factory is the 850–900 °C peak.</p>
+          <p class="kp-src"><span class="chip" data-ev="S">S</span> Simulated: one loop of the model, on the two-hour interval recorded at the factory. Heat is on the model's own 0–1 scale, not a temperature. The only temperature from the factory is the 850–900 °C peak.</p>
         </div>
       </div>
     </section>
@@ -344,15 +346,6 @@
     </header>
     <div class="sheet-body" id="sources-body"></div>
   </dialog>
-
-  <!-- The evidence switch. Moved into the site bar by kiln-page.js. -->
-  <template id="evidence-pill">
-    <label class="pill">
-      <input type="checkbox" id="evidence-mode">
-      <span class="when-off">Show evidence</span>
-      <span class="when-on">Evidence on</span>
-    </label>
-  </template>
 
   <script type="module">import './kiln-page.js';</script>
 </body>

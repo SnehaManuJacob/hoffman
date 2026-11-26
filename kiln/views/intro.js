@@ -14,7 +14,9 @@
  * match the reference renders (the long signed shed A with its run of hipped
  * Mangalore-tile roofs, the entry porch, the rear sheds and house, laterite
  * compound wall, gate, truck, palms, power line), exported as
- * ./assets/factory.glb and loaded here with three's GLTFLoader.
+ * ./assets/factory.glb, optimised for the web by tools/optimize-models.cjs
+ * (re-run it after every re-bake), and loaded through views/models.js, which
+ * shares it with the drying story.
  *
  * BAKED, NOT LIT
  * Cycles rendered each surface's colour and lighting into texture atlases,
@@ -61,7 +63,7 @@
 
 import * as THREE from 'three';
 import { PALETTE } from '../config.js';
-import { GLTFLoader } from '../vendor/loaders/GLTFLoader.js';
+import { loadModel, warmTextures } from './models.js';
 
 // Carries this module's own ?v= stamp (set by the import map in index.html),
 // so re-baking factory.glb under the same name can't be masked by a cached copy.
@@ -327,7 +329,13 @@ function rectLines(minX, maxX, minZ, maxZ, y) {
   return new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(p, 3));
 }
 
-export function createIntro({ sectionEl, canvas, ring = null, copyEl = null, briefEl = null }) {
+export function createIntro({ sectionEl, canvas, ring = null, copyEl = null, placeEl = null, briefEl = null, onProgress = null }) {
+  // Settles once the factory is in the scene and has been drawn: the moment
+  // the splash screen (splash.js) may lift. Settles on a failed load too, so
+  // a missing model can never leave the visitor behind the splash.
+  let markReady;
+  const ready = new Promise((r) => { markReady = r; });
+
   // The statement's words, each in its own span so scroll can light them in
   // order. The paragraph's text is unchanged for anything reading the DOM.
   const briefWords = [];
@@ -370,13 +378,10 @@ export function createIntro({ sectionEl, canvas, ring = null, copyEl = null, bri
   const photoMaterials = [];
   const lineMaterials = [];
 
-  new GLTFLoader().load(
-    MODEL_URL,
-    (gltf) => {
-      building = gltf.scene;
+  loadModel(MODEL_URL, onProgress).then(
+    async ({ gltf, meshes, textures }) => {
+      const model = gltf.scene;
       const maxAniso = renderer.capabilities.getMaxAnisotropy();
-      const meshes = [];
-      building.traverse((child) => { if (child.isMesh) meshes.push(child); });
 
       for (const child of meshes) {
         const src = child.material;
@@ -411,11 +416,20 @@ export function createIntro({ sectionEl, canvas, ring = null, copyEl = null, bri
           child.add(depth);
         }
       }
+      // Textures up a frame apart and shaders compiled off the frame, before
+      // the model is shown: drawn straight away, its first frame had to upload
+      // every texture at once and froze the opening (views/models.js).
+      await warmTextures(renderer, textures);
+      try { await renderer.compileAsync(model, camera, scene); } catch { /* compiled on first draw instead */ }
+      building = model;
       scene.add(building);
+      // Two frames: one for main.js's loop to draw it, one for it to show.
+      requestAnimationFrame(() => requestAnimationFrame(() => markReady(true)));
     },
-    undefined,
-    (err) => console.error('[intro] factory.glb failed to load:', err),
-  );
+  ).catch((err) => {
+    console.error('[intro] factory.glb failed to load:', err);
+    markReady(false);
+  });
 
   // --- the cut: a translucent sheet at the knife, and shed A's walls in poché
 
@@ -721,10 +735,12 @@ export function createIntro({ sectionEl, canvas, ring = null, copyEl = null, bri
     paper.material.uniforms.uAlpha.value = paperA;
     renderer.setClearColor(clearColour, paperA);
 
-    if (copyEl) {
+    // The map tag leaves with the question.
+    for (const node of [copyEl, placeEl]) {
+      if (!node) continue;
       const a = 1 - span(p, PHASE.copyOut);
-      copyEl.style.opacity = String(a);
-      copyEl.style.visibility = a > 0 ? 'visible' : 'hidden';
+      node.style.opacity = String(a);
+      node.style.visibility = a > 0 ? 'visible' : 'hidden';
     }
 
     if (briefEl) {
@@ -753,5 +769,6 @@ export function createIntro({ sectionEl, canvas, ring = null, copyEl = null, bri
     resize,
     camera, renderer, scene,       // for window.__intro — inspect the camera path
     getBuilding: () => building,   // building itself is only set once the GLB loads
+    ready,                         // the factory is in and drawn (splash.js waits on it)
   };
 }

@@ -11,7 +11,7 @@ import {
 } from './config.js';
 import { createEngine } from './engine.js';
 import { createSmoothScroll } from './scroll.js';
-import { createNav } from './nav.js';
+import { createNav, installEvidenceTips } from './nav.js';
 import { createIntro } from './views/intro.js';
 import { createCharRise } from './views/charRise.js';
 import { createAnatomy } from './views/anatomy.js';
@@ -25,6 +25,12 @@ import { createChart } from './views/chart.js';
 import { createEvidence } from './views/evidence.js';
 import { createClock } from './views/clock.js';
 import './checks.js';                 // exposes window.kilnChecks()
+
+// The splash (splash.js) is already up and firing its kiln. It hears how far
+// the opening model has loaded, and opens once the scene is drawn.
+const splash = window.kilnSplash || { progress() {}, ready() {}, revealed: Promise.resolve() };
+splash.progress(0.06);   // the modules are in: three.js is parsed
+const fontsReady = (document.fonts && document.fonts.ready) || Promise.resolve();
 
 // One glide for the whole page (scroll.js): every section reads the same
 // smoothed scroll position, so the journey has one feel from seam to seam.
@@ -53,32 +59,45 @@ const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').match
 // The site bar: the four pages. It opens on the intro's clay unless the
 // intro is skipped, and steps aside while the story scrolls (nav.js).
 createNav({ current: 'story', autoHide: true, tone: reduceMotion ? 'dark' : 'light' });
+installEvidenceTips(EVIDENCE);
 
 let intro = null;
 if (reduceMotion) {
   introSection.style.display = 'none';
 } else {
-  // The opening question rises in as the page opens, one character at a time.
-  createCharRise(document.querySelector('.intro-title'), { mode: 'load', delay: 250, stagger: 18 });
+  // The opening question rises in as the kiln opens onto the yard, one
+  // character at a time: held until then, so it is never spent under the splash.
+  const title = createCharRise(document.querySelector('.intro-title'), { mode: 'load', delay: 120, stagger: 18, autoplay: false });
   // The line under it is simpler: the whole of it fades in (it starts hidden, via
   // .fade-in in the markup, so it never shows before its cue), starting while
   // the last of the title's characters are still rising.
   const sub = document.querySelector('.intro-sub');
   const cue = document.querySelector('.intro-cue');
-  ((document.fonts && document.fonts.ready) || Promise.resolve())
+  const place = document.querySelector('.intro-place');
+  Promise.all([fontsReady, splash.revealed])
     .then(() => {
-      setTimeout(() => sub.classList.add('is-in'), 1850);
+      title.play();
+      setTimeout(() => sub.classList.add('is-in'), 1700);
+      // Where it is, with the deck: context for the picture, not a first read.
+      setTimeout(() => place && place.classList.add('is-in'), 1700);
       // The scroll cue last, once there is something to read first.
-      setTimeout(() => cue && cue.classList.add('is-in'), 2900);
+      setTimeout(() => cue && cue.classList.add('is-in'), 2750);
     });
   intro = createIntro({
     sectionEl: introSection,
     canvas: document.getElementById('intro-canvas'),
     ring,                                              // the blueprint kiln is drawn from it
     copyEl: document.querySelector('.intro-copy'),
+    placeEl: document.querySelector('.intro-place-wrap'),
     briefEl: document.querySelector('.intro-brief'),
+    // The factory's bytes fill the splash's kiln; the rest is decoding.
+    onProgress: (f) => splash.progress(0.06 + f * 0.84),
   });
 }
+// The kiln opens once the opening scene is drawn: the factory where the
+// intro runs, the fonts alone where it is skipped (the page then opens on
+// the kiln's own drawing, which needs no download).
+splash.ready(Promise.all([fontsReady, intro ? intro.ready : Promise.resolve()]));
 
 /**
  * The tour of the kiln's parts (views/anatomy.js), after the intro.

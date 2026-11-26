@@ -66,7 +66,7 @@
 
 import * as THREE from 'three';
 import { mergeGeometries } from '../vendor/utils/BufferGeometryUtils.js';
-import { GLTFLoader } from '../vendor/loaders/GLTFLoader.js';
+import { loadModel, warmTextures, warmShaders, idle } from './models.js';
 import { C, PALETTE } from '../config.js';
 import { LOGIC_TAIL_VH, NUT_HOLD_VH } from './logic.js';
 import { createTransform, T6, COPY6 } from './transform.js';
@@ -165,8 +165,8 @@ const P = {
   END: T6.END,              // stage 6 runs on to here (views/transform.js)
 };
 
-const SRC = { F: 'Field observation', L: 'Literature', A: 'Assumption', U: 'Unknown' };
-const src = (code, text) => `<p class="pb-src"><span class="pb-chip" data-ev="${code}" title="${SRC[code]}">${code}</span>${text}</p>`;
+// What each letter means is said by the hover note (installEvidenceTips in nav.js).
+const src = (code, text) => `<p class="pb-src"><span class="pb-chip" data-ev="${code}">${code}</span>${text}</p>`;
 
 /**
  * What is said, and when: [in from, in to, out from, out to].
@@ -449,10 +449,26 @@ export function createProblem({ sectionEl, ring, run, followScroll = true }) {
   const doorPivot = new THREE.Group();
   doorPivot.position.set(DX + 1.7, 0, DZ - 1);
   dryer.add(doorPivot);
-  new GLTFLoader().load(MODEL_URL, (gltf) => {
+  /**
+   * The village is the page's largest download and is not seen until well
+   * into the scroll, so it waits for the opening shot's factory and an idle
+   * moment instead of competing with it. Its textures, and this renderer's
+   * copy of the factory's, then go up to the GPU one idle moment at a time
+   * (views/models.js), long before the visitor reaches the scene: uploaded on
+   * the first frame that drew them, they stalled the scroll for over a second.
+   */
+  const villageReady = loadModel(FACTORY_URL).then(idle).then(() => loadModel(MODEL_URL));
+  // Not before the opening has finished arriving (the title rises in over
+  // about three seconds): a 4096 roof or mat texture is one ~100 ms upload
+  // that no idle moment can split, and it should not land on that animation.
+  const afterOpening = new Promise((r) => setTimeout(r, 4000));
+  Promise.all([villageReady, loadModel(FACTORY_URL), afterOpening])
+    .then(([v, f]) => warmTextures(renderer, [...v.textures, ...f.textures], idle))
+    .then(idle)
+    .then(() => warmShaders(renderer, scene, camera))
+    .catch(() => { /* drawn on first use instead */ });
+  villageReady.then(({ gltf, meshes }) => {
     const maxAniso = renderer.capabilities.getMaxAnisotropy();
-    const meshes = [];
-    gltf.scene.traverse((c) => { if (c.isMesh) meshes.push(c); });
     for (const m of meshes) {
       const src = m.material;
       if (src.map) src.map.anisotropy = maxAniso;
@@ -526,13 +542,18 @@ export function createProblem({ sectionEl, ring, run, followScroll = true }) {
   const cyFire = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.46), cyFireMat);
   cyFire.position.set(CY.x0 - 1.25, 0.55, CY.zc + 0.6 + 0.89);
   cycleBody.add(cyFire);
+  // The scene's point lights live at its root, not in the groups they light,
+  // and go dark (intensity 0) rather than hidden: three builds every lit
+  // shader for a set number of lights, so a light coming into view with its
+  // group recompiled them all, mid-scroll. The groups sit at the origin, so
+  // the positions are the same.
   const cyFireLight = new THREE.PointLight(0xff8a3a, 0, 10, 1.6);
   cyFireLight.position.set(CY.x0 - 1.25, 0.9, CY.zc + 2.2);
-  cycle.add(cyFireLight);
+  scene.add(cyFireLight);
   // Warm light inside the bay whose door opens.
   const cyBayLight = new THREE.PointLight(0xffc27a, 0, 7, 1.8);
   cyBayLight.position.set(cyCx(1), 1.6, CY.zc + 0.6);
-  cycle.add(cyBayLight);
+  scene.add(cyBayLight);
   // The open bay's warm inside, seen through its doorway: a glow, since the
   // bake is drawn unlit and a light would not show on it.
   const cyGlow = (() => {
@@ -706,9 +727,10 @@ export function createProblem({ sectionEl, ring, run, followScroll = true }) {
   // so nothing has to shrink after the hand-over.
   const KILN_ZOOM = 0.76;
   const kilnHeight = () => (Math.abs(ring.camera.bottom) / KILN_ZOOM * kilnScale) / Math.tan(THREE.MathUtils.degToRad(END_FOV / 2));
-  new GLTFLoader().load(FACTORY_URL, (gltf) => {
-    const meshes = [];
-    gltf.scene.traverse((c) => { if (c.isMesh) meshes.push(c); });
+  // Shared with the opening shot (views/models.js): loaded and decoded once.
+  // `meshes` is the list from before intro.js added its edges and depth
+  // meshes, so none of those are copied in here.
+  loadModel(FACTORY_URL).then(({ meshes }) => {
     for (const m of meshes) {
       // The power line runs off for 150 m: it would cross the village.
       if (m.name.startsWith('Power_Lines')) continue;
@@ -950,9 +972,11 @@ export function createProblem({ sectionEl, ring, run, followScroll = true }) {
   const fire = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.45), fireMat);
   fire.position.set(9.5, 0.55, DZ + 0.66);
   dryer.add(fire);
+  // At the scene's root, like the Drying Cycle's lights (see there); it
+  // follows the dryer as it rises.
   const fireLight = new THREE.PointLight(0xff8a3a, 0, 9, 1.6);
   fireLight.position.set(9.5, 0.9, DZ + 1.3);
-  dryer.add(fireLight);
+  scene.add(fireLight);
   const trayMesh = new THREE.InstancedMesh(nutGeo, nutMat, 120);
   trayMesh.castShadow = true;
   dryer.add(trayMesh);
@@ -1402,6 +1426,7 @@ export function createProblem({ sectionEl, ring, run, followScroll = true }) {
     if (dryer.visible) {
       // It rises out of the ground into place, piece by piece read as one.
       dryer.position.y = (1 - dryerIn) * -3.2;
+      fireLight.position.y = 0.9 + dryer.position.y;
       contact.material.opacity = dryerIn;
       const stop = smooth(P.STOP[0], P.STOP[1], s);
       const relight = smooth(P.RELIGHT[0], P.RELIGHT[1], s);
@@ -1474,6 +1499,10 @@ export function createProblem({ sectionEl, ring, run, followScroll = true }) {
         sp.material.opacity = 0.55 * Math.sin(Math.PI * u) * roofsOn;
       });
     }
+    // The point lights stay in the scene (see cyFireLight): dark whenever
+    // the part they belong to is not drawn.
+    if (!world.visible || !dryer.visible) fireLight.intensity = 0;
+    if (!world.visible || !cycle.visible) { cyFireLight.intensity = 0; cyBayLight.intensity = 0; }
     if (shown > 0) renderer.render(scene, camera);
 
     // ---- the words and slips

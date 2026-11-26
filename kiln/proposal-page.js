@@ -16,7 +16,7 @@
  */
 
 import { createSmoothScroll } from './scroll.js';
-import { createNav, linkChips } from './nav.js';
+import { createNav, linkChips, installEvidenceTips } from './nav.js';
 import { followAir } from './psychro.js';
 import { createDryer, DAMPERS, legendHTML } from './views/dryerDiagram.js';
 import { recordLoop } from './tourRun.js';
@@ -58,7 +58,7 @@ const MARKS = {
   U: { word: 'Open', blurb: 'Not known. It would need fieldwork, a model or a test.' },
 };
 function chip(tag) {
-  return h('span', { class: 'chip', 'data-ev': tag, title: `${MARKS[tag].word}. ${MARKS[tag].blurb}`, text: tag });
+  return h('span', { class: 'chip', 'data-ev': tag, text: tag });
 }
 /** A run of text with inline chips: ['words', 'F', 'more words'] */
 function said(parts) {
@@ -66,6 +66,8 @@ function said(parts) {
 }
 
 createNav({ current: 'proposal' });
+// This page's own words for the letters, so the hover note matches its key.
+installEvidenceTips(Object.fromEntries(Object.entries(MARKS).map(([k, m]) => [k, { label: m.word, blurb: m.blurb }])));
 const smooth = createSmoothScroll();
 
 $('#key').replaceChildren(...Object.entries(MARKS).map(([k, m]) => h('li', {},

@@ -22,7 +22,7 @@ import {
 } from './config.js';
 import { createEngine, relativeHeat, stageAt } from './engine.js';
 import { createSmoothScroll } from './scroll.js';
-import { createNav, linkChips } from './nav.js';
+import { createNav, linkChips, installEvidenceTips } from './nav.js';
 import { recordLoop } from './tourRun.js';
 import { createRing, SIMULATED_COLOUR } from './views/ring.js';
 import { createPanel } from './views/panel.js';
@@ -51,18 +51,17 @@ function h(tag, attrs = {}, ...kids) {
   return node;
 }
 
-/** The evidence chip. Its tooltip says what the letter means. */
+/** The evidence chip. Its hover note (installEvidenceTips) says what the letter means. */
 function chip(tag) {
-  const e = EVIDENCE[tag];
-  return h('span', { class: 'chip', 'data-ev': tag, title: e ? `${e.label}. ${e.blurb}` : tag, text: tag });
+  return h('span', { class: 'chip', 'data-ev': tag, text: tag });
 }
 
 // ---------------------------------------------------------------------------
-// The bar, with the evidence switch at its end, and one glide for the page.
+// The bar, and one glide for the page.
 // ---------------------------------------------------------------------------
 
-const pill = $('#evidence-pill').content.firstElementChild.cloneNode(true);
-createNav({ current: 'kiln', end: pill });
+createNav({ current: 'kiln' });
+installEvidenceTips(EVIDENCE);
 const smooth = createSmoothScroll();
 
 // ---------------------------------------------------------------------------
@@ -509,13 +508,11 @@ const recovery = $('#recovery');
 recovery.checked = engine.state.params.recovery;
 recovery.addEventListener('change', (ev) => engine.dispatch({ type: 'setRecovery', value: ev.target.checked }));
 
-$('#evidence-mode').addEventListener('change', (ev) => {
-  engine.dispatch({ type: 'setEvidenceMode', value: ev.target.checked });
-  document.body.classList.toggle('evidence-mode', engine.state.ui.evidenceMode);
-  evidence.update(engine.state);
-  ring.resize();
-  kchart.update(engine.state, true);
-});
+// Evidence is always on here: every other section shows its chips without
+// asking, so the run section does too (body carries .evidence-mode in the
+// markup; the engine is told so the legend strip shows).
+engine.dispatch({ type: 'setEvidenceMode', value: true });
+evidence.update(engine.state);
 $('#btn-sources').addEventListener('click', () => engine.dispatch({ type: 'setDetails', value: true }));
 $('#btn-sources-close').addEventListener('click', () => engine.dispatch({ type: 'setDetails', value: false }));
 

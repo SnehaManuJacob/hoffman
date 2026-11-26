@@ -10,7 +10,7 @@
  */
 
 import { createSmoothScroll } from './scroll.js';
-import { createNav } from './nav.js';
+import { createNav, installEvidenceTips } from './nav.js';
 import {
   C, TAGS, NOTES, UNITS, EVIDENCE, METHODS,
 } from './config.js';
@@ -30,10 +30,11 @@ function h(tag, attrs = {}, ...kids) {
   for (const kid of kids.flat()) if (kid != null && kid !== false && kid !== '') n.append(kid);
   return n;
 }
-const chip = (tag) => h('span', { class: 'chip', 'data-ev': tag, title: `${EVIDENCE[tag].label}. ${EVIDENCE[tag].blurb}`, text: tag });
+const chip = (tag) => h('span', { class: 'chip', 'data-ev': tag, text: tag });
 const ORDER = ['F', 'L', 'A', 'S', 'U'];
 
 createNav({ current: 'evidence' });
+installEvidenceTips(EVIDENCE);
 const smooth = createSmoothScroll();
 
 // ---------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-# A Kiln on Schedule — Context Brief for AI Assistance
+# Decoding Fire with Algorithms — Context Brief for AI Assistance
 
 *Paste or upload this whole file at the start of every new chat. Update the two sections marked UPDATE before each session.*
 
@@ -17,7 +17,7 @@ You are helping me build the **digital prototype** of my pre-thesis project. Rea
 
 ## 1. The project
 
-**Title:** A Kiln on Schedule — Understanding Traditional Firing through Algorithms
+**Title:** Decoding Fire with Algorithms
 
 **Goal:** To make the ingenuity and interconnected working of the Hoffmann kiln visible, understandable, and engaging by translating its systems of structure, heat, time, and sequencing into an interactive experience.
 

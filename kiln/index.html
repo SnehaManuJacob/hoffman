@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>A Kiln on Schedule</title>
+  <title>Decoding Fire with Algorithms</title>
   <link rel="preload" href="./vendor/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="./vendor/fonts/orbitron.woff2" as="font" type="font/woff2" crossorigin>
   <!--
@@ -15,8 +15,11 @@
     backdrop silently went white that way). views/intro.js reuses its own
     stamp for assets/factory.glb, so the model is covered too.
   -->
-  <link rel="stylesheet" href="site.css?v=20261123i">
-  <link rel="stylesheet" href="style.css?v=20261123i">
+  <link rel="stylesheet" href="site.css?v=20261126k">
+  <link rel="stylesheet" href="style.css?v=20261126k">
+  <link rel="stylesheet" href="splash.css?v=20261126k">
+  <!-- Without scripts nothing would ever lift the splash. -->
+  <noscript><style>.splash { display: none; }</style></noscript>
 
   <!--
     three.js is vendored locally (kiln/vendor/) rather than loaded from a CDN so
@@ -27,29 +30,30 @@
   {
     "imports": {
       "three": "./vendor/three.module.js",
-      "./scroll.js": "./scroll.js?v=20261123i",
-      "./nav.js": "./nav.js?v=20261123i",
-      "./main.js": "./main.js?v=20261123i",
-      "./config.js": "./config.js?v=20261123i",
-      "./engine.js": "./engine.js?v=20261123i",
-      "./history.js": "./history.js?v=20261123i",
-      "./checks.js": "./checks.js?v=20261123i",
-      "./views/charRise.js": "./views/charRise.js?v=20261123i",
-      "./views/intro.js": "./views/intro.js?v=20261123i",
-      "./views/ring.js": "./views/ring.js?v=20261123i",
-      "./views/panel.js": "./views/panel.js?v=20261123i",
-      "./views/labels.js": "./views/labels.js?v=20261123i",
-      "./views/chart.js": "./views/chart.js?v=20261123i",
-      "./views/evidence.js": "./views/evidence.js?v=20261123i",
-      "./views/clock.js": "./views/clock.js?v=20261123i",
-      "./views/heatRamp.js": "./views/heatRamp.js?v=20261123i",
-      "./views/kilnPath.js": "./views/kilnPath.js?v=20261123i",
-      "./views/anatomy.js": "./views/anatomy.js?v=20261123i",
-      "./views/logic.js": "./views/logic.js?v=20261123i",
-      "./views/problem.js": "./views/problem.js?v=20261123i",
-      "./views/transform.js": "./views/transform.js?v=20261123i",
-      "./views/building.js": "./views/building.js?v=20261123i",
-      "./tourRun.js": "./tourRun.js?v=20261123i"
+      "./scroll.js": "./scroll.js?v=20261126k",
+      "./nav.js": "./nav.js?v=20261126k",
+      "./main.js": "./main.js?v=20261126k",
+      "./config.js": "./config.js?v=20261126k",
+      "./engine.js": "./engine.js?v=20261126k",
+      "./history.js": "./history.js?v=20261126k",
+      "./checks.js": "./checks.js?v=20261126k",
+      "./views/charRise.js": "./views/charRise.js?v=20261126k",
+      "./views/intro.js": "./views/intro.js?v=20261126k",
+      "./views/ring.js": "./views/ring.js?v=20261126k",
+      "./views/panel.js": "./views/panel.js?v=20261126k",
+      "./views/labels.js": "./views/labels.js?v=20261126k",
+      "./views/chart.js": "./views/chart.js?v=20261126k",
+      "./views/evidence.js": "./views/evidence.js?v=20261126k",
+      "./views/clock.js": "./views/clock.js?v=20261126k",
+      "./views/heatRamp.js": "./views/heatRamp.js?v=20261126k",
+      "./views/kilnPath.js": "./views/kilnPath.js?v=20261126k",
+      "./views/anatomy.js": "./views/anatomy.js?v=20261126k",
+      "./views/logic.js": "./views/logic.js?v=20261126k",
+      "./views/problem.js": "./views/problem.js?v=20261126k",
+      "./views/transform.js": "./views/transform.js?v=20261126k",
+      "./views/building.js": "./views/building.js?v=20261126k",
+      "./views/models.js": "./views/models.js?v=20261126k",
+      "./tourRun.js": "./tourRun.js?v=20261126k"
     }
   }
   </script>
@@ -62,6 +66,23 @@
   <script src="./vendor/d3.min.js"></script>
 </head>
 <body class="pre-reveal">
+  <!--
+    The splash (splash.js, splash.css): the kiln lighting, one chamber at a
+    time, while the opening shot's model loads; it fades onto the factory
+    yard once the scene is drawn. First in the body and its script straight
+    after it, so it is on the very first frame, before any module has
+    loaded. Its words are for sighted visitors; a screen reader hears the
+    one status line.
+  -->
+  <div class="splash" id="splash" role="status" aria-label="Loading the story">
+    <canvas class="splash-canvas" aria-hidden="true"></canvas>
+    <div class="splash-foot" aria-hidden="true">
+      <p class="splash-title">Decoding Fire with Algorithms</p>
+      <p class="splash-state">Lighting the kiln</p>
+    </div>
+  </div>
+  <script src="splash.js?v=20261126k"></script>
+
   <a class="skip-link" href="#story-end">Skip the scrolling story</a>
 
   <!--
@@ -88,6 +109,24 @@
         <!-- The one instruction the opening needs: the scroll drives the
              story. Fades out with the question once the visitor scrolls. -->
         <p class="intro-cue fade-in" aria-hidden="true"><span>Scroll to begin</span><i></i></p>
+      </div>
+
+      <!--
+        Where the factory is: the model on screen is a real place, and this
+        says which one. Top right, over the open ground, so
+        the question below keeps its clear strip under the yard wall. Opens
+        in a new tab: following it should not lose the visitor's place in the
+        scroll. Fades in with the deck and out with the question
+        (views/intro.js, placeEl, on the wrapper, so the two fades never
+        fight over one element's opacity).
+      -->
+      <div class="intro-place-wrap">
+      <a class="intro-place fade-in" href="https://maps.app.goo.gl/Y6xPFkiJSVtquL1a8" target="_blank" rel="noopener"
+         aria-label="Prabhakar Tile Works, Kundapur, on Google Maps (opens in a new tab)">
+        <svg class="intro-place-pin" viewBox="0 0 16 20" aria-hidden="true"><path d="M8 0a8 8 0 0 0-8 8c0 6 8 12 8 12s8-6 8-12a8 8 0 0 0-8-8Zm0 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6Z"/></svg>
+        <span class="intro-place-name">Prabhakar Tile Works, Kundapur</span>
+        <span class="intro-place-go">Map <span aria-hidden="true">↗</span></span>
+      </a>
       </div>
 
       <!--
@@ -282,7 +321,7 @@
     centred over an empty column.
   -->
   <header class="topbar">
-    <h1 class="wordmark">A Kiln on Schedule</h1>
+    <h1 class="wordmark">Decoding Fire with Algorithms</h1>
 
     <label class="pill">
       <input type="checkbox" id="evidence-mode">

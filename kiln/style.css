@@ -78,8 +78,7 @@ h1, h2 { margin: 0; font-weight: 500; }
  */
 .kiln-label,
 .ev-code,
-.evidence-mode .side [data-ev]::after,
-.evidence-mode .transport [data-ev]::after {
+.ev-after {
   font-family: var(--font-display);
   font-size: var(--fs-micro);
   font-stretch: 72%;
@@ -230,6 +229,49 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
 @media (prefers-reduced-motion: reduce) { .intro-cue i::after { animation: none; top: 30%; } }
 /* Too narrow to share the deck's line: under it, still out of the flow. */
 @media (max-width: 900px) { .intro-cue { right: auto; left: 0; bottom: auto; top: calc(100% + var(--space-3)); } }
+
+/*
+ * Where the factory is, as a link to the map. Top right over the open ground,
+ * aligned with the right edge of the question's block. A small pale tag on the clay, in the
+ * same near-black as the question, so it reads as a caption on the picture
+ * rather than a button competing with it.
+ */
+.intro-place-wrap {
+  position: absolute;
+  /* A step below the bar's line, so it reads as part of the picture. */
+  top: calc(clamp(var(--space-6), 8vh, 6rem) + var(--space-6));
+  right: clamp(var(--space-4), 5vw, 6rem);
+}
+.intro-place {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--r-pill);
+  background: rgba(241, 237, 230, 0.72);
+  box-shadow: inset 0 0 0 1px rgba(29, 25, 21, 0.16);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  color: #15120f;
+  font-family: var(--font-display);
+  font-size: var(--fs-small);
+  line-height: 1.2;
+  text-decoration: none;
+  transition: opacity 900ms var(--ease-out), background-color 160ms linear, box-shadow 160ms linear;
+}
+.intro-place-pin { width: 0.8em; height: 1em; fill: #c2502a; flex: none; }
+.intro-place-go {
+  padding-left: var(--space-2);
+  border-left: 1px solid rgba(29, 25, 21, 0.2);
+  font-size: var(--fs-micro);
+  font-stretch: 72%;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.intro-place:hover { background: rgba(241, 237, 230, 0.92); box-shadow: inset 0 0 0 1px rgba(29, 25, 21, 0.32); }
+.intro-place:hover .intro-place-go { text-decoration: underline; text-underline-offset: 0.2em; }
+.intro-place:focus-visible { outline: 2px solid #15120f; outline-offset: 3px; }
 
 /*
  * The project statement, during the blueprint phase. Top right, in the
@@ -1332,7 +1374,7 @@ td, output, .clock-value, .fuel-value, .src-value, .debug-summary {
 .pb-transform .pb8-tag.is-changed { fill: #B46AFF; }
 .pb-transform .pb6-chip.is-filled { fill: #2e2c29; }
 /* Stage 7: the dryer's name, in the site's title face (its own wordmark is
-   "A Kiln on Schedule"), and the batch letters that stay in their bays. */
+   "Decoding Fire with Algorithms"), and the batch letters that stay in their bays. */
 .pb-transform .pb7-title { font-family: "Orbitron", var(--font-display); font-size: var(--title-md); font-weight: 700; fill: #ffffff; letter-spacing: 0.01em; }
 .pb-transform .pb7-sub { font-size: clamp(0.9rem, 1.2vw, 1.1rem); fill: #e4e0da; }
 .pb-transform .pb7-step { font-size: 11.5px; font-weight: 600; fill: #c99aff; letter-spacing: 0.14em; text-transform: uppercase; }
@@ -2228,8 +2270,7 @@ body.pre-reveal .transport {
  * part that was computed. U is the only code drawn as an outline: a gap.
  */
 .ev-code,
-.evidence-mode .side [data-ev]::after,
-.evidence-mode .transport [data-ev]::after {
+.ev-after {
   flex: 0 0 auto;
   display: inline-block;
   min-width: 1.6em;
@@ -2243,13 +2284,13 @@ body.pre-reveal .transport {
 }
 
 .ev-code[data-code="S"],
-.evidence-mode .side [data-ev="S"]::after {
+.ev-after[data-ev="S"] {
   color: var(--heat-2);
   background: color-mix(in srgb, var(--heat-4) 22%, var(--soot));
 }
 
 .ev-code[data-code="U"],
-.evidence-mode .side [data-ev="U"]::after {
+.ev-after[data-ev="U"] {
   color: var(--sand-dim);
   background: transparent;
   border: 1px dashed var(--sand-faint);
@@ -2258,14 +2299,16 @@ body.pre-reveal .transport {
 /**
  * Beside the text it describes, on the same line.
  *
- * Built from the attribute rather than written into the markup, so a tagged
- * element cannot be given a tag in one place and a different one on screen.
+ * Built from the attribute (views/evidence.js) rather than written into the
+ * markup, so a tagged element cannot be given a tag in one place and a
+ * different one on screen. A real element, not ::after, so it can be hovered.
  */
-.evidence-mode .side [data-ev]::after,
-.evidence-mode .transport [data-ev]::after {
-  content: attr(data-ev);
+.ev-after { display: none; }
+.evidence-mode .ev-after {
+  display: inline-block;
   margin-left: var(--space-2);
   vertical-align: middle;
+  cursor: help;
 }
 
 /**
@@ -2275,16 +2318,12 @@ body.pre-reveal .transport {
  */
 .evidence-mode #chart[data-ev] { position: relative; }
 
-.evidence-mode #chart[data-ev]::after {
+.evidence-mode #chart[data-ev] > .ev-after {
   position: absolute;
   top: var(--space-1);
   left: var(--space-1);
   margin: 0;
 }
-
-/* The legend and the sheet carry their own chips; they do not get a second. */
-.evidence-mode .evidence-strip [data-ev]::after,
-.evidence-mode .sheet [data-ev]::after { content: none; }
 
 /* --------------------------------------------------------------------------
    the legend strip (brief section 8)

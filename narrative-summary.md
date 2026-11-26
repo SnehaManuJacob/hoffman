@@ -1,4 +1,4 @@
-# The story of *A Kiln on Schedule*
+# The story of *Decoding Fire with Algorithms*
 
 This account comes from the site's own text and from the scene notes in `index.html`, `views/intro.js`, `views/anatomy.js`, `views/logic.js`, `views/problem.js` and `views/transform.js`.
 

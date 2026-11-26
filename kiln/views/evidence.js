@@ -141,7 +141,6 @@ function el(tag, className, text) {
 function codeChip(code) {
   const chip = el('span', 'ev-code', code);
   chip.dataset.code = code;
-  chip.title = EVIDENCE[code].label;
   return chip;
 }
 
@@ -302,12 +301,35 @@ export function createEvidence({ stripEl, legendEl, sheetEl, sheetBodyEl, drawn 
 
   let built = false;
 
+  // --- the tags in the panels -------------------------------------------------
+
+  /**
+   * One real tag after each tagged thing in the side panel and the transport.
+   * These were drawn by CSS (`::after`), but a pseudo-element cannot be
+   * hovered on its own, and its tag needs a hover note like every other.
+   *
+   * Checked every frame because the panel rewrites some of these with
+   * `textContent`, which takes the tag with it; it comes back on the next
+   * frame. An empty element gets none, so `:empty` still hides it. CSS shows
+   * them only in evidence mode.
+   */
+  function tagPanels() {
+    document.querySelectorAll('.side [data-ev], .transport [data-ev]').forEach((host) => {
+      if (host.classList.contains('ev-after') || host.closest('.evidence-strip, .sheet')) return;
+      if (!host.firstChild || host.querySelector(':scope > .ev-after')) return;
+      const tag = el('span', 'ev-after', host.dataset.ev);
+      tag.dataset.ev = host.dataset.ev;
+      host.append(tag);
+    });
+  }
+
   // --- state ----------------------------------------------------------------
 
   function update(state) {
     const { evidenceMode, details } = state.ui;
 
     stripEl.hidden = !evidenceMode;
+    tagPanels();
 
     if (details && !sheetEl.open) {
       if (!built) { buildSheet(); built = true; }

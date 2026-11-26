@@ -3,26 +3,26 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>The proposal · A Kiln on Schedule</title>
+  <title>The proposal · Decoding Fire with Algorithms</title>
   <meta name="description" content="A design hypothesis: a drying system for arecanut in wet spells, organised like the Hoffmann kiln but deciding by the condition of the nuts. How it would work, and what remains to be tested.">
   <link rel="preload" href="./vendor/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="./vendor/fonts/orbitron.woff2" as="font" type="font/woff2" crossorigin>
   <!-- One stamp for every local file: run `python3 bump-version.py` after any change. -->
-  <link rel="stylesheet" href="site.css?v=20261123i">
-  <link rel="stylesheet" href="proposal-page.css?v=20261123i">
+  <link rel="stylesheet" href="site.css?v=20261126k">
+  <link rel="stylesheet" href="proposal-page.css?v=20261126k">
   <script type="importmap">
   {
     "imports": {
-      "./scroll.js": "./scroll.js?v=20261123i",
-      "./nav.js": "./nav.js?v=20261123i",
-      "./proposal-page.js": "./proposal-page.js?v=20261123i",
-      "./psychro.js": "./psychro.js?v=20261123i",
-      "./views/dryerDiagram.js": "./views/dryerDiagram.js?v=20261123i",
-      "./config.js": "./config.js?v=20261123i",
-      "./engine.js": "./engine.js?v=20261123i",
-      "./history.js": "./history.js?v=20261123i",
-      "./tourRun.js": "./tourRun.js?v=20261123i",
-      "./views/heatRamp.js": "./views/heatRamp.js?v=20261123i"
+      "./scroll.js": "./scroll.js?v=20261126k",
+      "./nav.js": "./nav.js?v=20261126k",
+      "./proposal-page.js": "./proposal-page.js?v=20261126k",
+      "./psychro.js": "./psychro.js?v=20261126k",
+      "./views/dryerDiagram.js": "./views/dryerDiagram.js?v=20261126k",
+      "./config.js": "./config.js?v=20261126k",
+      "./engine.js": "./engine.js?v=20261126k",
+      "./history.js": "./history.js?v=20261126k",
+      "./tourRun.js": "./tourRun.js?v=20261126k",
+      "./views/heatRamp.js": "./views/heatRamp.js?v=20261126k"
     }
   }
   </script>
@@ -98,7 +98,7 @@
           <div id="benchmark"></div>
           <details class="pp-more">
             <summary>The published figure disagrees</summary>
-            <p>Regional guidance gives 40–45 days of sun-drying for ripe nuts (CPCRI; TSS), and other guides 35–40 or up to 45–60. Growers report up to two weeks on the roof. Possible reasons: the outer layer is combed off before drying; the guidance may count both drying stages, or describe other regions. This page uses the growers' figures and keeps the guidance as context. <span class="chip" data-ev="U" title="Open">U</span></p>
+            <p>Regional guidance gives 40–45 days of sun-drying for ripe nuts (CPCRI; TSS), and other guides 35–40 or up to 45–60. Growers report up to two weeks on the roof. Possible reasons: the outer layer is combed off before drying; the guidance may count both drying stages, or describe other regions. This page uses the growers' figures and keeps the guidance as context. <span class="chip" data-ev="U">U</span></p>
           </details>
         </figure>
       </div>
@@ -175,7 +175,7 @@
         <figure class="pp-card">
           <figcaption class="pp-card-h">Each batch moves through the roles without moving</figcaption>
           <div id="batches"></div>
-          <p class="pp-note">Air always flows lead → middle → tail. Each batch enters as the tail, becomes the middle, then the lead, then is unloaded: the opposite way to the air. That is staged counter-current flow. <span class="chip" data-ev="L" title="Established: the principle">L</span> <span class="chip" data-ev="A" title="Design decision: this configuration">A</span></p>
+          <p class="pp-note">Air always flows lead → middle → tail. Each batch enters as the tail, becomes the middle, then the lead, then is unloaded: the opposite way to the air. That is staged counter-current flow. <span class="chip" data-ev="L" data-note="Here: the principle.">L</span> <span class="chip" data-ev="A" data-note="Here: this configuration.">A</span></p>
         </figure>
         <figure class="pp-card">
           <figcaption class="pp-card-h">The same diagonal as the kiln</figcaption>
@@ -215,7 +215,7 @@
           </details>
         </div>
       </div>
-      <p class="pp-src pp-src--inline"><span class="chip" data-ev="S" title="Calculated">S</span> Calculated with standard psychrometric formulas at sea-level pressure, assuming no heat is lost through walls or ducts, so the air cools only by evaporation. An illustration of the physics, not a prediction of how a real dryer performs. The thresholds the real route check would use are open. <span class="chip" data-ev="U" title="Open">U</span></p>
+      <p class="pp-src pp-src--inline"><span class="chip" data-ev="S">S</span> Calculated with standard psychrometric formulas at sea-level pressure, assuming no heat is lost through walls or ducts, so the air cools only by evaporation. An illustration of the physics, not a prediction of how a real dryer performs. The thresholds the real route check would use are open. <span class="chip" data-ev="U">U</span></p>
     </section>
 
     <!-- ===================================================================
@@ -233,20 +233,20 @@
           <svg viewBox="-60 -60 120 120" id="clock-kiln" aria-hidden="true"></svg>
           <figcaption>
             <b>The kiln: a clock</b>
-            <span>Every 2 hours, whatever the tiles are doing. <span class="chip" data-ev="F" title="Field">F</span></span>
+            <span>Every 2 hours, whatever the tiles are doing. <span class="chip" data-ev="F">F</span></span>
           </figcaption>
         </figure>
         <figure class="pp-clock">
           <svg viewBox="-60 -60 120 120" id="clock-dryer" aria-hidden="true"></svg>
           <figcaption>
             <b>The dryer: a condition</b>
-            <span>When the lead batch is dry, roughly every 4–5 days in the author's estimate. <span class="chip" data-ev="A" title="Design decision">A</span></span>
+            <span>When the lead batch is dry, roughly every 4–5 days in the author's estimate. <span class="chip" data-ev="A">A</span></span>
           </figcaption>
         </figure>
       </div>
 
       <ol class="pp-flow" id="flow"></ol>
-      <p class="pp-note pp-flow-note">A person stays in the loop at step 5: the sensors suggest, the operator's samples confirm, using the test growers already use. The kiln has no judgement in its timing; the dryer places judgement in its timing on purpose. Every threshold is open. <span class="chip" data-ev="U" title="Open">U</span></p>
+      <p class="pp-note pp-flow-note">A person stays in the loop at step 5: the sensors suggest, the operator's samples confirm, using the test growers already use. The kiln has no judgement in its timing; the dryer places judgement in its timing on purpose. Every threshold is open. <span class="chip" data-ev="U">U</span></p>
 
       <details class="pp-more pp-more--wide">
         <summary>The decision logic, written out</summary>
